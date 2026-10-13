@@ -2,7 +2,7 @@ name: slotup
 
 services:
   db:
-    image: postgres:16
+    image: postgres:17.9
     container_name: slotup-bd
     restart: unless-stopped
     environment:
@@ -12,9 +12,9 @@ services:
       CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD}
       RESERVATION_DB_PASSWORD: ${RESERVATION_DB_PASSWORD}
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:5436:5432"
     volumes:
-      - slotup-db-data:/var/lib/postgres/data
+      - slotup-db-data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
