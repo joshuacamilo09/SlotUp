@@ -3,13 +3,13 @@ name: slotup
 services:
   db:
     image: postgres:17.9
-    container_name: slotup-bd
+    container_name: slotup-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
-      BOOKING_BD_PASSWORD: ${BOOKING_BD_PASSWORD}
+      BOOKING_DB_PASSWORD: ${BOOKING_DB_PASSWORD}
     ports:
       - "127.0.0.1:5436:5432"
     volumes:
