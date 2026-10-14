@@ -24,8 +24,7 @@ infra/docker/
     └── init/
         ├── 01-roles-and-databases.sh   # usuários, bancos e permissões
         ├── 02-auth.sql                 # tabelas do auth_db
-        ├── 03-catalog.sql              # tabelas do catalog_db
-        └── 04-reservation.sql          # tabelas do reservation_db
+        ├── 03-booking.sql              # tabelas do booking_db
 ```
 
 ## Como subir (primeira vez)
@@ -57,12 +56,11 @@ No Docker Desktop, o container aparece em **Containers**, dentro do grupo `slotu
 
 ## Bancos, usuários e serviços
 
-| Microserviço        | Banco            | Usuário            | Conteúdo                                         |
-|---------------------|------------------|--------------------|--------------------------------------------------|
-| auth-service        | `auth_db`        | `auth_user`        | utilizadores, 2FA, tentativas de login           |
-| catalog-service     | `catalog_db`     | `catalog_user`     | categorias, recursos, horários de funcionamento  |
-| reservation-service | `reservation_db` | `reservation_user` | reservas e fila de espera                        |
-
+| Microserviço        | Banco        | Usuário        | Conteúdo                                                                          |
+|---------------------|--------------|----------------|-----------------------------------------------------------------------------------|
+| auth-service        | `auth_db`    | `auth_user`    | utilizadores, 2FA, tentativas de login                                            |
+| booking-service     | `booking_db` | `booking_user` | categorias, recursos, horários de funcionamento, reservas e fila de espera        |
+| scheduling-service  | (nenhum)     | (nenhum)       | sem base de dados: recebe os dados no pedido e devolve a alocação (CSP)           |
 Regras do desenho:
 
 - Cada serviço usa **apenas** o seu usuário e o seu banco. O acesso cruzado é bloqueado pelo PostgreSQL.
