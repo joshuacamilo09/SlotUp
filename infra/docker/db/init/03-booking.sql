@@ -39,6 +39,7 @@ CREATE INDEX resources_category_idx ON resources (category_id);
 CREATE TABLE reservations (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id      UUID NOT NULL,
+    user_email   VARCHAR(255) NOT NULL,
     resource_id  UUID NOT NULL REFERENCES resources(id),
     start_at     TIMESTAMPTZ NOT NULL,
     end_at       TIMESTAMPTZ NOT NULL,
@@ -68,6 +69,7 @@ CREATE INDEX reservations_hold_expiry_idx ON reservations (hold_expires_at)
 CREATE TABLE waitlist_entries (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id          UUID NOT NULL,
+    user_email       VARCHAR(255) NOT NULL,
     resource_id      UUID NOT NULL REFERENCES resources(id),
     desired_start    TIMESTAMPTZ NOT NULL,
     desired_end      TIMESTAMPTZ NOT NULL,
@@ -87,6 +89,40 @@ CREATE INDEX waitlist_queue_idx ON waitlist_entries (resource_id, created_at)
 CREATE UNIQUE INDEX waitlist_one_active_per_slot
     ON waitlist_entries (user_id, resource_id, desired_start, desired_end)
     WHERE status IN ('WAITING','OFFERED');
+
+CREATE TABLE notifications (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id                 UUID NOT NULL,
+    recipient_email         VARCHAR(255) NOT NULL,
+    type                    VARCHAR(30) NOT NULL
+                            CHECK (type IN ('RESERVATION_CREATED', 'RESERVATION_CANCELLED',
+                                            'WAITLIST_JOINED', 'WAITLIST_OFFERED')),
+    reservation_id          UUID REFERENCES reservations(id),
+    waitlist_entry_id       UUID REFERENCES waitlist_entries(id),
+    payload                 JSONB NOT NULL DEFAULT '{}'::jsonb,
+    status                  VARCHAR(10) NOT NULL DEFAULT 'PENDING'
+                            CHECK (status IN ('PENDING', 'SENT', 'FAILED')),
+    attempts                INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+    last_error              TEXT,
+    next_attempt_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    sent_at                 TIMESTAMPTZ,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT notifications_has_reference
+        CHECK (reservation_id IS NOT NULL OR waitlist_entry_id IS NOT NULL),
+    CONSTRAINT notifications_sent_has_date
+        CHECK ((status = 'SENT') = (sent_at IS NOT NULL))
+);
+
+CREATE INDEX notifications_pending_idx ON notifications (next_attempt_at)
+    WHERE status = 'PENDING';
+
+CREATE UNIQUE INDEX notifications_once_per_reservation
+    ON notifications (type, reservation_id)
+    WHERE waitlist_entry_id IS NULL;
+
+CREATE UNIQUE INDEX notifications_once_per_waitlist_entry
+    ON notifications (type, waitlist_entry_id)
+    WHERE waitlist_entry_id IS NOT NULL;
 
 INSERT INTO categories (name, description) VALUES
   ('Coworking', 'Mesas e salas de reunião'),
