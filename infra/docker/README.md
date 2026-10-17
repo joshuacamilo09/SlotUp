@@ -19,13 +19,14 @@ infra/docker/
 ├── docker-compose.yml
 ├── .env.example          # modelo das senhas (vai para o Git)
 ├── .env                  # suas senhas reais (NÃO vai para o Git)
+├── gen-secrets.sh        # gera as chaves de desenvolvimento
+├── secrets/              # chaves geradas (NÃO vai para o Git)
 ├── README.md
 └── db/
     └── init/
         ├── 01-roles-and-databases.sh   # usuários, bancos e permissões
         ├── 02-auth.sql                 # tabelas do auth_db
-        ├── 03-catalog.sql              # tabelas do catalog_db
-        └── 04-reservation.sql          # tabelas do reservation_db
+        ├── 03-booking.sql              # tabelas do booking_db
 ```
 
 ## Como subir (primeira vez)
@@ -39,13 +40,21 @@ cp .env.example .env
 ```
 
 1. Abra o `.env` e troque `troque-me` por senhas suas. O `.env` nunca vai para o Git (já está no `.gitignore`).
-2. Suba o banco:
+2. Gere os segredos de desenvolvimento (chaves JWT e de cifra do 2FA; no Windows use o Git Bash):
 
 ```bash
-docker compose up -d
+bash gen-secrets.sh
 ```
 
-3. Confirme que está saudável (`healthy`):
+3. Suba o banco e os serviços:
+
+```bash
+docker compose up -d --build
+```
+
+> Só a base de dados? `docker compose up -d db`. O guia dos serviços está em [`backend/README.md`](../../backend/README.md).
+
+4. Confirme que está saudável (`healthy`):
 
 ```bash
 docker compose ps
@@ -57,16 +66,15 @@ No Docker Desktop, o container aparece em **Containers**, dentro do grupo `slotu
 
 ## Bancos, usuários e serviços
 
-| Microserviço        | Banco            | Usuário            | Conteúdo                                         |
-|---------------------|------------------|--------------------|--------------------------------------------------|
-| auth-service        | `auth_db`        | `auth_user`        | utilizadores, 2FA, tentativas de login           |
-| catalog-service     | `catalog_db`     | `catalog_user`     | categorias, recursos, horários de funcionamento  |
-| reservation-service | `reservation_db` | `reservation_user` | reservas e fila de espera                        |
-
+| Microserviço        | Banco        | Usuário        | Conteúdo                                                                          |
+|---------------------|--------------|----------------|-----------------------------------------------------------------------------------|
+| auth-service        | `auth_db`    | `auth_user`    | utilizadores, 2FA, tentativas de login                                            |
+| booking-service     | `booking_db` | `booking_user` | categorias, recursos, horários de funcionamento, reservas e fila de espera        |
+| scheduling-service  | (nenhum)     | (nenhum)       | sem base de dados: recebe os dados no pedido e devolve a alocação (CSP)           |
 Regras do desenho:
 
 - Cada serviço usa **apenas** o seu usuário e o seu banco. O acesso cruzado é bloqueado pelo PostgreSQL.
-- Não existe chave estrangeira entre bancos. Em `reservation_db`, `user_id` e `resource_id` são UUIDs que o serviço valida consultando o auth e o catalog.
+- Não existe chave estrangeira entre bancos. Em `booking_db`, `user_id` é um UUID vindo do token JWT emitido pelo auth-service (o booking não o consulta a cada pedido).
 - Reservas sobrepostas no mesmo recurso são recusadas pelo próprio banco (constraint de exclusão com `btree_gist`).
 
 ## Como conectar
@@ -96,7 +104,7 @@ Em clientes visuais (DBeaver, pgAdmin): host `localhost`, porta `5436`, banco e 
 | Sintoma                                          | Causa provável e solução                                                                                         |
 |--------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
 | `Cannot connect to the Docker daemon`            | O Docker Desktop está fechado. Abra o aplicativo e tente de novo.                                                |
-| `port is already allocated` (5433)               | Outro programa usa a porta. Pare-o ou troque no compose para `"127.0.0.1:5434:5432"`.                            |
+| `port is already allocated` (5436)               | Outro programa usa a porta. Pare-o ou troque no compose para `"127.0.0.1:5437:5432"`.                            |
 | Os bancos ou as tabelas não existem              | O volume já existia antes dos scripts. Recrie com `docker compose down -v` e `docker compose up -d`.             |
 | `password authentication failed`                 | As senhas são gravadas na primeira criação. Se mudou o `.env` depois, recrie com `down -v`.                      |
 | `permission denied for database`                 | Você está usando o usuário de outro serviço. É o comportamento esperado.                                         |
