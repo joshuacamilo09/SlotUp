@@ -1,4 +1,8 @@
-alembic
-sqlalchemy
-psycopg[binary]
-python-dotenv
+alembic==1.20.0
+Mako==1.4.3
+MarkupSafe==3.0.4
+psycopg==3.3.6
+psycopg-binary==3.3.6
+python-dotenv==1.2.4
+SQLAlchemy==2.1.4
+typing_extensions==4.16.0
