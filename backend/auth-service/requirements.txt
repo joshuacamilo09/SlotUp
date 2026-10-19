@@ -1,12 +1,19 @@
+# Servidor web e API
 fastapi==0.143.3
 uvicorn[standard]==0.54.0
+
+# Base de dados: ORM, driver do PostgreSQL e migrações
 SQLAlchemy==2.1.5
 psycopg[binary]==3.3.6
+alembic==1.20.0
+python-dotenv==1.2.4
+
+# Configuração e validação dos dados
 pydantic-settings==2.16.0
 email-validator==2.3.0
+
+# Segurança: Argon2 (senhas), JWT RS256, TOTP (2FA), AES-GCM
 argon2-cffi==25.1.0
 PyJWT[crypto]==2.15.1
 pyotp==2.10.0
 cryptography==50.0.2
-alembic==1.20.0
-python-dotenv==1.2.4
