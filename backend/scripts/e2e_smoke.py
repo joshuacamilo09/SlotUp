@@ -54,14 +54,14 @@ def main() -> int:
     token = r.json()["access_token"]
 
     print("3. O booking-service valida o token sem falar com o auth")
-    r = c.get(f"{BOOKING}/api/booking/me", headers=bearer(token))
+    r = c.get(f"{BOOKING}/api/reservas/me", headers=bearer(token))
     check("token válido aceite", r.status_code == 200 and r.json()["email"] == email, r.text)
-    check("sem token = 401", c.get(f"{BOOKING}/api/booking/me").status_code == 401)
-    check("pre_auth não serve como acesso", c.get(f"{BOOKING}/api/booking/me", headers=bearer(pre)).status_code == 401)
+    check("sem token = 401", c.get(f"{BOOKING}/api/reservas/me").status_code == 401)
+    check("pre_auth não serve como acesso", c.get(f"{BOOKING}/api/reservas/me", headers=bearer(pre)).status_code == 401)
 
     print("4. Papéis")
     check("utilizador normal não entra em rota de admin (403)",
-          c.get(f"{BOOKING}/api/booking/admin/check", headers=bearer(token)).status_code == 403)
+          c.get(f"{BOOKING}/api/reservas/admin/check", headers=bearer(token)).status_code == 403)
     check("utilizador normal não lista utilizadores (403)",
           c.get(f"{AUTH}/api/auth/users", headers=bearer(token)).status_code == 403)
 

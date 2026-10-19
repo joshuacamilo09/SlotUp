@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 
 from app.security import CurrentUser, current_user, require_admin
 
-router = APIRouter(prefix="/api/booking", tags=["scaffolding"])
+router = APIRouter(prefix="/api/reservas", tags=["scaffolding"])
 
 
 @router.get("/me")
