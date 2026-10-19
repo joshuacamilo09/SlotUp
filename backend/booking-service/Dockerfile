@@ -13,6 +13,10 @@ RUN pip install -r requirements.txt
 
 COPY app ./app
 
+# Migrações do Alembic: o contentor de migração precisa delas
+COPY alembic.ini .
+COPY alembic ./alembic
+
 # Não corre como root
 RUN useradd --system --uid 10001 --no-create-home app
 USER app

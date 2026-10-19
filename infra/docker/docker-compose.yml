@@ -21,6 +21,17 @@ services:
       timeout: 3s
       retries: 10
 
+  auth-migrate:
+    build: ../../backend/auth-service     # mesma imagem do auth
+    container_name: slotup-auth-migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      AUTH_DATABASE_URL: postgresql+psycopg://auth_user:${AUTH_DB_PASSWORD}@db:5432/auth_db
+    command: ["alembic", "upgrade", "head"]   # roda as migrações e sai
+    restart: "no"                             # não reinicia: é para rodar uma vez
+
   auth:
     build: ../../backend/auth-service
     container_name: slotup-auth
@@ -28,6 +39,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
     environment:
       DB_HOST: db
       DB_NAME: auth_db
@@ -48,6 +61,17 @@ services:
       timeout: 5s
       retries: 5
 
+  booking-migrate:
+    build: ../../backend/booking-service   # mesma imagem do booking
+    container_name: slotup-booking-migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BOOKING_DATABASE_URL: postgresql+psycopg://booking_user:${BOOKING_DB_PASSWORD}@db:5432/booking_db
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
   booking:
     build: ../../backend/booking-service
     container_name: slotup-booking
@@ -55,6 +79,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      booking-migrate:
+        condition: service_completed_successfully
     environment:
       DB_HOST: db
       DB_NAME: booking_db

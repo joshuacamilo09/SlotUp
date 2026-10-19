@@ -1,6 +1,9 @@
-"""Mapeia a tabela `users` criada em infra/docker/db/init/02-auth.sql.
+"""Mapeia a tabela `users` criada pela migração do Alembic
+(alembic/versions/0001_create_users.py).
 
-O SQL de arranque é a fonte de verdade do schema (por agora); aqui só mapeamos.
+A migração é a fonte de verdade do schema: aqui só mapeamos as colunas
+para objetos Python. As restrições (CHECK, índice único do email) vivem
+só na migração, porque quem as garante é o próprio PostgreSQL.
 """
 import uuid
 from datetime import datetime
