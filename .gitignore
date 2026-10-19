@@ -1,1 +1,14 @@
+# Variáveis de ambiente com senhas reais (o .env.example continua no Git)
 .env
+
+# Segredos gerados pelo gen-secrets.sh: chaves JWT e chave de cifra do 2FA
+infra/docker/secrets/
+*.pem
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# macOS
+.DS_Store

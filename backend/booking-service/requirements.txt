@@ -1,8 +1,19 @@
+# Servidor web e API
 fastapi==0.143.3
 uvicorn[standard]==0.54.0
+
+# Base de dados: ORM, driver do PostgreSQL e migrações
 SQLAlchemy==2.1.5
 psycopg[binary]==3.3.6
+alembic==1.20.0
+python-dotenv==1.2.4
+
+# Configuração
 pydantic-settings==2.16.0
+
+# Segurança: só VALIDA tokens JWT RS256 com a chave pública
 PyJWT[crypto]==2.15.1
 cryptography==50.0.2
+
+# Cliente HTTP para falar com o scheduling-service (CSP)
 httpx==0.28.1
