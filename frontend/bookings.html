@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>As minhas reservas – SlotUp</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="nav"></div>
+
+  <main class="container">
+    <h1>As minhas reservas</h1>
+    <p class="subtitle">Reservas futuras e histórico de atividade.</p>
+
+    <div class="card">
+      <h2>Próximas reservas</h2>
+      <div class="table-wrap" id="upcoming"><p class="empty">A carregar...</p></div>
+    </div>
+
+    <div class="card section-gap">
+      <h2>Histórico</h2>
+      <div class="table-wrap" id="history"><p class="empty">A carregar...</p></div>
+    </div>
+  </main>
+
+  <script src="api.js"></script>
+  <script src="mock.js"></script>
+  <script>
+    requireAuth();
+    renderNav("bookings");
+
+    function table(rows, withActions) {
+      if (!rows.length) return '<p class="empty">Sem reservas.</p>';
+      return "<table><thead><tr><th>Recurso</th><th>Categoria</th><th>Início</th><th>Fim</th><th>Estado</th>" +
+        (withActions ? "<th></th>" : "") + "</tr></thead><tbody>" +
+        rows.map((b) => {
+          const done = b.status === "confirmada" && new Date(b.end) < new Date();
+          const label = done ? "concluída" : b.status;
+          const cls = done ? "concluida" : b.status;
+          return "<tr><td>" + esc(b.resource_nome) + "</td><td>" + esc(b.category_nome) + "</td><td>" +
+            fmtDateTime(b.start) + "</td><td>" + fmtDateTime(b.end) + '</td><td><span class="badge ' + esc(cls) + '">' + esc(label) + "</span></td>" +
+            (withActions ? '<td><button class="btn danger small" data-cancel="' + b.id + '">Cancelar</button></td>' : "") + "</tr>";
+        }).join("") + "</tbody></table>";
+    }
+
+    async function load() {
+      let bookings;
+      try {
+        bookings = await api.myBookings();
+      } catch (err) {
+        const msg = '<p class="empty">' + esc(err.message) + "</p>";
+        document.getElementById("upcoming").innerHTML = msg;
+        document.getElementById("history").innerHTML = msg;
+        return;
+      }
+      const now = new Date();
+      const upcoming = bookings
+        .filter((b) => b.status === "confirmada" && new Date(b.end) >= now)
+        .sort((a, b) => new Date(a.start) - new Date(b.start));
+      const history = bookings
+        .filter((b) => !(b.status === "confirmada" && new Date(b.end) >= now))
+        .sort((a, b) => new Date(b.start) - new Date(a.start));
+
+      document.getElementById("upcoming").innerHTML = table(upcoming, true);
+      document.getElementById("history").innerHTML = table(history, false);
+
+      document.querySelectorAll("[data-cancel]").forEach((btn) =>
+        btn.addEventListener("click", async () => {
+          if (!confirm("Cancelar esta reserva?")) return;
+          btn.disabled = true;
+          try {
+            await api.cancelBooking(btn.dataset.cancel);
+            toast("Reserva cancelada.");
+            load();
+          } catch (err) {
+            toast(err.message, true);
+            btn.disabled = false;
+          }
+        })
+      );
+    }
+
+    load();
+  </script>
+</body>
+</html>

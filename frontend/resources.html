@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recursos – SlotUp</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="nav"></div>
+
+  <main class="container">
+    <h1>Recursos</h1>
+    <p class="subtitle">Escolhe uma categoria, um recurso e um horário livre.</p>
+
+    <div class="toolbar">
+      <div class="field">
+        <label for="date">Data</label>
+        <input id="date" type="date">
+      </div>
+      <div>
+        <label style="margin-top:0">Categoria</label>
+        <div class="chips" id="chips"></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <h2>Recursos</h2>
+        <div class="resource-list" id="resource-list"><p class="empty">A carregar...</p></div>
+      </div>
+
+      <div class="card">
+        <h2 id="slots-title">Horários</h2>
+        <div class="legend">
+          <span><span class="dot free"></span>Livre</span>
+          <span><span class="dot busy"></span>Ocupado (podes entrar na fila de espera)</span>
+        </div>
+        <div id="slots"><p class="empty">Seleciona um recurso para ver os horários.</p></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Diálogo de confirmação -->
+  <dialog id="dialog">
+    <h2 id="dialog-title"></h2>
+    <p id="dialog-text"></p>
+    <div class="dialog-actions">
+      <button class="btn secondary" id="dialog-cancel" type="button">Cancelar</button>
+      <button class="btn" id="dialog-ok" type="button">Confirmar</button>
+    </div>
+  </dialog>
+
+  <script src="api.js"></script>
+  <script src="mock.js"></script>
+  <script>
+    requireAuth();
+    renderNav("resources");
+
+    const dateEl = document.getElementById("date");
+    const state = { categories: [], categoryId: null, resources: [], resource: null };
+
+    // Data inicial: hoje (não se pode reservar no passado)
+    const today = toISODate(new Date());
+    dateEl.value = today;
+    dateEl.min = today;
+    dateEl.addEventListener("change", loadSlots);
+
+    /* ---------- Categorias ---------- */
+    async function loadCategories() {
+      try {
+        state.categories = await api.categories();
+      } catch (err) {
+        toast(err.message, true);
+        return;
+      }
+      renderChips();
+      await loadResources();
+    }
+
+    function renderChips() {
+      const chips = document.getElementById("chips");
+      const all = [{ id: null, nome: "Todas" }].concat(state.categories);
+      chips.innerHTML = all
+        .map((c) => '<button class="chip' + (c.id === state.categoryId ? " active" : "") + '" data-id="' + (c.id ?? "") + '">' + esc(c.nome) + "</button>")
+        .join("");
+      chips.querySelectorAll(".chip").forEach((b) =>
+        b.addEventListener("click", () => {
+          state.categoryId = b.dataset.id ? Number(b.dataset.id) : null;
+          state.resource = null;
+          renderChips();
+          loadResources();
+          document.getElementById("slots").innerHTML = '<p class="empty">Seleciona um recurso para ver os horários.</p>';
+          document.getElementById("slots-title").textContent = "Horários";
+        })
+      );
+    }
+
+    /* ---------- Recursos ---------- */
+    async function loadResources() {
+      const list = document.getElementById("resource-list");
+      list.innerHTML = '<p class="empty">A carregar...</p>';
+      try {
+        state.resources = await api.resources(state.categoryId);
+      } catch (err) {
+        list.innerHTML = '<p class="empty">' + esc(err.message) + "</p>";
+        return;
+      }
+      renderResources();
+    }
+
+    function renderResources() {
+      const list = document.getElementById("resource-list");
+      if (!state.resources.length) {
+        list.innerHTML = '<p class="empty">Sem recursos nesta categoria.</p>';
+        return;
+      }
+      list.innerHTML = state.resources
+        .map((r) => '<button class="resource' + (state.resource && state.resource.id === r.id ? " active" : "") + '" data-id="' + r.id + '"><strong>' + esc(r.nome) + "</strong><small>" + esc(r.descricao || "") + "</small></button>")
+        .join("");
+      list.querySelectorAll(".resource").forEach((b) =>
+        b.addEventListener("click", () => {
+          state.resource = state.resources.find((r) => r.id === Number(b.dataset.id));
+          renderResources();
+          loadSlots();
+        })
+      );
+    }
+
+    /* ---------- Horários ---------- */
+    async function loadSlots() {
+      if (!state.resource) return;
+      const box = document.getElementById("slots");
+      document.getElementById("slots-title").textContent = state.resource.nome;
+      box.innerHTML = '<p class="empty">A carregar...</p>';
+      let slots;
+      try {
+        slots = await api.availability(state.resource.id, dateEl.value);
+      } catch (err) {
+        box.innerHTML = '<p class="empty">' + esc(err.message) + "</p>";
+        return;
+      }
+      if (!slots.length) {
+        box.innerHTML = '<p class="empty">Sem horários neste dia.</p>';
+        return;
+      }
+      const now = new Date();
+      box.innerHTML = '<div class="slots">' + slots
+        .filter((s) => new Date(dateEl.value + "T" + s.start + ":00") > now)
+        .map((s) => '<button class="slot' + (s.available ? "" : " busy") + '" data-start="' + s.start + '" data-end="' + s.end + '" data-available="' + s.available + '">' + s.start + " – " + s.end + "<small>" + (s.available ? "Reservar" : "Fila de espera") + "</small></button>")
+        .join("") + "</div>";
+      box.querySelectorAll(".slot").forEach((b) =>
+        b.addEventListener("click", () => onSlotClick(b.dataset.start, b.dataset.end, b.dataset.available === "true"))
+      );
+    }
+
+    /* ---------- Reservar / fila de espera ---------- */
+    const dialog = document.getElementById("dialog");
+    let pendingAction = null;
+
+    function ask(title, text, okLabel, action) {
+      document.getElementById("dialog-title").textContent = title;
+      document.getElementById("dialog-text").textContent = text;
+      document.getElementById("dialog-ok").textContent = okLabel;
+      pendingAction = action;
+      dialog.showModal();
+    }
+    document.getElementById("dialog-cancel").addEventListener("click", () => dialog.close());
+    document.getElementById("dialog-ok").addEventListener("click", async () => {
+      const okBtn = document.getElementById("dialog-ok");
+      okBtn.disabled = true;
+      try {
+        await pendingAction();
+      } finally {
+        okBtn.disabled = false;
+        dialog.close();
+      }
+    });
+
+    function onSlotClick(start, end, available) {
+      const r = state.resource;
+      const startIso = dateEl.value + "T" + start + ":00";
+      const endIso = dateEl.value + "T" + end + ":00";
+      const when = dateEl.value.split("-").reverse().join("/") + ", " + start + " – " + end;
+
+      if (available) {
+        ask("Confirmar reserva", r.nome + " · " + when, "Reservar", async () => {
+          try {
+            await api.createBooking(r.id, startIso, endIso);
+            toast("Reserva confirmada!");
+          } catch (err) {
+            toast(err.message, true);   // ex.: 409 se entretanto alguém reservou
+          }
+          loadSlots();                  // atualizar disponibilidade
+        });
+      } else {
+        ask("Entrar na fila de espera", r.nome + " · " + when + ". Se a reserva for cancelada, a vaga é atribuída ao próximo da fila.", "Entrar na fila", async () => {
+          try {
+            const res = await api.joinWaitlist(r.id, startIso, endIso);
+            toast("Estás na fila de espera" + (res && res.position ? " (posição " + res.position + ")" : "") + ".");
+          } catch (err) {
+            toast(err.message, true);
+          }
+        });
+      }
+    }
+
+    loadCategories();
+  </script>
+</body>
+</html>
