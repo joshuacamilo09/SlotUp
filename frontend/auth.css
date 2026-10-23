@@ -11,5 +11,58 @@ body.auth {
   background: #fff;
   color: var(--auth-ink);
   -webkit-font-smoothing: antialiased;
-  
+
+}
+
+/*--------------Marca-----------*/
+body.auth .auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+  text-decoration: none;
+  color: var(--auth-ink);
+}
+body.auth .auth-brand svg { width: 22px; height: 32px; flex: none; }
+body.auth .auth-brand.on-dark { color: #fff; }
+
+/*-------------- Campos -----------*/
+body.auth label {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var (--auth-ink);
+
+}
+body.auth input {
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--auth-line);
+  border-radius: 12px;
+  font-size: 1rem;
+  background: #fff;
+  transition: border-color 0.15s , box-shadow 0.15s;
+
+}
+body.auth input::placeholder { color: #8a919d; }
+body.auth input:focus {
+    outline: none;
+    border-color: var(--auth-green);
+    box-shadow: 0 0 0 3px rgba(55, 119, 109, 0.18);
+}
+body.auth .field { margin-bottom: 20px; }
+body.auth .field-head {
+display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+body.auth .field-head label { margin: 0; }
+body.auth .code-input {
+    text-align: center;
+    font-size: 1.6rem;
+    letter-spacing: 0.4rem;
+    font-variant-numeric: tabular-nums;
 }
