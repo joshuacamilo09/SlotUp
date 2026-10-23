@@ -1,1 +1,15 @@
 aqui vai o código para auth.css
+
+body.auth { 
+    --auth-green: #37776d;
+    --auth-green-dark:#2d645b;
+     --auth-green-soft: rgba(255, 255, 255, 0.14);
+     --auth-ink: #14181f;
+    --auth-muted: #5d6675;
+    --auth-line: #dcdfe4;
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #fff;
+  color: var(--auth-ink);
+  -webkit-font-smoothing: antialiased;
+  
+}
