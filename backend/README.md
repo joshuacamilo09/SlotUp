@@ -98,8 +98,18 @@ Daí em diante:  Authorization: Bearer <access_token>   em todos os serviços
 |---|---|---|
 | `GET /me` | usuário | prova que o token foi validado (provisória) |
 | `GET /admin/check` | ADMIN | prova que o papel é respeitado (provisória) |
+| `GET /categorias` | usuário | lista as categorias ativas, por nome. `?include_inactive=true` inclui as desativadas (só ADMIN) |
+| `GET /categorias/{id}` | usuário | uma categoria (404 se estiver desativada e quem pede não for ADMIN) |
+| `POST /categorias` | ADMIN | cria `{name, description?}` → `201`; nome repetido → `409` |
+| `PATCH /categorias/{id}` | ADMIN | altera só os campos enviados: `name`, `description`, `is_active` |
 
-As duas rotas são provisórias (tag `scaffolding` no Swagger). As rotas de categorias, recursos e reservas entram a partir da Sprint 2, com o mesmo prefixo.
+`/me` e `/admin/check` são provisórias (tag `scaffolding` no Swagger) e saem quando entrarem as reservas.
+
+**Categorias, regras:**
+
+- O nome é único **sem diferenciar maiúsculas** ("Coworking" = "coworking") e os espaços à volta são removidos. Quem garante a unicidade é o índice `categories_name_lower_key` do PostgreSQL, e não um `SELECT` antes do `INSERT`: com duas réplicas, dois admins podiam passar os dois no `SELECT` ao mesmo tempo. Há um teste com 8 pedidos simultâneos: só um recebe `201`, os outros `409`.
+- **Não há `DELETE`.** Os recursos apontam para a categoria, e as reservas antigas para os recursos. Para tirar uma categoria do catálogo: `PATCH {"is_active": false}`. Deixa de aparecer aos usuários e pode ser reativada.
+- Campos desconhecidos no corpo do pedido dão `422` (não são ignorados).
 
 O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `ADMIN_PASSWORD` do `.env`. Ele também tem de configurar o 2FA no primeiro login. Para dar o papel de admin a outros: `PATCH /users/{id}/role`.
 
@@ -153,6 +163,8 @@ Cada serviço tem a sua própria tabela `alembic_version`. As migrações de um 
 | booking-service | `0002` | `reservations` (com constraint contra sobreposição) e `waitlist_entries` |
 | booking-service | `0003` | `notifications` (outbox de emails) |
 | booking-service | `0004` | as 3 categorias iniciais (Coworking, Estacionamento, Desporto) |
+| booking-service | `0005` | `categories`: nome único sem diferenciar maiúsculas (`lower(name)`) e coluna `updated_at` |
+| booking-service | `0006` | `reservations`: `CHECK` nos valores de `status` (`HELD`, `CONFIRMED`, `CANCELLED`) |
 
 As migrações são escritas **à mão**, sem *autogenerate*, porque o banco usa recursos do PostgreSQL que o autogenerate trata mal: constraint de exclusão, índices parciais e índice sobre `lower(email)`. Por isso o `env.py` tem `target_metadata = None`, e **o `models.py` precisa ser atualizado à mão** sempre que uma migração mudar as colunas.
 
