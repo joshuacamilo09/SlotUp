@@ -66,3 +66,46 @@ body.auth .code-input {
     letter-spacing: 0.4rem;
     font-variant-numeric: tabular-nums;
 }
+
+/*-------------- Botões de Ligação-----------*/
+body.auth .btn {
+  height: 48px;
+  border-radius: 12px;
+  background: var(--auth-green);
+  font-size: 1rem;
+  font-weight: 700;
+
+}
+body.auth .btn:hover { filter: none; background: var(--auth-green-dark); }
+body.auth .btn.block { margin-top: 4px; }
+body.auth a { color: var(--auth-green); font-weight: 600; text-decoration: none; }
+body.auth a:hover { text-decoration: underline; }
+body.auth a:focus-visible,
+body.auth .btn:focus-visible {
+  outline: 2px solid var(--auth-green);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+body.auth .auth-title { 
+    margin-bottom: 0 0 6px;;
+    font-size: 1.9rem;; 
+    font-weight: 800; 
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    }
+    body.auth .lead { 
+        margin-bottom: 0 0 28px; 
+        color: var(--auth-muted);
+        font-size: 1.02rem;
+        text-align: left;
+     }
+     body.auth .auth-alt { margin: 22px 0 0; font-size: 0.95rem; }
+body.auth .auth-footer {
+  margin: 22px 0 0;
+  padding-top: 22px;
+  border-top: 1px solid #e8eaee;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--auth-muted);
+}
+body.auth .alert { border-radius: 10px; }
