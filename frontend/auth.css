@@ -109,3 +109,50 @@ body.auth .auth-footer {
   color: var(--auth-muted);
 }
 body.auth .alert { border-radius: 10px; }
+
+/* =====================================================================
+   LOGIN – ecrã dividido
+   ===================================================================== */
+   body.auth .split {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+body.auth .split-hero {
+  background: var(--auth-green);
+  color: #fff;
+  padding: 54px 54px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  }
+  body.auth .hero-title {
+  margin: 0 0 36px;
+  max-width: 12em;
+  font-size: clamp(2.4rem, 4vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+body.auth .hero-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+body.auth .hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--auth-green-soft);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+body.auth .hero-chip svg { width: 18px; height: 18px; flex: none; }
+
+body.auth .split-form {
+  display: grid;
+  place-items: center;
+  padding: 40px 24px;
+}
+body.auth .form-box { width: 100%; max-width: 380px; }
+body.auth .mobile-brand { display: none; }
