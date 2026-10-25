@@ -187,3 +187,15 @@ body.auth .center-card p { margin-top: 0; }
 body.auth .center-card .hint { font-size: 0.88rem; color: var(--auth-muted); margin: 0; }
 body.auth .qr-box { border-radius: 14px; }
 body.auth .secret { border-radius: 8px; margin: 6px 0 18px; }
+
+*/--------------MOBILE-----------*/
+@media (max-width: 880px) {
+  body.auth .split { grid-template-columns: 1fr; }
+  body.auth .split-hero { padding: 24px; }
+  body.auth .hero-title,
+  body.auth .hero-chips { display: none; }
+  body.auth .split-form { align-items: start; padding-top: 32px; }
+}
+@media (max-width: 480px) {
+  body.auth .center-card { padding: 28px 22px 24px; border-radius: 20px; }
+}
