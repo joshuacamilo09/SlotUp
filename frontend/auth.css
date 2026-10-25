@@ -156,3 +156,34 @@ body.auth .split-form {
 }
 body.auth .form-box { width: 100%; max-width: 380px; }
 body.auth .mobile-brand { display: none; }
+
+/* =====================================================================
+   REGISTO – cartão centrado
+   ===================================================================== */
+   body.auth.auth-center { background: var(--bg); }
+body.auth .center-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+body.auth .center-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 36px 36px 32px;
+  box-shadow: 0 1px 2px rgba(20, 24, 31, 0.04), 0 8px 32px rgba(20, 24, 31, 0.05);
+}
+body.auth .card-top { 
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+body.auth .step-label { font-size: 0.9rem; font-weight: 600; color: var(--auth-muted); }
+body.auth .center-card p { margin-top: 0; }
+body.auth .center-card .hint { font-size: 0.88rem; color: var(--auth-muted); margin: 0; }
+body.auth .qr-box { border-radius: 14px; }
+body.auth .secret { border-radius: 8px; margin: 6px 0 18px; }
