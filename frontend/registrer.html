@@ -25,7 +25,22 @@ html lang="pt-PT">
                 </span>
                 <span class="step-label" id="step-label">Passo 1 de 2</span>
       </div>
-            </div>
 
-    </main>
+      primeiro passo dados de conta
+<form id="register-form">
+    <h1 class="auth-title">Criar conta</h1>
+    <p class="auth-lead">A seguir vai configurar a verificação em dois passos.</p>
+
+    <div class="field">
+        <label form="email">Email</label>
+        <input id="email" type="email" placeholder="nome@empresa.pt" autocomplete="username" required>
+    </div>
+    <div class="field">
+        <label for="password">palavra-passe</label>
+            <input id="password" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <botton class="btn block"type="submit" id="register-btn">Criar conta</button>
+            <div id="register-alert" class="alert hidden" role="alert"></div>
+            <p class="link-row">Já tem conta? <a href="login.html">Iniciar sessão</a></p>
+</form>
     
