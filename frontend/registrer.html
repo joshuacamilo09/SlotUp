@@ -42,5 +42,31 @@ html lang="pt-PT">
         <botton class="btn block"type="submit" id="register-btn">Criar conta</button>
             <div id="register-alert" class="alert hidden" role="alert"></div>
             <p class="link-row">Já tem conta? <a href="login.html">Iniciar sessão</a></p>
+</form>\
+
+<form id="setup-form" class="hidden">
+    <h1 class="auth-title">Configurar verificação em dois passos</h1>
+    <p class="auth-lead">Leia o código QR com uma app de autenticação (Google Authenticator, Authy, ...) e introduza o código de 6 dígitos que aparece.</p>
+
+    <div class="qr-box"><div id="qrcode"></div></div>
+        <class="hit">Não consegue ler o QR? Introduza esta chave esta chave manualmente:</p>
+        <p class="secret" id="secret"></p>
+
+
+    <div class="field">
+        <label for="code">Código de 6 dígitos</label>
+        <input id="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" required>
+    </div>
+    <button class="btn block" type="submit" id="setup-btn">Confirmar e entrar</button>
+    <div id="setup-alert" class="alert hidden" role="alert"></div>
+    </form>
+
+    </div>
+    </main>
+
+    <script src="api.js"></script>
+    
+
+
 </form>
     
