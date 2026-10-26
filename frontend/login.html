@@ -101,8 +101,51 @@
       const codeAlert = document.getElementById("code-alert");
       let tempToken = null;
 
-      
+      // TODO: substituir quando existir recuperação de palavra-passe
+      document.getElementById("forgot-link").addEventListener("click", (e) => e.preventDefault());
 
+      loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideAlert(loginAlert);
+      const btn = document.getElementById("login-btn");
+      btn.disabled = true;
+      try {
+        const res = await api.login(
+          document.getElementById("email").value.trim(),
+          document.getElementById("password").value
+        );
+        tempToken = res. temp_token;
+        loginForm.classList.add("hidden");
+        codeForm.classList.remove("hidden");
+        document.getElementById("code").focus();
+      } catch (err) {
+        showAlert(loginAlert, err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
 
+    codeForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideAlert(codeAlert);
+      const btn = document.getElementById("code-btn");
+      btn.disabled = true;
+      try {
+        const res = await api.verify2fa(tempToken, document.getElementById("code").value.trim());
+        Auth.setSession(res.access_token, res.user);
+        location.href = "resources.html";
+      } catch (err) {
+        showAlert(codeAlert, err.message);
+        btn.disabled = false;
+      }
+    });
 
-          
+    document.getElementById("back-link").addEventListener("click", (e) => {
+      e.preventDefault();
+      tempToken = null;
+      codeForm.classList.add("hidden");
+      loginForm.classList.remove("hidden");
+    });
+    </script>
+</body>
+</html>
