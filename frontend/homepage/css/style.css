@@ -1,0 +1,276 @@
+[hidden] { display: none !important; }   /* garante que "hidden" esconde sempre */
+/* ===== VARIÁVEIS (valores exatos do design) ===== */
+:root {
+    /* Cores base */
+    --cor-fundo: #F6F7F9;
+    --cor-superficie: #FFFFFF;
+    --cor-texto: #14161F;
+    --cor-texto-suave: #5B6170;
+    --cor-borda: #E4E6EC;
+    --cor-borda-forte: #D5D8E0;
+    --cor-chip: #F1F2F5;
+
+    /* Cor principal (botão "Confirmar vaga", link) */
+    --cor-primaria: #0F766E;
+
+    /* Disponível ("livres agora") */
+    --cor-livre: #16A34A;
+
+    /* Fila de espera (banner, badge, "Vaga aberta") */
+    --cor-fila: #D9921F;
+    --cor-fila-texto: #B45309;
+    --cor-fila-suave: color-mix(in oklch, var(--cor-fila) 15%, var(--cor-superficie));
+
+    --cor-perigo: #C2263D;
+
+    /* Categorias: cor de ícone + fundo suave (14%) */
+    --coworking: #0E9384;
+    --estacionamento: #7A4BE0;
+    --desporto: #D6336C;
+    --coworking-suave: color-mix(in oklch, var(--coworking) 14%, var(--cor-superficie));
+    --estacionamento-suave: color-mix(in oklch, var(--estacionamento) 14%, var(--cor-superficie));
+    --desporto-suave: color-mix(in oklch, var(--desporto) 14%, var(--cor-superficie));
+
+    /* Raios de borda: card, botões e elementos pequenos */
+    --raio: 14px;
+    --raio-botao: 9px;
+    --raio-pequeno: 6px;
+
+    --fonte: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --fonte-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+/* ===== BASE ===== */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: var(--fonte);
+    background: var(--cor-fundo);
+    color: var(--cor-texto);
+    -webkit-font-smoothing: antialiased
+}
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+
+/* Classe para os ícones: o texto dentro do span vira o desneho */
+.icone {
+    font-family: 'Material Symbols Rounded';
+    font-size: 20px;
+    line-height: 1;
+    font-feature-settings: 'liga';
+    user-select: none;
+}
+
+/* ===== CABEÇALHO ===== */
+.topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center;
+    gap: clamp(12 px, 2vm, 28px);
+    height: 64px;
+    padding: 0 clamp(16px, 3vw, 32px);
+    background: var(--cor-superficie);
+    border-bottom: 1px solid var(--cor-borda);
+}
+.logo {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 800; font-size: 18px; letter-spacing: -.02em;
+}
+.logo svg { color: var(--cor-primaria); flex: none; }
+
+.nav {
+    display: flex; gap: 4px; min-width: 0;
+    font-size:  14px; font-weight: 600;
+    overflow-x: auto;
+}
+.nav-link {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px; border-radius: var(--raio-pequeno);
+    color: var(--cor-texto-suave); white-space: nowrap;
+}
+.nav-link.ativo { background: var(--cor-chip); color: var(--cor-texto); }
+.badge {
+    display: grid; place-items: center;
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+    background: var(--cor-fila); color: #fff;
+    font-size: 11px; font-weight: 800;
+}
+
+.topbar-direita { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.seletor-papel {
+    display: flex; padding: 3px;
+    border-radius: var(--raio-pequeno); background: var(--cor-chip);
+    font-size: 12px; font-weight: 700;
+}
+.papel { padding: 5px 10px; border-radius: calc(var(--raio-pequeno) - 2px); color: var(--cor-texto-suave); }
+.papel.ativo { background: var(--cor-superficie); color: var(--cor-texto); }
+
+.avatar { display: flex; align-items: center; gap: 4px; padding: 2px; border-radius: 999px; }
+.avatar:houver { background: var(--cor-chip); }
+.avatar-circulo {
+    display: grid; place-items: center;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--cor-chip); font-size: 12px; font-weight: 800;
+}
+.avatar .icone { font-size: 18px; color: var(--cor-texto-suave); }
+
+/* ===== CONTEÚDO: centralizado com largura máxima de 1200px ===== */
+.conteudo {
+    max-width: 1200px; margin: 0 auto;
+    padding: 28px clamp(16px, 3vw, 40px) 80px;
+    display: flex; flex-direction: column; gap: 24px;
+}
+
+/* ===== BOTÕES (reutilizáveis em todas as páginas) ===== */
+.botao {
+    border-radius: var(--raio-botao);
+    font-weight: 700; font-size: 14px;
+    white-space: nowrap;
+}
+.botao-primario { padding: 11px 18px; background: var(--cor-primaria); color: #fff; }
+.botao-primario:hover { filter: brightness(1.1); }
+.botao-secundario {
+    padding: 10px 16px;
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda-forte);
+}
+
+/* ===== BANNER DA VAGA ===== */
+.banner {
+    display: flex; flex-wrap: wrap;
+    align-items: center; gap: 16px;
+    padding: 16px 20px;
+    border-radius: var(--raio);
+    background: var(--cor-fila-suave);
+    border: 1.5px dashed var(--cor-fila);
+}
+
+/* Anel: conic-gradient pinta só a porcentagem guardada em --progresso */
+.banner-anel {
+    flex: none;
+    width: 52px; height: 52px; border-radius: 50%;
+    background: conic-gradient(var(--cor-fila) var(--progresso, 100%), transparent 0);
+    display: grid; place-items: center;
+}
+/* Círculo branco por cima, deixando só a borda do anel à vista */
+.banner-tempo {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--cor-superficie);
+    display: grid; place-items: center;
+    font: 600 11px var(--fonte-mono);
+}
+
+.banner-texto { flex: 1 1 260px; }
+.banner-titulo { font-weight: 800; font-size: 15px; }
+.banner-sub { margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--cor-fila-texto); }
+.banner-acoes { display: flex; gap: 8px; }
+
+/* ===== SAUDAÇÃO ===== */
+.saudacao h1 {
+    font-size: clamp(24px, 3vw, 30px);
+    font-weight: 800; letter-spacing: -.02em;
+}
+.saudacao p { margin-top: 4px; font-size: 14px; color: var(--cor-texto-suave); }
+
+/* ===== CARDS DE CATEGORIA ===== */
+/* auto-fit + minmax: cabem quantos cards de no mínimo 240px houver espaço */
+.categorias {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 20px;
+}
+.card-categoria {
+    display: flex; flex-direction: column; gap: 16px;
+    padding: 22px;
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda);
+    border-radius: var(--raio);
+    transition: border-color .15s, box-shadow .15s;
+}
+.card-categoria:hover {
+    border-color: var(--cor-borda-forte);
+    box-shadow: 0 8px 24px rgba(20, 22, 31, .08);
+}
+.card-topo { display: flex; justify-content: space-between; }
+.card-topo > .icone { font-size: 22px; color: var(--cor-texto-suave); }
+
+/* Caixa do ícone: as cores vêm das variáveis --cor-cat definidas no JS */
+.icone-caixa {
+    width: 48px; height: 48px; border-radius: var(--raio-botao);
+    display: grid; place-items: center;
+    background: var(--cor-cat-suave); color: var(--cor-cat);
+}
+.icone-caixa .icone { font-size: 26px; }
+
+.card-nome { font-size: 19px; font-weight: 800; letter-spacing: -.01em; }
+.card-descricao { margin-top: 4px; font-size: 13px; color: var(--cor-texto-suave); }
+
+.card-rodape {
+    display: flex; align-items: center; gap: 8px;
+    padding-top: 14px; border-top: 1px solid var(--cor-borda);
+    font-size: 13px; 
+}
+.ponto-livre { width: 8px; height: 8px; border-radius: 50%; background: var(--cor-livre); }
+.card-rodape span { color: var(--cor-texto-suave); }
+
+/* ===== PARTE DE BAIXO ===== */
+.grelha-inferior { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+
+/* flex: crescer encolher base → reservas ocupa o dobro da fila */
+.painel-reservas { flex: 2 1 460px; }
+.painel-fila { flex: 1 1 280px; }
+.painel {
+    min-width: 0;
+    padding: 8px 0;
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda);
+    border-radius: var(--raio);
+}
+.painel-cabecalho {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 22px;
+}
+.painel-cabecalho h2 { font-size: 16px; font-weight: 800; }
+.link { font-size: 13px; font-weight: 700; color: var(--cor-primaria); }
+.painel-vazio {
+    padding: 24px 22px; border-top: 1px solid var(--cor-borda);
+    font-size: 14px; line-height: 1.5; color: var(--cor-texto-suave);  
+}
+
+/* ----- Linha de reserva ----- */
+.reserva {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+    padding: 14px 22px; border-top: 1px solid var(--cor-borda);
+}
+.reserva-data { width: 44px; text-align: center; }
+.reserva-dia-semana { font-size: 11px; font-weight: 700; color: var(--cor-texto-suave); text-transform: uppercase; }
+.reserva-dia { font-size: 20px; font-weight: 800; line-height: 1.1; }
+
+.reserva-icone {
+    width: 36px; height: 36px; border-radius: var(--raio-pequeno);
+    display: grid; place-items: center;
+    background: var(--cor-cat-suave); color: var(--cor-cat);
+}
+.reserva-info { flex: 1 1 140px; }
+.reserva-nome { font-weight: 700; font-size: 14px; }
+.reserva-local { font-size: 12px; color: var(--cor-texto-suave); }
+.reserva-hora { font: 500 14px var(--fonte-mono); }
+
+.botao-cancelar {
+    padding: 6px 10px; border-radius: var(--raio-pequeno);
+    color: var(--cor-perigo); font-size: 13px; font-weight: 700;
+}
+.botao-cancelar:hover { background: rgba(194, 38, 61, .08); }
+
+/* ----- Linha da fila ----- */
+.fila-item {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 14px 22px; border-top: 1px solid var(--cor-borda); 
+}
+.fila-topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.fila-topo b { font-size: 14px; }
+.fila-estado {
+    padding: 3px 9px; border-radius: 999px;
+    background: var(--cor-fila-suave); color: var(--cor-fila-texto);
+    border: 1px dashed var(--cor-fila);
+    font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+.fila-quando { font: 13px var(--fonte-mono); color: var(--cor-texto-suave); }
