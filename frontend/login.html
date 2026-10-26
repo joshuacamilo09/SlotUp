@@ -68,8 +68,41 @@
 
           <!-- TODO: confirmar destino. Por agora o 2FA é configurado no registo. -->
           <p class="auth-alt"><a href="register.html">Primeiro acesso? Configurar 2FA</a></p>
-          <p class="auth-footer">Ainda não tem conta? <a href="register.html">Registar-se</a></p>
+          <p class="auth-footer">Ainda não tem conta? <a href="register.html">Registar-se</a></p
         </form>
-        
+
+        <!-- Passo 2: código 2FA -->
+        <form id="code-form" class="hidden">
+          <h1 class="auth-title">Verificação em dois passos</h1>
+          <p class="auth-lead">Introduza o código de 6 dígitos da sua app de autenticação.</p>
+
+          <div class="field">
+            <label for="code">Código 2FA</label>
+            <input id="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>
+          </div>
+
+          <button class="btn block" type="submit" id="code-btn">Verificar e entrar</button>
+          <div id="code-alert" class="alert hidden" role="alert"></div>
+          <p class="auth-footer"><a href="#" id="back-link">Voltar</a></p>
+        </form>
+
+      </div>
+      </main>
+    </div>
+
+    <script src="api. js"></script>
+    <script src="mock.js"></script>
+    <script>
+      if (Auth.getToken()) location.replace("resources.html");
+
+      const loginForm = document.getElementById("login-form");
+      const codeForm = document.getElementById("code-form");
+      const loginAlert = document.getElementById("login-alert");
+      const codeAlert = document.getElementById("code-alert");
+      let tempToken = null;
+
+      
+
+
 
           
