@@ -66,3 +66,136 @@ body.auth .code-input {
     letter-spacing: 0.4rem;
     font-variant-numeric: tabular-nums;
 }
+
+/*-------------- Botões de Ligação-----------*/
+body.auth .btn {
+  height: 48px;
+  border-radius: 12px;
+  background: var(--auth-green);
+  font-size: 1rem;
+  font-weight: 700;
+
+}
+body.auth .btn:hover { filter: none; background: var(--auth-green-dark); }
+body.auth .btn.block { margin-top: 4px; }
+body.auth a { color: var(--auth-green); font-weight: 600; text-decoration: none; }
+body.auth a:hover { text-decoration: underline; }
+body.auth a:focus-visible,
+body.auth .btn:focus-visible {
+  outline: 2px solid var(--auth-green);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+body.auth .auth-title { 
+    margin-bottom: 0 0 6px;;
+    font-size: 1.9rem;; 
+    font-weight: 800; 
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    }
+    body.auth .lead { 
+        margin-bottom: 0 0 28px; 
+        color: var(--auth-muted);
+        font-size: 1.02rem;
+        text-align: left;
+     }
+     body.auth .auth-alt { margin: 22px 0 0; font-size: 0.95rem; }
+body.auth .auth-footer {
+  margin: 22px 0 0;
+  padding-top: 22px;
+  border-top: 1px solid #e8eaee;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--auth-muted);
+}
+body.auth .alert { border-radius: 10px; }
+
+/* =====================================================================
+   LOGIN – ecrã dividido
+   ===================================================================== */
+   body.auth .split {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+body.auth .split-hero {
+  background: var(--auth-green);
+  color: #fff;
+  padding: 54px 54px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  }
+  body.auth .hero-title {
+  margin: 0 0 36px;
+  max-width: 12em;
+  font-size: clamp(2.4rem, 4vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+body.auth .hero-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+body.auth .hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--auth-green-soft);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+body.auth .hero-chip svg { width: 18px; height: 18px; flex: none; }
+
+body.auth .split-form {
+  display: grid;
+  place-items: center;
+  padding: 40px 24px;
+}
+body.auth .form-box { width: 100%; max-width: 380px; }
+body.auth .mobile-brand { display: none; }
+
+/* =====================================================================
+   REGISTO – cartão centrado
+   ===================================================================== */
+   body.auth.auth-center { background: var(--bg); }
+body.auth .center-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+body.auth .center-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 36px 36px 32px;
+  box-shadow: 0 1px 2px rgba(20, 24, 31, 0.04), 0 8px 32px rgba(20, 24, 31, 0.05);
+}
+body.auth .card-top { 
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+body.auth .step-label { font-size: 0.9rem; font-weight: 600; color: var(--auth-muted); }
+body.auth .center-card p { margin-top: 0; }
+body.auth .center-card .hint { font-size: 0.88rem; color: var(--auth-muted); margin: 0; }
+body.auth .qr-box { border-radius: 14px; }
+body.auth .secret { border-radius: 8px; margin: 6px 0 18px; }
+
+*/--------------MOBILE-----------*/
+@media (max-width: 880px) {
+  body.auth .split { grid-template-columns: 1fr; }
+  body.auth .split-hero { padding: 24px; }
+  body.auth .hero-title,
+  body.auth .hero-chips { display: none; }
+  body.auth .split-form { align-items: start; padding-top: 32px; }
+}
+@media (max-width: 480px) {
+  body.auth .center-card { padding: 28px 22px 24px; border-radius: 20px; }
+}

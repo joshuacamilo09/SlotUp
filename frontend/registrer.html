@@ -1,1 +1,72 @@
-aqui vai o código para a página de registro.
+<!DOCTYPE html>
+html lang="pt-PT">
+<head>
+    meta charset="utf-8">
+    meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Criar conta – SlotUp</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="auth.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="auth auth-center">
+    <main class="center wrap">
+        <div class="center-card">
+
+            <div class="card-top">
+                <span class="auth-brand">
+                    <svg viewBox="0 0 22 32" fill="none" aria-hidden="true">
+                        <rect x="1.5" y="1.5" width="19" height="29" rx="9.5" stroke="#37776d" stroke-width="3"/>
+            <circle cx="11" cy="10" r="3.6" fill="#37776d"/>
+                    </svg>
+                    SlotUp
+                </span>
+                <span class="step-label" id="step-label">Passo 1 de 2</span>
+      </div>
+
+      primeiro passo dados de conta
+<form id="register-form">
+    <h1 class="auth-title">Criar conta</h1>
+    <p class="auth-lead">A seguir vai configurar a verificação em dois passos.</p>
+
+    <div class="field">
+        <label form="email">Email</label>
+        <input id="email" type="email" placeholder="nome@empresa.pt" autocomplete="username" required>
+    </div>
+    <div class="field">
+        <label for="password">palavra-passe</label>
+            <input id="password" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <botton class="btn block"type="submit" id="register-btn">Criar conta</button>
+            <div id="register-alert" class="alert hidden" role="alert"></div>
+            <p class="link-row">Já tem conta? <a href="login.html">Iniciar sessão</a></p>
+</form>\
+
+<form id="setup-form" class="hidden">
+    <h1 class="auth-title">Configurar verificação em dois passos</h1>
+    <p class="auth-lead">Leia o código QR com uma app de autenticação (Google Authenticator, Authy, ...) e introduza o código de 6 dígitos que aparece.</p>
+
+    <div class="qr-box"><div id="qrcode"></div></div>
+        <class="hit">Não consegue ler o QR? Introduza esta chave esta chave manualmente:</p>
+        <p class="secret" id="secret"></p>
+
+
+    <div class="field">
+        <label for="code">Código de 6 dígitos</label>
+        <input id="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" required>
+    </div>
+    <button class="btn block" type="submit" id="setup-btn">Confirmar e entrar</button>
+    <div id="setup-alert" class="alert hidden" role="alert"></div>
+    </form>
+
+    </div>
+    </main>
+
+    <script src="api.js"></script>
+    
+
+
+</form>
+    
