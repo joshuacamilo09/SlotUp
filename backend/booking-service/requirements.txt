@@ -17,3 +17,4 @@ cryptography==50.0.2
 
 # Cliente HTTP para falar com o scheduling-service (CSP)
 httpx==0.28.1
+// new requirement 
