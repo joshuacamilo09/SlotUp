@@ -1,93 +1,15 @@
 <!DOCTYPE html>
 <html lang="pt-PT">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Entrar – SlotUp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="auth.css">
 </head>
-<body>
-  <div class="auth-wrap">
-    <div class="card auth-card">
-      <span class="brand">Slot<span>Up</span></span>
+<body class="auth">
+  <div class="split">
 
-      <!-- Passo 1: email e palavra-passe -->
-      <form id="login-form">
-        <p class="subtitle">Entra na tua conta para reservar</p>
-        <label for="email">Email</label>
-        <input id="email" type="email" autocomplete="username" required>
-        <label for="password">Palavra-passe</label>
-        <input id="password" type="password" autocomplete="current-password" required>
-        <button class="btn block" type="submit" id="login-btn">Continuar</button>
-        <div id="login-alert" class="alert hidden" role="alert"></div>
-        <p class="link-row">Ainda não tens conta? <a href="register.html">Criar conta</a></p>
-      </form>
-
-      <!-- Passo 2: código 2FA -->
-      <form id="code-form" class="hidden">
-        <p class="subtitle">Introduz o código de 6 dígitos da tua app de autenticação</p>
-        <label for="code">Código 2FA</label>
-        <input id="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>
-        <button class="btn block" type="submit" id="code-btn">Verificar e entrar</button>
-        <div id="code-alert" class="alert hidden" role="alert"></div>
-        <p class="link-row"><a href="#" id="back-link">Voltar</a></p>
-      </form>
-    </div>
-  </div>
-
-  <script src="api.js"></script>
-  <script src="mock.js"></script>
-  <script>
-    if (Auth.getToken()) location.replace("resources.html");
-
-    const loginForm = document.getElementById("login-form");
-    const codeForm = document.getElementById("code-form");
-    const loginAlert = document.getElementById("login-alert");
-    const codeAlert = document.getElementById("code-alert");
-    let tempToken = null;
-
-    loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      hideAlert(loginAlert);
-      const btn = document.getElementById("login-btn");
-      btn.disabled = true;
-      try {
-        const res = await api.login(
-          document.getElementById("email").value.trim(),
-          document.getElementById("password").value
-        );
-        tempToken = res.temp_token;
-        loginForm.classList.add("hidden");
-        codeForm.classList.remove("hidden");
-        document.getElementById("code").focus();
-      } catch (err) {
-        showAlert(loginAlert, err.message);
-      } finally {
-        btn.disabled = false;
-      }
-    });
-
-    codeForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      hideAlert(codeAlert);
-      const btn = document.getElementById("code-btn");
-      btn.disabled = true;
-      try {
-        const res = await api.verify2fa(tempToken, document.getElementById("code").value.trim());
-        Auth.setSession(res.access_token, res.user);
-        location.href = "resources.html";
-      } catch (err) {
-        showAlert(codeAlert, err.message);
-        btn.disabled = false;
-      }
-    });
-
-    document.getElementById("back-link").addEventListener("click", (e) => {
-      e.preventDefault();
-      tempToken = null;
-      codeForm.classList.add("hidden");
-      loginForm.classList.remove("hidden");
-    });
-  </script>
-</body>
-</html>
