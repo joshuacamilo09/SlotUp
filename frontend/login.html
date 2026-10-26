@@ -44,6 +44,26 @@
     <! - - Painel direito: formulários - ->
     <main class="split-form">
       <div class="form-box">
-        
-      </div>
-    </main>
+
+        <! - - passo 1: email e palavra passe - ->
+        <form id="login-form">
+          <h1 class="auth-title">Iniciar sessão</h1>
+          <p class="auth-lead">Use as credenciais do complexo.</p>
+
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" type="email" placeholder="nome@empresa.pt" autocomplete="username" required>
+          </div>
+          <div class="field">
+            <div class="field-head">
+              <label for="password">Palavra-passe</label>
+              <!-- TODO: ligar à página/fluxo de recuperação quando existir -->
+              <a href="#" id="forgot-link">Esqueceu-se?</a>
+            </div>
+            <input id="password" type="password" placeholder="A sua palavra-passe" autocomplete="current-password" required>
+          </div>
+
+          <button class="btn block" type="submit" id="login-btn">Continuar</button>
+          <div id="login-alert" class="alert hidden" role="alert"></div>
+
+          
