@@ -65,8 +65,61 @@ html lang="pt-PT">
     </main>
 
     <script src="api.js"></script>
-    
+    <script src="mock.js"></script>
+    <script>
+        const registerForm = document.getElementById('register-form');
+        const setupForm = document.getElementById('setup-form');
+        const registerAlert = document.getElementById('register-alert');
+        const setupAlert = document.getElementById('setup-alert');
+        const stepLabel = document.getElementById('step-label');
+        let temptoken = null;
 
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideAlert(registerAlert);
+            const btn = document.getElementById('register-btn');
+            btn.disabled = true;
+            try {
+                const rest = await api. resgister (
+                    document.getElementByID ("nome") .value.trim(),
+                    document.getElementByID ("email") .value.trim(),
+                    document.getElementByID ("password") .value
+                );
+                temptoken = rest.tempToken;
+                document.getElementById('secret').textContent = rest.secret;
+                const qrEl = document.getElementById('qrcode');
+                qrEl.innerHTML = '';
+                if (window.QRCode) {
+                    new QRCode(qrEl, { text: res.totp_uri, width: 180, height: 180 });
+        } else {
+          qrEl.textContent = "(QR indisponível – use a chave abaixo)";
+        }
+        registerForm.classList.add("hidden");
+        setupForm.classList.remove("hidden");
+        stepLabel.textContent = "Passo 2 de 2";
+        document.getElementById("code").focus();
+      } catch (err) {
+        showAlert(registerAlert, err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
 
-</form>
+    setupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideAlert(setupAlert);
+      const btn = document.getElementById('setup-btn');
+      btn.disabled = true;
+      try {
+        const res = await api.verify2FA(temptoken, document.getElementById('code').value.trim());
+        Auth.setSession(res.access_token, res.user);
+        location.href = "resources.html";
+        } catch (err) {
+        showAlert(setupAlert, err.message);
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
     
