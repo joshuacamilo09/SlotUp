@@ -25,6 +25,23 @@ body.auth .auth-brand {
 }
 body.auth .auth-brand svg { height: 32px; width: auto; flex: none; }
 body.auth .auth-brand.on-dark { color: #fff; }
+
+/* ---------- Tipografia dos formulários ---------- */
+body .auth  .auth-title {
+  margin: 0 0 4px;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  }
+body.auth .auth-lead {
+  margin: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 400;
+  color: var(--auth-muted);
+  text-align: left;
+}
   
 
   
