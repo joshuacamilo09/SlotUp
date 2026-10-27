@@ -134,6 +134,50 @@ body.auth .link-row {
   }
 body.auth .alert { border-radius: 10px; margin-top: 14px; }
 
+/* =====================================================================
+   LOGIN – ecrã dividido 50 / 50
+   ===================================================================== */
+body.auth .split {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  }
+
+  /* Painel Verde */
+  body.auth .split-hero {
+    background: var(--auth-green);
+    color: #fff;
+    padding: 54px 54px 56px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    }
+body.auth .hero-title {
+  margin: 0 0 26px;
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.054em;
+  white-space: nowrap; /* as quebras de linha são feitas com <br> */
+}
+body.auth .hero-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+body.auth .hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  font-size: 15px;
+  font-weight: 500;
+}
+body.auth .hero-chip svg { width: 16px; height: 16px; flex: none; }
+
+
+
+
+
 
 
 
