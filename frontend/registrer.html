@@ -1,96 +1,102 @@
-<!DOCTYPE html>
-html lang="pt-PT">
+ <!DOCTYPE html>
+<html lang="pt-PT">
 <head>
-    meta charset="utf-8">
-    meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Criar conta – SlotUp</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Criar conta – SlotUp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="auth.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body class="auth auth-center">
-    <main class="center wrap">
-        <div class="center-card">
+  <main class="center-wrap">
+    <div class="center-card">
 
-            <div class="card-top">
-                <span class="auth-brand">
-                    <svg viewBox="0 0 22 32" fill="none" aria-hidden="true">
-                        <rect x="1.5" y="1.5" width="19" height="29" rx="9.5" stroke="#37776d" stroke-width="3"/>
-            <circle cx="11" cy="10" r="3.6" fill="#37776d"/>
-                    </svg>
-                    SlotUp
-                </span>
-                <span class="step-label" id="step-label">Passo 1 de 2</span>
+      <div class="card-top">
+        <span class="auth-brand">
+          <svg viewBox="0 0 19 32" width="19" height="32" fill="none" aria-hidden="true">
+            <rect x="1.25" y="1.25" width="16.5" height="29.5" rx="8.25" stroke="#37776d" stroke-width="2.5"/>
+            <circle cx="9.5" cy="9.5" r="3.5" fill="#37776d"/>
+          </svg>
+          SlotUp
+        </span>
+        <span class="step-label" id="step-label">Passo 1 de 2</span>
       </div>
 
-      primeiro passo dados de conta
-<form id="register-form">
-    <h1 class="auth-title">Criar conta</h1>
-    <p class="auth-lead">A seguir vai configurar a verificação em dois passos.</p>
+      <!-- Passo 1: dados da conta -->
+      <form id="register-form">
+        <h1 class="auth-title">Criar conta</h1>
+        <p class="auth-lead">A seguir vai configurar a verificação em dois passos.</p>
 
-    <div class="field">
-        <label form="email">Email</label>
-        <input id="email" type="email" placeholder="nome@empresa.pt" autocomplete="username" required>
-    </div>
-    <div class="field">
-        <label for="password">palavra-passe</label>
-            <input id="password" type="password" autocomplete="new-password" minlength="8" required>
+        <div class="field">
+          <label for="nome">Nome</label>
+          <input id="nome" placeholder="Nome e apelido" autocomplete="name" required>
         </div>
-        <botton class="btn block"type="submit" id="register-btn">Criar conta</button>
-            <div id="register-alert" class="alert hidden" role="alert"></div>
-            <p class="link-row">Já tem conta? <a href="login.html">Iniciar sessão</a></p>
-</form>\
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" placeholder="nome@empresa.pt" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="password">Palavra-passe</label>
+          <input id="password" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
 
-<form id="setup-form" class="hidden">
-    <h1 class="auth-title">Configurar verificação em dois passos</h1>
-    <p class="auth-lead">Leia o código QR com uma app de autenticação (Google Authenticator, Authy, ...) e introduza o código de 6 dígitos que aparece.</p>
+        <button class="btn block" type="submit" id="register-btn">Criar conta</button>
+        <div id="register-alert" class="alert hidden" role="alert"></div>
+        <p class="link-row">Já tem conta? <a href="login.html">Iniciar sessão</a></p>
+      </form>
 
-    <div class="qr-box"><div id="qrcode"></div></div>
-        <class="hit">Não consegue ler o QR? Introduza esta chave esta chave manualmente:</p>
+      <!-- Passo 2: configurar 2FA -->
+      <form id="setup-form" class="hidden">
+        <h1 class="auth-title">Configurar verificação em dois passos</h1>
+        <p class="auth-lead">Leia o código QR com uma app de autenticação (Google Authenticator, Authy, ...) e introduza o código de 6 dígitos que aparece.</p>
+
+        <div class="qr-box"><div id="qrcode"></div></div>
+        <p class="hint">Não consegue ler o QR? Introduza esta chave manualmente:</p>
         <p class="secret" id="secret"></p>
 
+        <div class="field">
+          <label for="code">Código de 6 dígitos</label>
+          <input id="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>
+        </div>
 
-    <div class="field">
-        <label for="code">Código de 6 dígitos</label>
-        <input id="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" required>
+        <button class="btn block" type="submit" id="setup-btn">Confirmar e entrar</button>
+        <div id="setup-alert" class="alert hidden" role="alert"></div>
+      </form>
+
     </div>
-    <button class="btn block" type="submit" id="setup-btn">Confirmar e entrar</button>
-    <div id="setup-alert" class="alert hidden" role="alert"></div>
-    </form>
+  </main>
 
-    </div>
-    </main>
+  <script src="api.js"></script>
+  <script src="mock.js"></script>
+  <script>
+    const registerForm = document.getElementById("register-form");
+    const setupForm = document.getElementById("setup-form");
+    const registerAlert = document.getElementById("register-alert");
+    const setupAlert = document.getElementById("setup-alert");
+    const stepLabel = document.getElementById("step-label");
+    let tempToken = null;
 
-    <script src="api.js"></script>
-    <script src="mock.js"></script>
-    <script>
-        const registerForm = document.getElementById('register-form');
-        const setupForm = document.getElementById('setup-form');
-        const registerAlert = document.getElementById('register-alert');
-        const setupAlert = document.getElementById('setup-alert');
-        const stepLabel = document.getElementById('step-label');
-        let temptoken = null;
-
-        registerForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            hideAlert(registerAlert);
-            const btn = document.getElementById('register-btn');
-            btn.disabled = true;
-            try {
-                const rest = await api. resgister (
-                    document.getElementByID ("nome") .value.trim(),
-                    document.getElementByID ("email") .value.trim(),
-                    document.getElementByID ("password") .value
-                );
-                temptoken = rest.tempToken;
-                document.getElementById('secret').textContent = rest.secret;
-                const qrEl = document.getElementById('qrcode');
-                qrEl.innerHTML = '';
-                if (window.QRCode) {
-                    new QRCode(qrEl, { text: res.totp_uri, width: 180, height: 180 });
+    registerForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideAlert(registerAlert);
+      const btn = document.getElementById("register-btn");
+      btn.disabled = true;
+      try {
+        const res = await api.register(
+          document.getElementById("nome").value.trim(),
+          document.getElementById("email").value.trim(),
+          document.getElementById("password").value
+        );
+        tempToken = res.temp_token;
+        document.getElementById("secret").textContent = res.totp_secret;
+        const qrEl = document.getElementById("qrcode");
+        qrEl.innerHTML = "";
+        if (window.QRCode) {
+          new QRCode(qrEl, { text: res.totp_uri, width: 180, height: 180 });
         } else {
           qrEl.textContent = "(QR indisponível – use a chave abaixo)";
         }
@@ -105,16 +111,16 @@ html lang="pt-PT">
       }
     });
 
-    setupForm.addEventListener('submit', async (e) => {
+    setupForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       hideAlert(setupAlert);
-      const btn = document.getElementById('setup-btn');
+      const btn = document.getElementById("setup-btn");
       btn.disabled = true;
       try {
-        const res = await api.verify2FA(temptoken, document.getElementById('code').value.trim());
+        const res = await api.verify2fa(tempToken, document.getElementById("code").value.trim());
         Auth.setSession(res.access_token, res.user);
         location.href = "resources.html";
-        } catch (err) {
+      } catch (err) {
         showAlert(setupAlert, err.message);
         btn.disabled = false;
       }

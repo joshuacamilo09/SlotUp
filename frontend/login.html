@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-PT">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Entrar – SlotUp</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,54 +13,58 @@
 <body class="auth">
   <div class="split">
 
-    <!- - Painel esquerdo (escondido em ecrãs pequenos,fica só a marca) - ->
-    <aside class="split__hero">
+    <!-- Painel verde -->
+    <aside class="split-hero">
       <span class="auth-brand on-dark">
-        <svg viewBox="0 0 22 32" fill="nome" aria-hidden="true">
-          <rect x="1.5" y="1.5" width="19" height="29" rx="9.5" stroke="currentColor" stroke-width="3"/>
-          <circle cx="11" cy="10" r="3.6" fill="currentColor"/>
+        <svg viewBox="0 0 19 32" width="19" height="32" fill="none" aria-hidden="true">
+          <rect x="1.25" y="1.25" width="16.5" height="29.5" rx="8.25" stroke="currentColor" stroke-width="2.5"/>
+          <circle cx="9.5" cy="9.5" r="3.5" fill="currentColor"/>
         </svg>
-        slotup
-        </span>
+        SlotUp
+      </span>
 
       <div>
-        <h2 class="hero-title">Reserve espaços e serviços do complexo em segundos. </h2>
+        <h2 class="hero-title">Reserve espaços<br>e serviços do<br>complexo<br>em segundos.</h2>
         <div class="hero-chips">
-          <spam class="hero-chip">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18V8a2 2 0 0 1 2-2h8v12"/><path d="M13 10h5a2 2 0 0 1 2 2v6"/><path d="M2 18h20"/></svg>
+          <span class="hero-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18V8a2 2 0 0 1 2-2h8v12"/><path d="M13 10h5a2 2 0 0 1 2 2v6"/><path d="M2 18h20"/></svg>
             Coworking
-          </spam>
-          <spam class="hero-chip">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21V4h5a4.5 4.5 0 0 1 0 9H8"/></svg>
+          </span>
+          <span class="hero-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21V4h5a4.5 4.5 0 0 1 0 9H8"/></svg>
             Estacionamento
-          </spam>
-          <spam class="hero-chip">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="14" cy="8" r="5"/><path d="M10.5 12 4 19"/><circle cx="18" cy="19" r="2"/></svg>
+          </span>
+          <span class="hero-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="14" cy="8" r="5"/><path d="M10.5 12 4 19"/><circle cx="18" cy="19" r="2"/></svg>
             Desporto
-            </span>
+          </span>
         </div>
       </div>
     </aside>
-    <! - - Painel direito: formulários - ->
+
+    <!-- Painel do formulário -->
     <main class="split-form">
       <div class="form-box">
 
-        <! - - passo 1: email e palavra passe - ->
+        <!-- Passo 1: email e palavra-passe -->
         <form id="login-form">
           <h1 class="auth-title">Iniciar sessão</h1>
           <p class="auth-lead">Use as credenciais do complexo.</p>
 
           <div class="field">
             <label for="email">Email</label>
-            <input id="email" type="email" placeholder="nome@empresa.pt" autocomplete="username" required>
+            <!-- DEMO: remover o value= quando for para produção -->
+            <input id="email" type="email" value="marta.sousa@empresa.pt" autocomplete="username" required>
           </div>
+
           <div class="field">
             <div class="field-head">
               <label for="password">Palavra-passe</label>
-              <!-- TODO: ligar à página/fluxo de recuperação quando existir -->
+              <!-- TODO: ligar à recuperação de palavra-passe quando existir -->
               <a href="#" id="forgot-link">Esqueceu-se?</a>
             </div>
-            <input id="password" type="password" placeholder="A sua palavra-passe" autocomplete="current-password" required>
+            <!-- DEMO: o mock aceita qualquer palavra-passe; trocar o placeholder em produção -->
+            <input id="password" type="password" placeholder="Qualquer palavra-passe" autocomplete="current-password" required>
           </div>
 
           <button class="btn block" type="submit" id="login-btn">Continuar</button>
@@ -68,7 +72,7 @@
 
           <!-- TODO: confirmar destino. Por agora o 2FA é configurado no registo. -->
           <p class="auth-alt"><a href="register.html">Primeiro acesso? Configurar 2FA</a></p>
-          <p class="auth-footer">Ainda não tem conta? <a href="register.html">Registar-se</a></p
+          <p class="auth-footer">Ainda não tem conta? <a href="register.html">Registar-se</a></p>
         </form>
 
         <!-- Passo 2: código 2FA -->
@@ -87,24 +91,24 @@
         </form>
 
       </div>
-      </main>
-    </div>
+    </main>
+  </div>
 
-    <script src="api. js"></script>
-    <script src="mock.js"></script>
-    <script>
-      if (Auth.getToken()) location.replace("resources.html");
+  <script src="api.js"></script>
+  <script src="mock.js"></script>
+  <script>
+    if (Auth.getToken()) location.replace("resources.html");
 
-      const loginForm = document.getElementById("login-form");
-      const codeForm = document.getElementById("code-form");
-      const loginAlert = document.getElementById("login-alert");
-      const codeAlert = document.getElementById("code-alert");
-      let tempToken = null;
+    const loginForm = document.getElementById("login-form");
+    const codeForm = document.getElementById("code-form");
+    const loginAlert = document.getElementById("login-alert");
+    const codeAlert = document.getElementById("code-alert");
+    let tempToken = null;
 
-      // TODO: substituir quando existir recuperação de palavra-passe
-      document.getElementById("forgot-link").addEventListener("click", (e) => e.preventDefault());
+    // TODO: substituir quando existir recuperação de palavra-passe
+    document.getElementById("forgot-link").addEventListener("click", (e) => e.preventDefault());
 
-      loginForm.addEventListener("submit", async (e) => {
+    loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       hideAlert(loginAlert);
       const btn = document.getElementById("login-btn");
@@ -114,7 +118,7 @@
           document.getElementById("email").value.trim(),
           document.getElementById("password").value
         );
-        tempToken = res. temp_token;
+        tempToken = res.temp_token;
         loginForm.classList.add("hidden");
         codeForm.classList.remove("hidden");
         document.getElementById("code").focus();
@@ -146,6 +150,6 @@
       codeForm.classList.add("hidden");
       loginForm.classList.remove("hidden");
     });
-    </script>
+  </script>
 </body>
 </html>
