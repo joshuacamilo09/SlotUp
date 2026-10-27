@@ -42,6 +42,52 @@ body.auth .auth-lead {
   color: var(--auth-muted);
   text-align: left;
 }
+
+/* ----------- Campos ----------- */
+body.auth .field { margin-bottom: 20px; }
+body.auth label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--auth-ink);
+  }
+body.auth .field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  }
+body.auth .field-head label { margin: 0; }
+body.auth .field-head a { font-size: 14px; line-height: 18px; }
+
+body.auth input {
+  width: 100%;
+  height: 46px;
+  padding: 0 15px;
+  border: 1px solid var(--auth-line);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 16px;
+  background: #fff;
+  color: var(--auth-ink);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+body.auth input::placeholder { color: #7b828e; }
+body.auth input:focus {
+  outline: none;
+  border-color: var(--auth-green);
+  box-shadow: 0 0 0 3px rgba(55, 119, 109, 0.18);
+}
+body.auth .code-input {
+  text-align: center;
+  font-size: 1.6rem;
+  letter-spacing: 0.4em;
+  font-variant-numeric: tabular-nums;
+}
+
+
   
 
   
