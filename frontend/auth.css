@@ -87,6 +87,60 @@ body.auth .code-input {
   font-variant-numeric: tabular-nums;
 }
 
+/* -------- Botão e ligações ---------- */
+body.auth .btn {
+  height: 48px;
+  border-radius: 12px;
+  background: var(--auth-green);
+  font-size: 16px;
+  font-weight: 600;
+  }
+body.auth .btn:hover { filter: none; background: var(--auth-green-dark); }
+body.auth .btn.block { margin-top: 0; }
+
+body.auth a {
+  color: var(--auth-link);
+  font-weight: 600;
+  text-decoration: none;
+  }
+body.auth a:hover { text-decoration: underline; }
+body.auth a:focus-visible,
+body.auth .btn:focus-visible {
+  outline: 2px solid var(--auth-green);
+  outline-offset: 2px;
+  border-radius: 6px;
+  }
+
+body.auth .auth-alt {
+  margin: 20px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  }
+body.auth .auth-footer {
+  margin: 18px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid #e6e8ec;
+  text-align: center;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--auth-muted);
+}
+body.auth .link-row {
+  margin: 20px 0 0;
+  font-size: 15px;
+  line-height: 20px;
+  text-align: center;
+  color: var(--auth-muted);
+  }
+body.auth .alert { border-radius: 10px; margin-top: 14px; }
+
+
+
+
+
+
+
+
 
   
 
