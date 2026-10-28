@@ -1,3 +1,13 @@
+"""Recursos do complexo (mesa, sala, vaga, quadra de padel, ...).
+
+* Qualquer utilizador autenticado lista e consulta os recursos ATIVOS (de categorias ativas),
+  com filtro opcional por categoria.
+* Só o ADMIN cria, edita, altera o horário de funcionamento e remove.
+* Cada recurso pertence a uma categoria e tem um horário semanal (tabela availability_rules).
+  Se o admin não indicar um, o recurso abre todos os dias das 08:00 às 20:00.
+* DELETE: se o recurso já tem reservas ou entradas na fila de espera, não se apaga (partia o
+  histórico): fica inativo e deixa de aparecer aos utilizadores. Sem nada disso, é apagado de vez.
+"""
 import logging
 import uuid
 
@@ -36,6 +46,11 @@ def _constraint_name(exc: IntegrityError) -> str | None:
 
 
 def _commit_or_409(db: Session) -> None:
+    """Grava; se o nome já existir nessa categoria, devolve 409.
+
+    Como nas categorias: quem decide é a restrição única do PostgreSQL (atómica), e não um
+    SELECT antes do INSERT, porque dois admins em réplicas diferentes podiam passar os dois.
+    """
     try:
         db.commit()
     except IntegrityError as exc:
@@ -46,6 +61,10 @@ def _commit_or_409(db: Session) -> None:
 
 
 def _get(db: Session, resource_id: uuid.UUID, *, lock: bool = False) -> Resource | None:
+    """Lê o recurso com a categoria e o horário. lock=True bloqueia a linha até ao commit.
+
+    populate_existing: lê sempre da base de dados, mesmo que a sessão já tenha o objeto.
+    """
     stmt = select(Resource).where(Resource.id == resource_id).execution_options(populate_existing=True)
     if lock:
         stmt = stmt.with_for_update(of=Resource)
@@ -155,6 +174,7 @@ def replace_schedule(
     admin: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> Resource:
+    """Substitui o horário inteiro (dias e horas). `rules: []` deixa o recurso sem horário (fechado)."""
     _get_or_404(db, resource_id, admin, lock=True)  # o lock evita dois admins a trocarem o horário ao mesmo tempo
     db.execute(delete(AvailabilityRule).where(AvailabilityRule.resource_id == resource_id))
     db.add_all(
