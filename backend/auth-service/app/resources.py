@@ -2,7 +2,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import Uuid, column, delete, exists, select, table
+from sqlalchemy import Uuid, column, delete, exists, or_, select, table
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager
 
@@ -26,8 +26,9 @@ _UNIQUE_NAME = "resources_category_id_name_key"
 # Código SQLSTATE do PostgreSQL para "violação de chave estrangeira"
 _FOREIGN_KEY_VIOLATION = "23503"
 
-# Só precisamos da coluna resource_id da tabela `reservations` (migração 0002)
+# Só precisamos da coluna resource_id destas tabelas da migração 0002
 _reservations = table("reservations", column("resource_id", Uuid))
+_waitlist = table("waitlist_entries", column("resource_id", Uuid))
 
 
 def _constraint_name(exc: IntegrityError) -> str | None:
@@ -35,11 +36,6 @@ def _constraint_name(exc: IntegrityError) -> str | None:
 
 
 def _commit_or_409(db: Session) -> None:
-    """Grava; se o nome já existir nessa categoria, devolve 409.
-
-    Como nas categorias: quem decide é a restrição única do PostgreSQL (atómica), e não um
-    SELECT antes do INSERT, porque dois admins em réplicas diferentes podiam passar os dois.
-    """
     try:
         db.commit()
     except IntegrityError as exc:
@@ -50,10 +46,6 @@ def _commit_or_409(db: Session) -> None:
 
 
 def _get(db: Session, resource_id: uuid.UUID, *, lock: bool = False) -> Resource | None:
-    """Lê o recurso com a categoria e o horário. lock=True bloqueia a linha até ao commit.
-
-    populate_existing: lê sempre da base de dados, mesmo que a sessão já tenha o objeto.
-    """
     stmt = select(Resource).where(Resource.id == resource_id).execution_options(populate_existing=True)
     if lock:
         stmt = stmt.with_for_update(of=Resource)
@@ -113,7 +105,6 @@ def get_resource(
     return _get_or_404(db, resource_id, user)
 
 
-# --------------------------------------------------------------------------- escrita (ADMIN)
 @router.post("", response_model=ResourceOut, status_code=status.HTTP_201_CREATED)
 def create_resource(
     body: ResourceCreate,
@@ -164,10 +155,7 @@ def replace_schedule(
     admin: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> Resource:
-    """Substitui o horário inteiro (dias e horas). `rules: []` deixa o recurso sem horário (fechado)."""
     _get_or_404(db, resource_id, admin, lock=True)  # o lock evita dois admins a trocarem o horário ao mesmo tempo
-    # Apaga primeiro e só depois insere: como a restrição única é (recurso, dia, abertura), inserir antes
-    # de apagar chocaria com as linhas antigas.
     db.execute(delete(AvailabilityRule).where(AvailabilityRule.resource_id == resource_id))
     db.add_all(
         AvailabilityRule(resource_id=resource_id, weekday=r.weekday, open_time=r.open_time, close_time=r.close_time)
@@ -191,10 +179,16 @@ def delete_resource(
     admin: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> ResourceDeleteOut:
-    """Sem reservas: apaga. Com reservas (mesmo antigas): desativa, para não perder o histórico."""
     resource = _get_or_404(db, resource_id, admin, lock=True)
-    has_reservations = db.scalar(select(exists().where(_reservations.c.resource_id == resource_id)))
-    if not has_reservations:
+    has_history = db.scalar(
+        select(
+            or_(
+                exists().where(_reservations.c.resource_id == resource_id),
+                exists().where(_waitlist.c.resource_id == resource_id),
+            )
+        )
+    )
+    if not has_history:
         try:
             db.delete(resource)
             db.commit()
@@ -202,8 +196,6 @@ def delete_resource(
             return ResourceDeleteOut(action="deleted", resource_id=resource_id)
         except IntegrityError as exc:
             db.rollback()
-            # Alguém criou uma reserva (ou entrou na fila de espera) entre a nossa verificação e o DELETE:
-            # a chave estrangeira recusa e passamos à desativação.
             if getattr(exc.orig, "sqlstate", None) != _FOREIGN_KEY_VIOLATION:
                 raise
     _deactivate(db, resource_id)
