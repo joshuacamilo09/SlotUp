@@ -18,5 +18,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("""
         DELETE FROM categories
-        WHERE name IN ('Coworking', 'Estacionamento', 'Desposto')
+        WHERE name IN ('Coworking', 'Estacionamento', 'Desporto')
     """)

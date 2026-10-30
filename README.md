@@ -2,6 +2,49 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint2`
+
+Primeira tarefa da Sprint 2 do backend: **Categorias**, dentro do `booking-service`. Também foram corrigidos dois erros encontrados na revisão das migrações.
+
+### Categorias (novo)
+
+- **Rotas** (prefixo `/api/reservas`):
+  - `GET /categorias`: qualquer usuário com login. Mostra só as categorias ativas, ordenadas por nome.
+  - `GET /categorias/{id}`: uma categoria. Se estiver desativada, só o ADMIN a vê.
+  - `POST /categorias`: só ADMIN. Cria `{name, description}`.
+  - `PATCH /categorias/{id}`: só ADMIN. Altera só os campos enviados (`name`, `description`, `is_active`).
+- **Não há `DELETE`.** Os recursos apontam para a categoria, e as reservas antigas apontam para os recursos. Apagar quebraria o histórico. Para tirar uma categoria do catálogo, o admin usa `PATCH {"is_active": false}`. Ela pode ser reativada depois.
+- **Nome único sem diferenciar maiúsculas:** "Coworking" e "coworking" contam como a mesma categoria (resposta `409`). Os espaços à volta do nome são removidos.
+- **Quem garante o nome único é o PostgreSQL, e não o código.** Com duas réplicas do booking, dois admins podiam criar o mesmo nome ao mesmo tempo: os dois fariam um `SELECT`, não encontrariam nada e os dois gravariam. Com um índice único no banco, só o primeiro `INSERT` passa. Há um teste com 8 pedidos simultâneos: 1 recebe `201` e 7 recebem `409`.
+- **Arquivos novos:** `app/models.py` (tabela `categories`), `app/schemas.py` (formato dos pedidos e respostas), `app/routers/categories.py` (as rotas) e `tests/test_categories.py`.
+
+### Migrações novas e corrigidas (booking)
+
+- `0005`: troca o nome único de `categories` por um índice sobre `lower(name)` e adiciona a coluna `updated_at`.
+- `0006`: adiciona um `CHECK` aos valores de `status` das reservas (`HELD`, `CONFIRMED`, `CANCELLED`).
+  - **Por que era importante:** a proteção contra reservas sobrepostas só vale para `status IN ('HELD', 'CONFIRMED')`. Sem o `CHECK`, um valor mal escrito como `'confirmed'` (minúsculas) escapava da proteção e permitia duas reservas no mesmo horário. Os scripts SQL antigos tinham esse `CHECK`, mas ele se perdeu na passagem para o Alembic.
+- `0004` (corrigida): o `downgrade` tinha `'Desposto'` em vez de `'Desporto'`, por isso a categoria Desporto não era apagada ao desfazer a migração. A `0004` ainda não está no `main`, por isso foi corrigida no próprio arquivo.
+
+### Como atualizar
+
+Em `infra/docker`:
+
+```bash
+docker compose up -d --build
+```
+
+O `booking-migrate` aplica a `0005` e a `0006` sozinho. Não é preciso apagar o banco.
+
+### Testes desta branch
+
+- `pytest` do booking-service: 36 testes OK (11 antigos + 25 das categorias).
+- `pytest` do auth-service: 30 testes OK.
+- Migrações testadas na ida e na volta: `alembic upgrade head`, `alembic downgrade 0004`, `alembic upgrade head`.
+
+
+## INFORMACAO ABAIXO
+*NOTA: ANTIGO (branch merge-alembic, se já leram, nn precisam ler de novo)*
+
 ## O que mudou na branch `merge-alembic`
 
 Esta branch junta a **Sprint 1 do backend** (`dev-sprint1`) com a **migração da base de dados para Alembic** (`alembic_bd`). Ela é a base para a Sprint 2 do backend. Este resumo substitui a leitura dos commits um a um.

@@ -4,13 +4,15 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import InterfaceError, OperationalError
 
-from app.routers import health, session_check
+from app.routers import categories, health, resources, session_check
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("booking")
 
 app = FastAPI(title="SlotUp · booking-service")
 app.include_router(health.router)
+app.include_router(categories.router)
+app.include_router(resources.router)
 app.include_router(session_check.router)
 
 
