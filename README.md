@@ -2,7 +2,68 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
-## O que mudou na branch `dev-sprint2`
+## O que mudou na branch `dev-sprint2-feature/recursos`
+
+Segunda tarefa da Sprint 2 do backend: **Recursos** (mesa, sala, vaga, quadra de padel…), dentro do `booking-service`, com o horário de funcionamento de cada recurso.
+
+### Rotas (prefixo `/api/reservas/recursos`)
+
+| Método e rota | Quem | Para quê |
+|---|---|---|
+| `GET /` | usuário | lista os recursos ativos de categorias ativas, por categoria e nome. `?category_id=` filtra por categoria; `?include_inactive=true` inclui os desativados (só ADMIN) |
+| `GET /{id}` | usuário | um recurso, com a categoria e o horário |
+| `POST /` | ADMIN | cria `{category_id, name, resource_type, description?, capacity?, attributes?, schedule?}` → `201` |
+| `PATCH /{id}` | ADMIN | altera só os campos enviados (inclusive mudar de categoria e `is_active`). O horário **não** muda aqui |
+| `PUT /{id}/horarios` | ADMIN | substitui o horário inteiro: `{"rules": [...]}` |
+| `DELETE /{id}` | ADMIN | apaga ou desativa (ver abaixo) |
+
+### Regras
+
+- **Nome único dentro da mesma categoria:** o mesmo nome em outra categoria é permitido. Quem garante é a restrição única do PostgreSQL, como nas categorias. Há um teste com 8 pedidos simultâneos: só um recebe `201`.
+- **Normalização:** os espaços à volta do nome são removidos e o `resource_type` é guardado em minúsculas (`" SALA "` → `"sala"`).
+- **Categoria:** se não existir, a resposta é `422`. Se estiver desativada, `409`.
+- **Recurso desativado, ou de categoria desativada:** para o usuário comum, é como se não existisse (`404` e fora da lista). O ADMIN continua a vê-lo.
+- **`DELETE`:** se o recurso **não** tem reservas nem entradas na fila de espera, é apagado de vez (`"action": "deleted"`). Se tem, é só desativado (`"action": "deactivated"`), para não quebrar o histórico.
+- **`attributes`:** campo livre em JSON para extras, como `{"tem_projetor": true}`, com no máximo 4000 caracteres.
+
+### Horário de funcionamento (tabela `availability_rules`)
+
+- **Dia da semana na convenção do Python: `0` = segunda-feira … `6` = domingo.** Atenção: no PostgreSQL, o `EXTRACT(DOW ...)` usa `0` = domingo. Quem validar reservas contra o horário tem de usar a convenção do Python.
+- **Sem horário no `POST`:** o recurso abre **todos os dias, das 08:00 às 20:00**. Com `"schedule": []`, o recurso fica sem horário, ou seja, fechado.
+- **Pode haver vários intervalos no mesmo dia** (ex.: 09:00–13:00 e 14:00–18:00), mas sem sobreposição. O máximo é de 35 intervalos.
+- **As horas são sem fuso horário** (`"09:00"`, e não `"09:00Z"`): é a hora local do complexo.
+
+### Banco de dados
+
+- **Sem migração nova.** As tabelas `resources` e `availability_rules` já existiam desde a migração `0001`. O `models.py` passou a mapeá-las, e as colunas foram conferidas contra a migração.
+- **Arquivos novos ou alterados no booking:** `app/routers/resources.py`, `app/models.py` (`Resource` e `AvailabilityRule`), `app/schemas.py`, `app/main.py` e `tests/test_resources.py`.
+- **No auth-service**, os arquivos `main.py`, `models.py` e `schemas.py` aparecem no histórico desta branch só porque perderam a quebra de linha no fim do arquivo. Não há mudança de código.
+
+### Como atualizar
+
+Em `infra/docker`:
+
+```bash
+git branch --show-current     # confirme que está na branch certa
+docker compose up -d --build  # reconstrói as imagens com o código desta branch
+```
+
+**Sempre reconstrua as imagens depois de trocar de branch.** Os contentores rodam o código da última imagem construída, e não o da pasta. O `pytest` usa o código da pasta, por isso pode passar enquanto o Swagger ainda mostra a versão antiga.
+
+### Testes desta branch
+
+- `pytest` do booking-service: **84 testes OK** (36 anteriores + 48 de recursos).
+- `pytest` do auth-service: **30 testes OK**.
+- Testes manuais no Swagger: criar, nome repetido, visão de usuário × admin, desativar e reativar, trocar o horário e apagar.
+
+### Para decidir na Sprint 3
+
+- O que acontece com as **reservas futuras** quando o admin muda o horário ou desativa um recurso: cancelar e notificar por email, ou impedir a mudança.
+- Trocar no `resources.py` a constante `HTTP_422_UNPROCESSABLE_ENTITY` pela nova `HTTP_422_UNPROCESSABLE_CONTENT`. É só o nome que mudou: o código devolvido continua sendo `422`.
+
+## INFORMAÇÃO ABAIXO
+*NOTA: ANTIGO (branches `dev-sprint2` (categorias) e `merge-alembic`; se já leram, não precisam ler de novo)*
+## O que mudou na branch `dev-sprint2-feature/categorias`
 
 Primeira tarefa da Sprint 2 do backend: **Categorias**, dentro do `booking-service`. Também foram corrigidos dois erros encontrados na revisão das migrações.
 

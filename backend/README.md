@@ -5,7 +5,7 @@ Três microserviços em Python (FastAPI). Cada um tem a sua pasta, o seu `Docker
 | Serviço | Porta | Banco | Prefixo das rotas | Faz |
 |---|---|---|---|---|
 | `auth-service` | 8001 | `auth_db` | `/api/auth` | cadastro, login em dois passos (senha + código TOTP), papéis, emissão de JWT |
-| `booking-service` | 8002 | `booking_db` | `/api/reservas` | recursos, reservas, fila de espera, notificações e worker (nesta fase só valida o token) |
+| `booking-service` | 8002 | `booking_db` | `/api/reservas` | categorias e recursos (prontos); reservas, fila de espera, notificações e worker (Sprint 3) |
 | `scheduling-service` | 8003 | nenhum | — | algoritmo CSP (nesta fase só o esqueleto). Interno: só o booking fala com ele |
 
 > Para subir o ambiente, conectar ao banco e resolver erros do Docker, veja o [`infra/docker/README.md`](../infra/docker/README.md).
@@ -34,7 +34,14 @@ backend/
 │   ├── requirements.txt       # o que vai para a imagem
 │   ├── requirements-dev.txt   # + pytest
 │   └── .env.example           # modelo da URL do Alembic para rodar sem Docker
-├── booking-service/           # mesma estrutura; security.py só valida tokens; usa BOOKING_DATABASE_URL
+├── booking-service/
+│   ├── app/
+│   │   ├── models.py          # Category, Resource, AvailabilityRule (o schema vem das migrações)
+│   │   ├── schemas.py         # formatos de pedido e resposta, validação do horário
+│   │   ├── security.py        # só valida tokens (chave pública)
+│   │   └── routers/           # health.py, session_check.py, categories.py, resources.py
+│   ├── alembic/               # mesma estrutura do auth; usa BOOKING_DATABASE_URL
+│   └── tests/                 # test_token_validation.py, test_categories.py, test_resources.py
 ├── scheduling-service/        # mesma estrutura, sem banco e sem Alembic
 └── scripts/e2e_smoke.py       # teste de ponta a ponta entre os 3 serviços
 ```
@@ -58,6 +65,21 @@ Teste de ponta a ponta:
 source ~/.venvs/slotup-e2e/bin/activate    # ambiente com httpx e pyotp (ver README da raiz)
 python ../../backend/scripts/e2e_smoke.py  # deve terminar com "Tudo certo."
 ```
+
+### Dados de exemplo (seed)
+
+Deixa os bancos sempre no mesmo ponto de partida, para a demo e os testes manuais. **Só para desenvolvimento**: só roda com `SEED_ENABLED=true` no `.env`.
+
+```bash
+docker compose exec auth python -m app.seed      # admin do .env + ana@slotup.pt, com 2FA já ativo
+docker compose exec booking python -m app.seed   # apaga reservas, fila, notificações e recursos; recria 15 recursos
+```
+
+- **Usuários:** o admin do `.env` (`ADMIN_EMAIL`) e `ana@slotup.pt` (senha `SEED_USER_PASSWORD`), os dois com o 2FA ativo e o mesmo segredo `SEED_TOTP_SECRET`. Adicione esse segredo **uma vez** no Authenticator ("Inserir chave de configuração"): ele continua valendo depois de um `down -v`.
+- **Recursos (15):** 3 mesas e 3 salas (Coworking); 1 quadra de padel, 2 personal trainers e 2 aulas de yoga (Desporto); 2 vagas de carro (uma elétrica) e 2 de moto (Estacionamento).
+- **Ids fixos:** cada recurso tem sempre o mesmo id (`uuid5` a partir do nome), por isso scripts de demo e de carga podem usar ids conhecidos.
+- **Idempotente:** pode rodar quantas vezes quiser, sem duplicar nada.
+- Depois de mudar o `seed.py`, reconstrua a imagem (`docker compose up -d --build`): o script roda dentro do contentor.
 
 ## 2. Como funciona o login
 
@@ -112,6 +134,25 @@ Daí em diante:  Authorization: Bearer <access_token>   em todos os serviços
 - Campos desconhecidos no corpo do pedido dão `422` (não são ignorados).
 
 O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `ADMIN_PASSWORD` do `.env`. Ele também tem de configurar o 2FA no primeiro login. Para dar o papel de admin a outros: `PATCH /users/{id}/role`.
+
+**Recursos** (prefixo `/api/reservas/recursos`):
+
+| Método e rota | Quem | Para quê |
+|---|---|---|
+| `GET /` | usuário | lista os recursos ativos de categorias ativas, por categoria e nome. `?category_id=` filtra; `?include_inactive=true` inclui os desativados (só ADMIN) |
+| `GET /{id}` | usuário | um recurso, com a categoria e o horário (404 se estiver desativado e quem pede não for ADMIN) |
+| `POST /` | ADMIN | cria `{category_id, name, resource_type, description?, capacity?, attributes?, schedule?}` → `201`; nome repetido na categoria → `409` |
+| `PATCH /{id}` | ADMIN | altera só os campos enviados; o horário não muda aqui |
+| `PUT /{id}/horarios` | ADMIN | substitui o horário inteiro (`{"rules": []}` deixa o recurso fechado) |
+| `DELETE /{id}` | ADMIN | sem reservas nem fila de espera → apaga (`"deleted"`); com histórico → desativa (`"deactivated"`) |
+
+**Recursos, regras:**
+
+- Nome único **dentro da categoria**, garantido pela restrição `resources_category_id_name_key` do PostgreSQL. O `resource_type` é guardado em minúsculas, e os espaços à volta do nome são removidos.
+- Categoria inexistente → `422`; categoria desativada → `409`.
+- **Horário (`availability_rules`):** `weekday` de `0` (segunda) a `6` (domingo), na convenção do Python, e **não** na do `EXTRACT(DOW)` do PostgreSQL. Sem `schedule` no `POST`, o recurso abre todos os dias das 08:00 às 20:00. Aceita vários intervalos por dia, sem sobreposição, até 35 no total, com horas sem fuso horário.
+- O `PUT /{id}/horarios` bloqueia a linha do recurso (`SELECT ... FOR UPDATE`) para dois admins não trocarem o horário ao mesmo tempo.
+- Campos desconhecidos no corpo do pedido dão `422`.
 
 ## 3. Decisões de segurança (para o relatório da UC de Segurança)
 

@@ -49,6 +49,9 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-Administrador}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SEED_ENABLED: ${SEED_ENABLED:-false}
+      SEED_TOTP_SECRET: ${SEED_TOTP_SECRET:-}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
     secrets:
       - jwt_private_key
       - jwt_public_key
@@ -87,6 +90,7 @@ services:
       DB_USER: booking_user
       DB_PASSWORD: ${BOOKING_DB_PASSWORD}
       SCHEDULING_URL: http://scheduling:8003
+      SEED_ENABLED: ${SEED_ENABLED:-false}
     secrets:
       - jwt_public_key # só a pública: o booking valida tokens mas não os consegue criar
     ports:
