@@ -2,7 +2,7 @@
 import json
 import uuid
 from collections import defaultdict
-from datetime import datetime, time
+from datetime import date, datetime, time
 from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
@@ -192,3 +192,20 @@ class ResourceDeleteOut(BaseModel):
 
     action: Literal["deleted", "deactivated"]
     resource_id: uuid.UUID
+
+# --------------------------------------------------------------------------- disponibilidade
+class TimeInterval(BaseModel):
+    """Um intervalo de tempo, com fuso horário (ex.: 2026-11-09T08:00:00+00:00)."""
+
+    start: datetime
+    end: datetime
+
+class AvailabilityOut(BaseModel):
+    """Resposta de GET /recursos/{id}/disponibilidade"""
+
+    resource_id: uuid.UUID
+    day: date
+    timezone: str
+    opening: list[TimeInterval]
+    busy: list[TimeInterval]
+    free: list[TimeInterval]

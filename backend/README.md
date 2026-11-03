@@ -145,6 +145,7 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 | `PATCH /{id}` | ADMIN | altera só os campos enviados; o horário não muda aqui |
 | `PUT /{id}/horarios` | ADMIN | substitui o horário inteiro (`{"rules": []}` deixa o recurso fechado) |
 | `DELETE /{id}` | ADMIN | sem reservas nem fila de espera → apaga (`"deleted"`); com histórico → desativa (`"deactivated"`) |
+| `GET /{id}/disponibilidade?day=AAAA-MM-DD` | usuário | horários de abertura, ocupados e livres do recurso nesse dia (hora local, `Europe/Lisbon`) |
 
 **Recursos, regras:**
 
@@ -153,6 +154,7 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 - **Horário (`availability_rules`):** `weekday` de `0` (segunda) a `6` (domingo), na convenção do Python, e **não** na do `EXTRACT(DOW)` do PostgreSQL. Sem `schedule` no `POST`, o recurso abre todos os dias das 08:00 às 20:00. Aceita vários intervalos por dia, sem sobreposição, até 35 no total, com horas sem fuso horário.
 - O `PUT /{id}/horarios` bloqueia a linha do recurso (`SELECT ... FOR UPDATE`) para dois admins não trocarem o horário ao mesmo tempo.
 - Campos desconhecidos no corpo do pedido dão `422`.
+- **Disponibilidade:** o ocupado são as reservas `HELD` e `CONFIRMED`, os mesmos estados que a constraint `reservations_no_overlap` bloqueia, e mostra só o horário, nunca quem reservou. O livre são intervalos contínuos (abertura menos ocupado menos as horas que já passaram). O fuso vem de `LOCAL_TIMEZONE` (padrão `Europe/Lisbon`): o horário de funcionamento está em hora local, e o banco guarda as reservas em UTC.
 
 ## 3. Decisões de segurança (para o relatório da UC de Segurança)
 

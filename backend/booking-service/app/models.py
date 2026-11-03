@@ -81,3 +81,29 @@ class Resource(Base):
     @property
     def schedule(self) -> list[AvailabilityRule]:
         return self.rules
+
+class Reservation(Base):
+    """Tabela `reservations` (migrações 0002 e 0006).
+
+    O banco guarda start_at e end_at em UTC (timestamptz). Quem impede reservas
+    sobrepostas é a constraint reservations_no_overlap, que só vale para os
+    estados HELD e CONFIRMED.
+    """
+
+    __tablename__ = "reservations"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=func.gen_random_uuid())
+    # O id e o email vêm do token JWT: o booking não consulta o auth
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    user_email: Mapped[str] = mapped_column(String(255))
+    resource_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("resources.id"))
+    start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(10), server_default="CONFIRMED")
+    hold_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -17,3 +17,6 @@ cryptography==50.0.2
 
 # Cliente HTTP para falar com o scheduling-service (CSP)
 httpx==0.28.1
+
+# Base de dados de fusos horários (o zoneinfo do Python usa-a quando o sistema não tem)
+tzdata==2025.2

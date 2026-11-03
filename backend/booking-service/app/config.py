@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # Chamado mais tarde pelo fluxo de reservas (Sprint 3)
     scheduling_url: str = "http://scheduling:8003"
 
+    # Fuso horário do complexo. O horário de funcionamento (availability_rules) está
+    # em hora local, enquanto o banco guarda as reservas em UTC (timestamptz).
+    local_timezone: str = "Europe/Lisbon"
+
     @property
     def database_url(self) -> URL:
         return URL.create(
