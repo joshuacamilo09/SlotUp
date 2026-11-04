@@ -225,7 +225,7 @@ class ReservationCreate(BaseModel):
     start_at: datetime
     end_at: datetime
 
-    @model_validator(model="after")
+    @model_validator(mode="after")
     def _end_after_start(self) -> "ReservationCreate":
         if (self.start_at.tzinfo is None) != (self.end_at.tzinfo is None):
             raise ValueError("start_at e end_at têm de vir os dois com fuso, ou os dois sem fuso")

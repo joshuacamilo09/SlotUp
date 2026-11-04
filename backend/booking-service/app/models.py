@@ -107,3 +107,28 @@ class Reservation(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+class Notification(Base):
+    """Tabela `notifications` (migração 0003): outbox de emails.
+
+    A rota grava aqui o pedido de email NA MESMA transação da reserva: se a reserva
+    for gravada, o email também fica pendente; se falhar, nenhum dos dois fica.
+    Quem envia é o worker do booking (SMTP), que ainda não existe.
+    """
+
+    __tablename__ = "notifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=func.gen_random_uuid())
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    recipient_email: Mapped[str] = mapped_column(String(255))
+    # RESERVATION_CREATED, RESERVATION_CANCELLED, WAITLIST_JOINED, WAITLIST_OFFERED
+    type: Mapped[str] = mapped_column(String(30))
+    reservation_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("reservations.id"), nullable=True)
+    waitlist_entry_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    payload: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb")) # dados para montar o email
+    status: Mapped[str] = mapped_column(String(10), server_default="PENDING") # PENDING, SENT, FAILED
+    attempts: Mapped[int] = mapped_column(Integer, server_default="0")
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

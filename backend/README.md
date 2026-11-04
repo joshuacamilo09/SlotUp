@@ -156,6 +156,22 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 - Campos desconhecidos no corpo do pedido dão `422`.
 - **Disponibilidade:** o ocupado são as reservas `HELD` e `CONFIRMED`, os mesmos estados que a constraint `reservations_no_overlap` bloqueia, e mostra só o horário, nunca quem reservou. O livre são intervalos contínuos (abertura menos ocupado menos as horas que já passaram). O fuso vem de `LOCAL_TIMEZONE` (padrão `Europe/Lisbon`): o horário de funcionamento está em hora local, e o banco guarda as reservas em UTC.
 
+**Reservas** (prefixo `/api/reservas/reservas`):
+
+| Método e rota | Quem | Para quê |
+|---|---|---|
+| `POST /` | usuário (e ADMIN) | reserva `{resource_id, start_at, end_at}` em nome próprio → `201`; horário ocupado → `409` |
+
+**Reservas, regras:**
+
+- **O id e o email vêm do token**, nunca do corpo do pedido (campos extra, como `user_id` ou `status`, dão `422`).
+- A reserva nasce `CONFIRMED`. O estado `HELD` fica para a fila de espera.
+- **Horário:** tem de caber inteiro num intervalo de abertura do recurso; não pode começar no passado nem a mais de **30 dias**; usa horas múltiplas de **15 minutos** (mínimo 15 min). Horas sem fuso (`2026-11-09T10:00`) valem como hora local do complexo.
+- O recurso tem de estar ativo, e a categoria também (`404` caso contrário, até para o ADMIN).
+- **Quem impede duas reservas no mesmo horário é o PostgreSQL** (constraint `reservations_no_overlap`), e não um `SELECT` antes do `INSERT`. Com várias réplicas do booking, só o primeiro `INSERT` passa. Há um teste com 8 pedidos simultâneos: 1 recebe `201` e 7 recebem `409`.
+- **Email (outbox):** na mesma transação, grava um pedido `RESERVATION_CREATED` na tabela `notifications`. Se a reserva for gravada, o email fica pendente; se falhar, nenhum dos dois fica. O envio por SMTP fica a cargo do worker (ainda não implementado).
+- Todos os recursos são exclusivos: uma reserva ocupa o recurso inteiro. Recursos com vários lugares (ex.: aulas) ficam para a 3.ª entrega.
+
 ## 3. Decisões de segurança (para o relatório da UC de Segurança)
 
 | Tema | O que fizemos | Onde |
