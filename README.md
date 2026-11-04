@@ -2,8 +2,103 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint3`
+
+Primeiras tarefas da Sprint 3 do backend: **dados de exemplo**, **consultar disponibilidade**, **criar reserva**, **evitar reservas duplicadas** e o **teste de concorrência**. Tudo no `booking-service`, menos o seed dos usuários, que fica no `auth-service`.
+
+### Decisões desta sprint
+
+- **Aulas de yoga saem por agora.** A regra de "vários lugares no mesmo horário" fica para a 3.ª entrega, se o grupo mantiver as aulas. **Todos os recursos são exclusivos**: uma reserva ocupa o recurso inteiro.
+- A reserva nasce **`CONFIRMED`**. O estado `HELD` fica para a fila de espera.
+- O pedido de email é gravado na tabela `notifications` **na mesma transação** da reserva (padrão outbox).
+- **Regras de horário:** a reserva cabe inteira num intervalo de abertura do recurso, não começa no passado nem a mais de **30 dias**, e usa horas múltiplas de **15 minutos** (mínimo 15 min).
+- O mesmo usuário **pode** ter reservas simultâneas em recursos diferentes. As regras por usuário (ex.: 1 vaga de estacionamento por dia) ficam para o CSP, na 3.ª entrega.
+- **Horas sem fuso** (`2026-11-09T10:00`) valem como hora local do complexo (`Europe/Lisbon`).
+
+### Dados de exemplo (seed)
+
+```bash
+docker compose exec auth python -m app.seed      # admin do .env + ana@slotup.pt, com 2FA já ativo
+docker compose exec booking python -m app.seed   # apaga reservas, fila, notificações e recursos; recria 13 recursos
+```
+
+- **Usuários:** o admin do `.env` e `ana@slotup.pt` (senha `SEED_USER_PASSWORD`), os dois com o 2FA ativo e o mesmo segredo `SEED_TOTP_SECRET`. Adicione o segredo **uma vez** no Authenticator ("Inserir chave de configuração"). Ele continua valendo depois de um `down -v`.
+- **Recursos (13):** 3 mesas e 3 salas (Coworking); 1 quadra de padel e 2 personal trainers (Desporto); 2 vagas de carro (uma elétrica) e 2 de moto (Estacionamento).
+- **Ids fixos:** cada recurso tem sempre o mesmo id (`uuid5` a partir do nome), por isso scripts de demo podem usar ids conhecidos.
+- **Idempotente:** pode rodar quantas vezes quiser, sem duplicar nada. **Só roda com `SEED_ENABLED=true`**, que nunca deve existir fora do desenvolvimento.
+
+### Consultar disponibilidade
+
+`GET /api/reservas/recursos/{id}/disponibilidade?day=AAAA-MM-DD` devolve três listas para o dia: `opening` (quando o recurso abre), `busy` (o que já está reservado) e `free` (o que está livre).
+
+- O ocupado são as reservas `HELD` e `CONFIRMED`, os mesmos estados que o banco bloqueia. Então, um horário que aparece livre é um horário que o banco aceita.
+- O ocupado mostra **só o horário**, nunca quem reservou. As horas que já passaram nunca aparecem como livres.
+- O fuso vem de `LOCAL_TIMEZONE` (padrão `Europe/Lisbon`). O horário de funcionamento está em hora local, e o banco guarda as reservas em UTC. Entrou o pacote `tzdata` no `requirements.txt`, para o contentor conhecer os fusos.
+
+### Criar reserva
+
+`POST /api/reservas/reservas` com `{resource_id, start_at, end_at}` → `201`. Horário já ocupado → `409`.
+
+- **O id e o email vêm do token (JWT)**, nunca do corpo do pedido. Campos extra, como `user_id` ou `status`, dão `422`.
+- O recurso e a categoria têm de estar ativos (`404` caso contrário, até para o ADMIN).
+- **Sem migração nova:** as tabelas `reservations` e `notifications` já existiam (migrações `0002` e `0003`). O `models.py` ganhou os modelos `Reservation` e `Notification`.
+
+### Evitar reservas duplicadas
+
+**Quem decide é o PostgreSQL**, e não o código. Por isso, o resultado é o mesmo com uma ou com várias réplicas do booking.
+
+| Peça | Onde |
+|---|---|
+| Extensão `btree_gist` | migração `0001` do booking |
+| Constraint de exclusão `reservations_no_overlap` (mesmo recurso + intervalos sobrepostos, para `HELD` e `CONFIRMED`) | migração `0002` |
+| `CHECK` nos valores de `status`, para nenhum valor escapar da constraint | migração `0006` |
+| A rota faz o `INSERT` direto, **sem `SELECT` antes**, e trata a violação como `409` | `app/routers/reservations.py` |
+
+### Teste de concorrência (demo)
+
+O script `backend/scripts/demo_concorrencia.py` faz login real, com 2FA, com a Ana e o admin, escolhe o primeiro horário livre da **Sala de Reunião B** e dispara vários pedidos **ao mesmo tempo**. O resultado tem de ser sempre **um `201` e o resto `409`**.
+
+```bash
+source ~/.venvs/slotup-e2e/bin/activate
+set -a; source .env; set +a                                  # em infra/docker
+DEMO_REQUESTS=2 python ../../backend/scripts/demo_concorrencia.py   # duas pessoas, um vencedor
+python ../../backend/scripts/demo_concorrencia.py                   # 10 pedidos, continua só um
+```
+
+Depois do Nginx, é só apontar para ele: `BOOKING_URL=http://localhost:8080 python ...`.
+
+### Como atualizar
+
+1. **Acrescente ao seu `infra/docker/.env`** as linhas novas do `.env.example` (`SEED_ENABLED`, `SEED_TOTP_SECRET`, `SEED_USER_PASSWORD`). Gere o segredo com:
+   `docker compose exec auth python -c "import pyotp; print(pyotp.random_base32())"`
+2. Reconstrua e semeie, em `infra/docker`:
+
+```bash
+docker compose up -d --build
+docker compose exec auth python -m app.seed
+docker compose exec booking python -m app.seed
+```
+
+3. Para rodar os testes na sua máquina, reinstale as dependências do booking (entrou o `tzdata`): `pip install -r requirements-dev.txt`.
+
+### Testes desta branch
+
+- `pytest` do booking-service: **120 testes OK** (84 anteriores + 15 de disponibilidade + 21 de reservas), inclusive 8 pedidos simultâneos com só um vencedor.
+- `pytest` do auth-service: **30 testes OK**.
+- Demo de concorrência: 1 de 2 e 1 de 10 pedidos aceitos.
+
+### Pendências e decisões em aberto
+
+- **Aulas com vários lugares:** 3.ª entrega, se o grupo mantiver as aulas.
+- **Reservas futuras** quando o admin muda o horário ou desativa um recurso: cancelar e notificar, ou impedir a mudança (continua em aberto desde a Sprint 2).
+- **`HELD` expirado** continua a ocupar o horário até existir o job que o expira.
+- **Estacionamento à noite:** as vagas fecham às 23:59 e as horas são múltiplas de 15 min, por isso a última reserva acaba às 23:45, e nenhuma reserva atravessa a meia-noite.
+- **Worker de email (SMTP):** os pedidos ficam `PENDING` na tabela `notifications` até o worker existir.
+
 ## O que mudou na branch `dev-sprint2-feature/recursos`
 
+## INFORMAÇÃO ABAIXO
+*NOTA: ANTIGO (branches `dev-sprint2-feature/recursos`, `dev-sprint2-feature/categorias` e `merge-alembic`; se já leram, não precisam ler de novo)*
 Segunda tarefa da Sprint 2 do backend: **Recursos** (mesa, sala, vaga, quadra de padel…), dentro do `booking-service`, com o horário de funcionamento de cada recurso.
 
 ### Rotas (prefixo `/api/reservas/recursos`)
