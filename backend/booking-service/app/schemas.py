@@ -209,3 +209,37 @@ class AvailabilityOut(BaseModel):
     opening: list[TimeInterval]
     busy: list[TimeInterval]
     free: list[TimeInterval]
+
+# --------------------------------------------------------------------------- reservas
+class ReservationCreate(BaseModel):
+    """POST /reservas. O id e o email do usuário NÃO vêm aqui: vêm do token (JWT).
+
+    start_at e end_at aceitam hora com fuso (2026-11-09T10:00:00+00:00) ou sem fuso
+    (2026-11-09T10:00). Sem fuso, valem como hora local do complexo: quem trata
+    disso é a rota, porque é lá que se conhece o fuso (LOCAL_TIMEZONE).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    resource_id: uuid.UUID
+    start_at: datetime
+    end_at: datetime
+
+    @model_validator(model="after")
+    def _end_after_start(self) -> "ReservationCreate":
+        if (self.start_at.tzinfo is None) != (self.end_at.tzinfo is None):
+            raise ValueError("start_at e end_at têm de vir os dois com fuso, ou os dois sem fuso")
+        if self.end_at <= self.start_at:
+            raise ValueError("end_at tem de ser depois de start_at")
+        return self
+
+class ReservationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    resource_id: uuid.UUID
+    user_email: str
+    start_at: datetime
+    end_at: datetime
+    status: str
+    created_at: datetime

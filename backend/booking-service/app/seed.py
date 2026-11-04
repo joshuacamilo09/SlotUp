@@ -41,9 +41,6 @@ RESOURCES = [
     ("Desporto", "Quadra de Padel 1", "quadra", 4, {"coberta": True}, schedule(TODOS_OS_DIAS, time(7), time(22))),
     ("Desporto", "Personal Trainer 1", "personal", 1, {}, schedule(SEG_A_SAB, time(7), time(21))),
     ("Desporto", "Personal Trainer 2", "personal", 1, {}, schedule(SEG_A_SAB, time(7), time(21))),
-    # Aulas: só abrem nos horários da aula (capacidade com várias pessoas: ver tarefa "Criar reserva")
-    ("Desporto", "Yoga Manhã", "aula", 15, {}, schedule((0, 2, 4), time(7), time(8))),          # seg, qua, sex
-    ("Desporto", "Yoga Fim de Tarde", "aula", 15, {}, schedule((1, 3), time(18, 30), time(19, 30))),  # ter, qui
     # --- Estacionamento: abertas o dia todo (23:59 porque o fecho tem de ser depois da abertura)
     ("Estacionamento", "Vaga Carro 1", "vaga_carro", 1, {"eletrico": False}, schedule(TODOS_OS_DIAS, time(0), time(23, 59))),
     ("Estacionamento", "Vaga Carro 2", "vaga_carro", 1, {"eletrico": True}, schedule(TODOS_OS_DIAS, time(0), time(23, 59))),

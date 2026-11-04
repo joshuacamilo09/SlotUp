@@ -76,7 +76,7 @@ docker compose exec booking python -m app.seed   # apaga reservas, fila, notific
 ```
 
 - **Usuários:** o admin do `.env` (`ADMIN_EMAIL`) e `ana@slotup.pt` (senha `SEED_USER_PASSWORD`), os dois com o 2FA ativo e o mesmo segredo `SEED_TOTP_SECRET`. Adicione esse segredo **uma vez** no Authenticator ("Inserir chave de configuração"): ele continua valendo depois de um `down -v`.
-- **Recursos (15):** 3 mesas e 3 salas (Coworking); 1 quadra de padel, 2 personal trainers e 2 aulas de yoga (Desporto); 2 vagas de carro (uma elétrica) e 2 de moto (Estacionamento).
+- **Recursos (13):** 3 mesas e 3 salas (Coworking); 1 quadra de padel e 2 personal trainers (Desporto); 2 vagas de carro (uma elétrica) e 2 de moto (Estacionamento). As aulas de yoga ficam para a 3.ª entrega.
 - **Ids fixos:** cada recurso tem sempre o mesmo id (`uuid5` a partir do nome), por isso scripts de demo e de carga podem usar ids conhecidos.
 - **Idempotente:** pode rodar quantas vezes quiser, sem duplicar nada.
 - Depois de mudar o `seed.py`, reconstrua a imagem (`docker compose up -d --build`): o script roda dentro do contentor.
