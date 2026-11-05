@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt">
+    <head>
+        <meta charset="UTF-8">
+        <!-- Faz a página se adaptar à largura da tela -->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>SlotUp · Início</title>
+        <!-- Fontes do design: Plus Jakarta Sans (texto) e IBM Plex Mono (horários) -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+        <!-- Ícones: cada ícone é escrito pelo nome, ex.: <span class="icone">desk</span> -->
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+
+        <link rel="stylesheet" href="css/style.css">
+    </head>
+
+    <body>
+        <header class="topbar">
+            <a href="index.html" class="logo">
+            <!-- Logo em SVG: cápsula com um ponto (herda a cor primária) -->
+            <svg width="17" height="28" viewBox="0 0 24 40" aria-hidden="true">
+                <rect x="2" y="2" width="20" height="36" rx="10" fill="none" stroke="currentColor" stroke-width="4"/>
+                <circle cx="12" cy="12" r="5.5" fill="currentColor"/>
+            </svg>
+            SlotUp
+            </a>
+
+            <nav class="nav">
+                <!-- "ativo" marca a página atual -->
+                <a href="index.html" class="nav-link ativo">Início</a>
+                <a href="reservas.html" class="nav-link">
+                    Minhas reservas
+                    <!-- No design, o número é a quantidade de filas de espera do utilizador -->
+                    <span class="badge" id="badge-fila">1</span>
+                </a>
+            </nav>
+
+            <div class="topbar-direita">
+                <!-- Alternar a visão Utilizador/Admin -->
+                <div class="seletor-papel" title="Ver como">
+                    <button class="papel ativo">Utilizador</button>
+                    <button class="papel">Admin</button>
+                </div>
+
+                <!-- Avatar com iniciais + setinha -->
+                <button class="avatar" title="Perfil">
+                    <span class="avatar-circulo" id="avatar-iniciais">MS</span>
+                    <span class="icone">expand_more</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- ===== CONTEÚDO ===== -->
+        <main class="conteudo">
+            <section id="banner-vaga">
+                <div class="banner">
+                    <!-- Anel do contador: o JS vai diminuindo a parte laranja -->
+                    <div class="banner-anel" id="vaga-anel">
+                        <div class="banner-tempo" id="vaga-tempo">5:00</div>
+                    </div>
+
+                    <div class="banner-texto">
+                        <div class="banner-titulo">
+                            Abriu uma vaga para si: <span id="vaga-nome">Personal trainer · Rui</span>,
+                            <span id="vaga-quando">sex, 23 out 08:00-09:00</span>
+                        </div>
+                        <div class="banner-sub">Está guardada até o tempo acabar. Depois passa para o próximo na fila.</div>
+                    </div>
+
+                    <div class="banner-acoes">
+                        <button class="botao botao-secundario" id="vaga-recusar">Recusar</button>
+                        <button class="botao botao-primario" id="vaga-confirmar">Confirmar vaga</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="saudacao"></section>
+                <h1 id="saudacao-titulo">Olá</h1>
+                <p id="saudacao-data"></p>
+            <section class="categorias" id="lista-categorias"></section>
+
+            <div class="grelha-inferior">
+                <section class="painel painel-reservas">
+                    <div class="painel-cabecalho">
+                        <h2>Próximas reservas</h2>
+                        <a href="reservas.html" class="link">Ver todas</a>
+                    </div>
+                    <div id="lista-reservas"></div>
+                </section>
+
+                <section class="painel painel-fila">
+                    <div class="painel-cabecalho">
+                        <h2>Fila de espera</h2>
+                    </div>
+                    <div id="lista-fila"></div>
+                </section>
+            </div>
+        </main>
+
+        <script src="js/home.js"></script>
+    </body>
+</html>

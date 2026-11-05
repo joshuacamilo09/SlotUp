@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SlotUp</title>
+  <script src="api.js"></script>
+  <script>
+    // Ponto de entrada: encaminha conforme haja sessão ou não.
+    location.replace(Auth.getToken() ? "resources.html" : "login.html");
+  </script>
+</head>
+<body></body>
+</html>

@@ -1,0 +1,247 @@
+body.auth {
+  --auth-green: #37776d;
+  --auth-green-dark: #2d645b;
+  --auth-link: #2f6e63;
+  --auth-ink: #14181f;
+  --auth-muted: #5d6675;
+  --auth-line: #dadde2;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #fff;
+  color: var(--auth-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ----------- Marca ---------- */
+body.auth .auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-decoration: nome;
+  color: var(--auth-ink);
+}
+body.auth .auth-brand svg { height: 32px; width: auto; flex: none; }
+body.auth .auth-brand.on-dark { color: #fff; }
+
+/* ---------- Tipografia dos formulários ---------- */
+body .auth  .auth-title {
+  margin: 0 0 4px;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  }
+body.auth .auth-lead {
+  margin: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 400;
+  color: var(--auth-muted);
+  text-align: left;
+}
+
+/* ----------- Campos ----------- */
+body.auth .field { margin-bottom: 20px; }
+body.auth label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--auth-ink);
+  }
+body.auth .field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  }
+body.auth .field-head label { margin: 0; }
+body.auth .field-head a { font-size: 14px; line-height: 18px; }
+
+body.auth input {
+  width: 100%;
+  height: 46px;
+  padding: 0 15px;
+  border: 1px solid var(--auth-line);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 16px;
+  background: #fff;
+  color: var(--auth-ink);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+body.auth input::placeholder { color: #7b828e; }
+body.auth input:focus {
+  outline: none;
+  border-color: var(--auth-green);
+  box-shadow: 0 0 0 3px rgba(55, 119, 109, 0.18);
+}
+body.auth .code-input {
+  text-align: center;
+  font-size: 1.6rem;
+  letter-spacing: 0.4em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------- Botão e ligações ---------- */
+body.auth .btn {
+  height: 48px;
+  border-radius: 12px;
+  background: var(--auth-green);
+  font-size: 16px;
+  font-weight: 600;
+  }
+body.auth .btn:hover { filter: none; background: var(--auth-green-dark); }
+body.auth .btn.block { margin-top: 0; }
+
+body.auth a {
+  color: var(--auth-link);
+  font-weight: 600;
+  text-decoration: none;
+  }
+body.auth a:hover { text-decoration: underline; }
+body.auth a:focus-visible,
+body.auth .btn:focus-visible {
+  outline: 2px solid var(--auth-green);
+  outline-offset: 2px;
+  border-radius: 6px;
+  }
+
+body.auth .auth-alt {
+  margin: 20px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  }
+body.auth .auth-footer {
+  margin: 18px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid #e6e8ec;
+  text-align: center;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--auth-muted);
+}
+body.auth .link-row {
+  margin: 20px 0 0;
+  font-size: 15px;
+  line-height: 20px;
+  text-align: center;
+  color: var(--auth-muted);
+  }
+body.auth .alert { border-radius: 10px; margin-top: 14px; }
+
+/* =====================================================================
+   LOGIN – ecrã dividido 50 / 50
+   ===================================================================== */
+body.auth .split {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  }
+
+  /* Painel Verde */
+  body.auth .split-hero {
+    background: var(--auth-green);
+    color: #fff;
+    padding: 54px 54px 56px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    }
+body.auth .hero-title {
+  margin: 0 0 26px;
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.054em;
+  white-space: nowrap; /* as quebras de linha são feitas com <br> */
+}
+body.auth .hero-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+body.auth .hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  font-size: 15px;
+  font-weight: 500;
+}
+body.auth .hero-chip svg { width: 16px; height: 16px; flex: none; }
+
+/* Painel do formulário */
+body.auth .split-form {
+  display: grid;
+  place-items: center;
+  padding: 40px 24px;
+}
+body.auth .form-box { width: 100%; max-width: 380px; }
+
+/* =====================================================================
+   REGISTO – cartão centrado
+   ===================================================================== */
+body.auth.auth-center { background: var(--bg); }
+body.auth .center-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  }
+body.auth .center-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 36px;
+  box-shadow: 0 1px 2px rgba(20, 24, 31, 0.04), 0 8px 32px rgba(20, 24, 31, 0.05);
+}
+body.auth .card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  }
+body.auth .step-label { font-size: 14px; font-weight: 600; color: var(--auth-muted); }
+body.auth .center-card p { margin-top: 0; }
+body.auth .center-card .hint { font-size: 0.88rem; color: var(--auth-muted); margin: 0; }
+body.auth .qr-box { border-radius: 14px; }
+body.auth .secret { border-radius: 8px; margin: 6px 0 18px; }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 880px) {
+  body.auth .split { grid-template-columns: 1fr; }
+  body.auth .split-hero { padding: 24px; }
+  body.auth .hero-title,
+  body.auth .hero-chips { display: none; }
+  body.auth .split-form { align-items: start; padding-top: 32px; }
+}
+@media (max-width: 480px) {
+  body.auth .center-card { padding: 28px 22px 24px; border-radius: 20px; }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+  
+
+  
+

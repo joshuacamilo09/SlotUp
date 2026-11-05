@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Criar conta – SlotUp</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="card auth-card">
+      <span class="brand">Slot<span>Up</span></span>
+
+      <!-- Passo 1: dados da conta -->
+      <form id="register-form">
+        <p class="subtitle">Cria a tua conta</p>
+        <label for="nome">Nome</label>
+        <input id="nome" autocomplete="name" required>
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="username" required>
+        <label for="password">Palavra-passe</label>
+        <input id="password" type="password" autocomplete="new-password" minlength="8" required>
+        <label for="password2">Repetir palavra-passe</label>
+        <input id="password2" type="password" autocomplete="new-password" minlength="8" required>
+        <button class="btn block" type="submit" id="register-btn">Criar conta</button>
+        <div id="register-alert" class="alert hidden" role="alert"></div>
+        <p class="link-row">Já tens conta? <a href="login.html">Entrar</a></p>
+      </form>
+
+      <!-- Passo 2: configurar 2FA -->
+      <form id="setup-form" class="hidden">
+        <p class="subtitle">Configura a autenticação de dois fatores</p>
+        <p>Lê o código QR com uma app de autenticação (Google Authenticator, Authy, ...) e introduz o código de 6 dígitos que aparece.</p>
+        <div class="qr-box"><div id="qr"></div></div>
+        <p style="font-size:0.85rem;color:var(--muted);margin:0">Não consegues ler o QR? Introduz esta chave manualmente:</p>
+        <p class="secret" id="secret"></p>
+        <label for="code">Código de 6 dígitos</label>
+        <input id="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>
+        <button class="btn block" type="submit" id="setup-btn">Confirmar e entrar</button>
+        <div id="setup-alert" class="alert hidden" role="alert"></div>
+      </form>
+    </div>
+  </div>
+
+  <script src="api.js"></script>
+  <script src="mock.js"></script>
+  <script>
+    const registerForm = document.getElementById("register-form");
+    const setupForm = document.getElementById("setup-form");
+    const registerAlert = document.getElementById("register-alert");
+    const setupAlert = document.getElementById("setup-alert");
+    let tempToken = null;
+
+    registerForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideAlert(registerAlert);
+      const pw = document.getElementById("password").value;
+      if (pw !== document.getElementById("password2").value) {
+        showAlert(registerAlert, "As palavras-passe não coincidem.");
+        return;
+      }
+      const btn = document.getElementById("register-btn");
+      btn.disabled = true;
+      try {
+        const res = await api.register(
+          document.getElementById("nome").value.trim(),
+          document.getElementById("email").value.trim(),
+          pw
+        );
+        tempToken = res.temp_token;
+        document.getElementById("secret").textContent = res.totp_secret;
+        const qrEl = document.getElementById("qr");
+        qrEl.innerHTML = "";
+        if (window.QRCode) {
+          new QRCode(qrEl, { text: res.totp_uri, width: 180, height: 180 });
+        } else {
+          qrEl.textContent = "(QR indisponível – usa a chave abaixo)";
+        }
+        registerForm.classList.add("hidden");
+        setupForm.classList.remove("hidden");
+        document.getElementById("code").focus();
+      } catch (err) {
+        showAlert(registerAlert, err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    setupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideAlert(setupAlert);
+      const btn = document.getElementById("setup-btn");
+      btn.disabled = true;
+      try {
+        const res = await api.verify2fa(tempToken, document.getElementById("code").value.trim());
+        Auth.setSession(res.access_token, res.user);
+        location.href = "resources.html";
+      } catch (err) {
+        showAlert(setupAlert, err.message);
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
