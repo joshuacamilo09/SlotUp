@@ -2,17 +2,6 @@
 // Sem sessão, vai para o login. Com sessão, devolve { name, email, role, ... } guardado no login.
 const utilizador = requireAuth();
 
-// Iniciais do avatar: primeira letra do primeiro e do último nome ("Marta Sousa" → "MS")
-const partes = (utilizador?.name ?? "").trim().split(/\s+/);   // ?. e ?? evitam erro se faltar o nome
-const iniciais = (partes[0]?.[0] ?? "") + (partes.length > 1 ? partes.at(-1)[0] : "");
-document.getElementById("avatar-iniciais").textContent = iniciais.toUpperCase();
-
-// O seletor Utilizador/Admin só aparece para administradores
-if (utilizador?.role !== "ADMIN") document.querySelector(".seletor-papel").hidden = true;
-
-// Provisório até existir o menu do perfil: clicar no avatar termina a sessão
-document.querySelector(".avatar").addEventListener("click", Auth.logout);
-
 // ===== BANNER DA VAGA (dados fictícios por enquanto) =====
 
 // Tempo que a vaga fica guardada, em segundos.

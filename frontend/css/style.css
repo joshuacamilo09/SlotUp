@@ -105,13 +105,6 @@ button { font: inherit; color: inherit; cursor: pointer; border: none; backgroun
 }
 
 .topbar-direita { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-.seletor-papel {
-    display: flex; padding: 3px;
-    border-radius: var(--raio-pequeno); background: var(--cor-chip);
-    font-size: 12px; font-weight: 700;
-}
-.papel { padding: 5px 10px; border-radius: calc(var(--raio-pequeno) - 2px); color: var(--cor-texto-suave); }
-.papel.ativo { background: var(--cor-superficie); color: var(--cor-texto); }
 
 .avatar { display: flex; align-items: center; gap: 4px; padding: 2px; border-radius: 999px; }
 .avatar:hover { background: var(--cor-chip); }
@@ -121,6 +114,38 @@ button { font: inherit; color: inherit; cursor: pointer; border: none; backgroun
     background: var(--cor-chip); font-size: 12px; font-weight: 800;
 }
 .avatar .icone { font-size: 18px; color: var(--cor-texto-suave); }
+
+/* ===== MENU DO PERFIL ===== */
+.perfil { position: relative; }   /* o menu posiciona-se em relação a este bloco */
+.menu-perfil {
+    position: absolute; right: 0; top: 46px; z-index: 31;
+    width: 260px; padding: 6px;
+    display: flex; flex-direction: column;
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda); border-radius: var(--raio-botao);
+    box-shadow: 0 16px 40px rgba(20, 22, 31, .16);
+}
+.menu-perfil-topo {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 10px 12px; margin-bottom: 6px;
+    border-bottom: 1px solid var(--cor-borda);
+}
+.menu-perfil-topo .avatar-circulo { width: 38px; height: 38px; font-size: 13px; flex: none; }
+.menu-perfil-dados { min-width: 0; }   /* deixa o email encolher com "..." */
+.menu-perfil-nome { font-size: 14px; font-weight: 800; }
+.menu-perfil-email {
+    font-size: 12px; color: var(--cor-texto-suave);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;   /* email longo vira "marta.sou..." */
+}
+.menu-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px; border-radius: var(--raio-pequeno);
+    font-size: 14px; font-weight: 600; text-align: left;
+}
+.menu-item:hover { background: var(--cor-chip); }
+.menu-item .icone { color: var(--cor-texto-suave); }
+.menu-item.perigo, .menu-item.perigo .icone { color: var(--cor-perigo); }
+.menu-item.perigo:hover { background: rgba(194, 38, 61, .08); }
 
 /* ===== CONTEÚDO: centralizado com largura máxima de 1200px ===== */
 .conteudo {
