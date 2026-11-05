@@ -111,6 +111,26 @@ function desenharQR(el, uri) {
   else el.textContent = "(QR indisponível – use a chave abaixo)";
 }
 
+async function comBotao(btn, alerta, acao) {
+  hideAlert(alerta);
+  btn.disabled = true;
+  try {
+    await acao();
+  } catch (err) {
+    showAlert(alerta, err.message);   // ex.: "Código inválido", "Demasiadas tentativas..."
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/** Pede o segredo do 2FA e mostra o QR code e a chave (ids "qrcode" e "secret"). */
+async function prepararSetup2fa(preToken) {
+  const setup = await api.setup2fa(preToken);
+  desenharQR(document.getElementById("qrcode"), setup.otpauth_uri);
+  // Chave em grupos de 4 letras: mais fácil de copiar à mão
+  document.getElementById("secret").textContent = setup.secret.match(/.{1,4}/g).join(" ");
+}
+
 /* ---------- Utilitários de interface ---------- */
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

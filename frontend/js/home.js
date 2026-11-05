@@ -1,3 +1,18 @@
+// ===== SESSÃO =====
+// Sem sessão, vai para o login. Com sessão, devolve { name, email, role, ... } guardado no login.
+const utilizador = requireAuth();
+
+// Iniciais do avatar: primeira letra do primeiro e do último nome ("Marta Sousa" → "MS")
+const partes = (utilizador?.name ?? "").trim().split(/\s+/);   // ?. e ?? evitam erro se faltar o nome
+const iniciais = (partes[0]?.[0] ?? "") + (partes.length > 1 ? partes.at(-1)[0] : "");
+document.getElementById("avatar-iniciais").textContent = iniciais.toUpperCase();
+
+// O seletor Utilizador/Admin só aparece para administradores
+if (utilizador?.role !== "ADMIN") document.querySelector(".seletor-papel").hidden = true;
+
+// Provisório até existir o menu do perfil: clicar no avatar termina a sessão
+document.querySelector(".avatar").addEventListener("click", Auth.logout);
+
 // ===== BANNER DA VAGA (dados fictícios por enquanto) =====
 
 // Tempo que a vaga fica guardada, em segundos.
@@ -29,8 +44,9 @@ function atualizarContador() {
     if (restante === 0) fecharBanner(); // tempo acabou: a vaga passa para o próximo
 }
 
-atualizarContador();// primeira atualização imediata
-const intervalo = setInterval(atualizarContador, 1000);// depois, a cada 1000 ms
+let intervalo = null;          // declarado antes, para fecharBanner() já poder usá-lo
+atualizarContador();           // primeira atualização imediata (pode fechar o banner se o tempo for 0)
+if (!banner.hidden) intervalo = setInterval(atualizarContador, 1000);  // só conta se o banner ficou aberto
 
 // Botões: por enquanto só fecham o banner.
 // Depois vão chamar a API (confirmar ou recusar a vaga na fila).
@@ -47,7 +63,7 @@ function escapar(texto) {
 }
 
 // ===== SAUDAÇÃO =====
-const NOME_UTILIZADOR = 'Marta'; 
+const NOME_UTILIZADOR = utilizador?.name?.split(" ")[0] ?? "";   // só o primeiro nome
 
 function saudacaoPorHora() {
     const hora = new Date().getHours();

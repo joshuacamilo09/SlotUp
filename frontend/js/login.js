@@ -50,10 +50,7 @@ forms.login.addEventListener("submit", (e) => {
       document.getElementById("code").focus();
     } else {
       // MFA_SETUP_REQUIRED: primeiro acesso, gera o segredo e mostra o QR
-      const setup = await api.setup2fa(preToken);
-      desenharQR(document.getElementById("qrcode"), setup.otpauth_uri);
-      // Chave em grupos de 4 letras: mais fácil de copiar à mão
-      document.getElementById("secret").textContent = setup.secret.match(/.{1,4}/g).join(" ");
+      await prepararSetup2fa(preToken);
       mostrar("setup");
       document.getElementById("setup-code").focus();
     }

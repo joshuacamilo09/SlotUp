@@ -1,4 +1,14 @@
-[hidden] { display: none !important; }   /* garante que "hidden" esconde sempre */
+[hidden] { display: none !important; }/* garante que "hidden" esconde sempre */
+.hidden { display: none !important; } /* usada pelo showAlert/hideAlert do api.js */
+
+/* Aviso rápido que aparece em baixo (função toast() do api.js) */
+.toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);  /* centralizado */
+    z-index: 50;
+    padding: 12px 18px; border-radius: var(--raio-botao);
+    background: var(--cor-texto); color: #fff; font-size: 14px;
+}
+.toast.error { background: var(--cor-perigo); }
 /* ===== VARIÁVEIS (valores exatos do design) ===== */
 :root {
     /* Cores base */
@@ -64,7 +74,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: none; backgroun
 .topbar {
     position: sticky; top: 0; z-index: 20;
     display: flex; align-items: center;
-    gap: clamp(12 px, 2vm, 28px);
+    gap: clamp(12px, 2vm, 28px);
     height: 64px;
     padding: 0 clamp(16px, 3vw, 32px);
     background: var(--cor-superficie);
@@ -104,7 +114,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: none; backgroun
 .papel.ativo { background: var(--cor-superficie); color: var(--cor-texto); }
 
 .avatar { display: flex; align-items: center; gap: 4px; padding: 2px; border-radius: 999px; }
-.avatar:houver { background: var(--cor-chip); }
+.avatar:hover { background: var(--cor-chip); }
 .avatar-circulo {
     display: grid; place-items: center;
     width: 34px; height: 34px; border-radius: 50%;
