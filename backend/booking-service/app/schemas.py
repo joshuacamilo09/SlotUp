@@ -238,8 +238,21 @@ class ReservationOut(BaseModel):
 
     id: uuid.UUID
     resource_id: uuid.UUID
+    resource_name: str
+    category_name: str
     user_email: str
     start_at: datetime
     end_at: datetime
     status: str
     created_at: datetime
+    updated_at: datetime
+    cancelled_at: datetime | None
+
+
+class ReservationAdminOut(ReservationOut):
+    """O ADMIN vê também o id do usuário (útil para cruzar com o auth-service)."""
+    user_id: uuid.UUID
+
+# Filtro das listas de reservas. Futura = ainda não acabou (inclui a que está a decorrer).
+Periodo = Literal["futuras", "passadas", "todas"]
+ReservationStatus = Literal["HELD", "CONFIRMED", "CANCELLED"]
