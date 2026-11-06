@@ -60,6 +60,19 @@ def _fits_opening(resource: Resource, start: datetime, end: datetime) -> bool:
 def _constraint_name(exc: IntegrityError) -> str | None:
     return getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
 
+def check_slot(db: Session, body: ReservationCreate, settings: Settings) -> tuple[Resource, datetime, datetime]:
+    """Regras de horário de uma reserva (também usadas ao entrar na fila de espera).
+
+    Devolve o recurso e o início e fim em hora local. Erro: 422 (regra) ou 404 (recurso).
+    """
+    tz = ZoneInfo(settings.local_timezone)
+
+    if not _fits_opening(resource, start, end):
+        raise _unprocessable("O horário está fora do horário de funcionamento do recurso")
+
+    return resource, start, end
+
+
 @router.post("", response_model=ReservationOut, status_code=status.HTTP_201_CREATED)
 def create_reservation(
     body: ReservationCreate,
@@ -67,8 +80,8 @@ def create_reservation(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> Reservation:
-    tz = ZoneInfo(settings.local_timezone)
-    start, end = _to_local(body.start_at, tz), _to_local(body.end_at, tz)
+    # 1) e 2) Regras de horário e do recurso
+    resource, start, end = check_slot(db, body, settings)
 
     # 1) Regras de horário que não dependem do recurso
     if not (_on_grid(start) and _on_grid(end)):
