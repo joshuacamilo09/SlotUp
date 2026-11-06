@@ -64,8 +64,11 @@ Na pasta `infra/docker`: `docker compose up -d`, depois abrir
 `http://localhost:8080/recurso.html?id=1`.
 Ao editar HTML/CSS/JS basta recarregar a página (Cmd+Shift+R).
 
-A tela lê da URL o recurso e o dia: `recurso.html?id=<id>&dia=AAAA-MM-DD`
-(usar `new URLSearchParams(location.search)`). Sem `dia`, usa hoje.
+A tela lê da URL o recurso, o dia e o horário:
+`recurso.html?id=<id>&dia=AAAA-MM-DD&inicio=HH:MM&fim=HH:MM`
+(usar `new URLSearchParams(location.search)`). Sem `dia`, usa hoje; sem
+`inicio`/`fim`, usa a próxima hora cheia com 1 hora de duração.
+A lista da categoria abre esta tela já com estes valores.
 
 ## 5. O que a tela tem (design)
 
@@ -85,7 +88,7 @@ cores da categoria: `--coworking` / `--coworking-suave`, etc.); nome
 
 **c) Dias**: grelha de 7 botões (`repeat(7, minmax(0, 1fr))`, `gap: 6px`), de
 hoje até daqui a 6 dias. Cada um com dia da semana (12px, peso 700) e número
-(18px, peso 800). O dia escolhido fica destacado com a cor primária.
+(18px, peso 800). O dia escolhido fica escuro (fundo --cor-texto, texto branco).
 
 **d) Grelha do dia**: cartão branco com as horas **08:00 a 20:00**,
 **48px por hora** (altura total 576px). As horas ficam à esquerda (12px, mono,
@@ -137,12 +140,18 @@ sombra `0 24px 60px rgba(0,0,0,.3)`. Fechar com o X, com Esc e clicando fora.
 
 ## 6. Componentes reutilizáveis (`css/componentes.css`)
 
-Estas peças vão ser usadas noutras telas (lista da categoria, minhas reservas).
-Ficam neste arquivo, com nomes genéricos:
+Este arquivo já existe (criado na lista da categoria) e já tem: `.caminho`,
+`.abas`/`.aba`, `.chips-dias`/`.chip-dia`, `.seletor-hora`, `.pilula`
+(`.livre`, `.ocupado`, `.minha`, `.fila`) e `.interruptor`. **Usar estes** em vez
+de criar novos. Os chips de dia e o seletor do detalhe são um pouco maiores no
+design: ajustar o tamanho em `css/recurso.css`, sem mudar o componente.
+
+Acrescentar **no fim** de `componentes.css` só o que ainda não existe:
 - `.modal` (fundo + cartão da janela)
-- `.chips-dias` / `.chip-dia` (os 7 dias)
-- `.seletor-hora` (o − horário +)
 - `.estado` (a mensagem com ícone: `.estado.livre`, `.estado.ocupado`...)
+
+Cores novas já disponíveis em `style.css`: `--cor-livre-texto`,
+`--cor-livre-suave`, `--cor-ocupado`, `--cor-ocupado-claro`.
 
 ## 7. Regras de horário (iguais às do backend)
 

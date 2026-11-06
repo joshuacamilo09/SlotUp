@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>SlotUp · Categoria</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+
+        <link rel="stylesheet" href="css/style.css">
+        <link rel="stylesheet" href="css/componentes.css">
+        <link rel="stylesheet" href="css/categoria.css">
+    </head>
+    <body>
+        <div id="cabecalho"></div>
+
+        <main class="conteudo">
+            <!-- Caminho: Início / <categoria> -->
+            <nav class="caminho" aria-label="Caminho">
+                <a href="index.html">Início</a> / <b id="caminho-atual"></b>
+            </nav>
+
+            <!-- Título da categoria (as cores vem do js, como nos cards da home) -->
+            <section class="cat-topo" id="cat-topo">
+                <div class="cat-icone"><span class="icone" id="cat-icone"></span></div>
+                <div>
+                    <h1 id="cat-nome"></h1>
+                    <p id="cat-descricao"></p>
+                </div>
+            </section>
+
+            <!-- Abas por tipo: preenchidas pela js-->
+            <div class="abas" id="abas-tipo" role="tablist"></div>
+
+            <!-- Filtros: dia, horário e "só disponíveis" -->
+            <section class="filtros">
+                <div class="chips-dias" id="chips-dias"></div>
+                <span class="filtros-divisor"></span>
+
+                <div class="filtros-horario">
+                    <div class="seletor-hora">
+                        <button type="button" id="inicio-menos" aria-label="Início mais cedo"><span class="icone">remove</span></button>
+                        <span class="seletor-hora-valor" id="inicio-valor"></span>
+                        <button type="button" id="inicio-mais" aria-label="Início mais tarde"><span class="icone">add</span></button>
+                    </div>
+                    até
+                    <div class="seletor-hora">
+                        <button type="button" id="fim-menos" aria-label="Fim mais cedo"><span class="icone">remove</span></button>
+                        <span class="seletor-hora-valor" id="fim-valor"></span>
+                        <button type="button" id="fim-mais" aria-label="Fim mais tarde"><span class="icone">add</span></button>
+                    </div>
+                </div>
+
+                <!-- role="switch" + aria-checked: o leitor de ecra anuncia "ligado/desligado" -->
+                <button type="button" class="interruptor" id="so-livres" role="switch" aria-checked="false">
+                    <span class="interruptor-trilho"><i></i></span>
+                    Só disponíveis
+                </button>
+            </section>
+
+            <!-- "6 de 8 livres · Qui, 22 out, 09:00–10:00" -->
+            <p class="resumo" id="resumo"></p>
+
+            <!-- Cartões dos recursos: preenchidos pelo JS -->
+            <section class="grelha-recursos" id="grelha-recursos"></section>
+
+            <p class="lista-vazia" id="lista-vazia" hidden>
+                Nenhum recurso livre neste intervalo. Desative "Só disponíveis" para ver alternativas.
+            </p>
+        </main>
+
+        <script src="js/api.js"></script>
+        <script src="js/layout.js"></script>
+        <script src="js/categoria.js"></script>
+    </body>
+</html>

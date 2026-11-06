@@ -1,0 +1,96 @@
+/* ===== LISTA DA CATEGORIA ===== */
+
+/* ----- Título ----- */
+.cat-topo { display: flex; align-items: center; gap: 16px; }
+.cat-icone {
+    flex: none;
+    width: 52px; height: 52px; border-radius: var(--raio-botao);
+    display: grid; place-items: center;
+    background: var(--cor-cat-suave); color: var(--cor-cat);
+}
+.cat-icone .icone {font-size:  28px; }
+.cat-topo h1 { font-size: clamp(24px, 3vw, 28px); font-weight: 800; letter-spacing: -.02em; }
+.cat-topo p { font-size: 14px; color: var(--cor-texto-suave); }
+
+/* -- barra de filtros --- */
+.filtros {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    padding: 14px;
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda); border-radius: var(--raio);
+}
+.filtros-divisor { width: 1px; height: 28px; background: var(--cor-borda); }
+.filtros-horario {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 600; color: var(--cor-texto-suave);
+}
+.filtros .interruptor { margin-left: auto; }
+
+.resumo { font-size: 13px; color: var(--cor-texto-suave); }
+.resumo b { color: var(--cor-texto); }
+
+/* ---- Cartões: quantos de no mínimo 280px couberem por linha ---*/
+.grelha-recursos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: 18px;
+}
+.cartao-recurso {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 20px;
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda); border-radius: var(--raio);
+    position: relative;
+    transition: border-color .15s, box-shadow .15s;
+}
+.cartao-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.cartao-nome { font-size: 17px; font-weight: 800; }
+/* Link esticado: o ::after do link do nome cobre o cartão inteiro (fica invisível) */
+.cartao-link::after {
+    content: "";
+    position: absolute; inset: 0;        /* inset: 0 = top, right, bottom e left a 0 */
+    border-radius: var(--raio);
+}
+/* Hover no cartão todo: sombra e nome na cor primária */
+.cartao-recurso:hover {
+    border-color: var(--cor-borda-forte);
+    box-shadow: 0 8px 24px rgba(20, 22, 31, .08);
+}
+.cartao-recurso:hover .cartao-nome { color: var(--cor-primaria); }
+.cartao-local { margin-top: 4px; font-size: 13px; color: var(--cor-texto-suave); }
+
+.cartao-tags { display: flex; flex-wrap: wrap; gap: 6px; min-height: 24px; }
+.cartao-tags span {
+    padding: 4px 8px; border-radius: var(--raio-pequeno);
+    background: var(--cor-chip); font-size: 12px; font-weight: 600;
+}
+
+/* ---- linha do dia: 12 barrinhas, uma por hora (08h-20h) ---*/
+.linha-dia { display: flex; flex-direction: column; gap: 5px; }
+.linha-dia-barras { display: flex; gap: 2px; height: 8px; }
+.linha-dia-barras i { flex: 1; border-radius: 2px; background: var(--cor-livre-medio); }
+.linha-dia-barras i.ocupado { background: var(--cor-ocupado); }
+.linha-dia-barras i.minha { background: var(--cor-primaria); }
+.linha-dia-barras i.fila { background: var(--cor-fila); }
+.linha-dia-barras i.no-filtro { outline: 1px solid var(--cor-texto); outline-offset: 1px; }
+.linha-dia-horas {
+    display: flex; justify-content: space-between;
+    font: 11px var(--fonte-mono); color: var(--cor-texto-suave);
+}
+
+/* --- botão do cartão ---*/
+.cartao-recurso .botao {
+    height: 42px; padding: 0;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    position: relative; z-index: 1;
+}
+.cartao-recurso .botao-secundario:hover { border-color: var(--cor-texto-suave); }
+.cartao-recurso .botao-secundario .icone { font-size: 18px; color: var(--cor-primaria); }
+
+/* --- nenhum resultado ---*/
+.lista-vazia {
+    padding: 40px; text-align: center;
+    font-size: 14px; color: var(--cor-texto-suave);
+    background: var(--cor-superficie);
+    border: 1px dashed var(--cor-borda-forte); border-radius: var(--raio);
+}

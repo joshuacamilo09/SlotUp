@@ -26,6 +26,13 @@
     /* Disponível ("livres agora") */
     --cor-livre: #16A34A;
 
+    /* Estados dos horários (lista e detalhe do recurso) */
+    --cor-livre-texto: #15803D;
+    --cor-livre-suave: color-mix(in oklch, var(--cor-livre) 14%, var(--cor-superficie));
+    --cor-livre-medio: #CDEBD6;
+    --cor-ocupado: #DFE2E8;
+    --cor-ocupado-claro: #EEF0F3;
+
     /* Fila de espera (banner, badge, "Vaga aberta") */
     --cor-fila: #D9921F;
     --cor-fila-texto: #B45309;
@@ -74,7 +81,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: none; backgroun
 .topbar {
     position: sticky; top: 0; z-index: 20;
     display: flex; align-items: center;
-    gap: clamp(12px, 2vm, 28px);
+    gap: clamp(12px, 2vw, 28px);
     height: 64px;
     padding: 0 clamp(16px, 3vw, 32px);
     background: var(--cor-superficie);
@@ -90,6 +97,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: none; backgroun
     display: flex; gap: 4px; min-width: 0;
     font-size:  14px; font-weight: 600;
     overflow-x: auto;
+    scrollbar-width: none;
 }
 .nav-link {
     display: flex; align-items: center; gap: 6px;

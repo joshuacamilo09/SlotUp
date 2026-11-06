@@ -1,0 +1,80 @@
+/* =====================================================================
+   COMPONENTES REUTILIZÁVEIS – usados em mais de uma tela
+   (lista da categoria, detalhe do recurso, minhas reservas)
+   ===================================================================== */
+
+/* ----- Caminho: "Início / Coworking / Sala Atlântico" ----- */
+.caminho { font-size: 13px; color: var(--cor-texto-suave); }
+.caminho a:hover { color: var(--cor-texto); }
+.caminho b { color: var(--cor-texto); }
+
+/* ----- Abas: "Todos · 8 | Salas de reunião · 5" ----- */
+.abas {
+    display: flex; gap: 24px;
+    border-bottom: 1px solid var(--cor-borda);
+    font-size: 14px; font-weight: 700;
+    overflow-x: auto; overflow-y: hidden;
+}
+.aba {
+    padding: 10px 0; white-space: nowrap;
+    color: var(--cor-texto-suave);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+.aba.ativo { color: var(--cor-texto); border-bottom-color: var(--cor-texto); }
+
+/* ----- Chips de dia: "Qui 22" ----- */
+.chips-dias { display: flex; gap: 4px; max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+.chip-dia { min-width: 34px; padding: 6px 10px; border-radius: var(--raio-pequeno); text-align: center; }
+.chip-dia:hover { background: var(--cor-chip); }
+.chip-dia.ativo { background: var(--cor-texto); color: var(--cor-superficie); }
+.chip-dia:disabled { opacity: .35; cursor: not-allowed; background: none; }  
+.chip-dia-semana { display: block; font-size: 11px; font-weight: 700; }
+.chip-dia-numero { display: block; font-size: 15px; font-weight: 800; }
+
+/* ----- Seletor de hora: "− 09:00 +" ----- */
+.seletor-hora {
+    display: flex; align-items: center; height: 40px;
+    border: 1px solid var(--cor-borda-forte); border-radius: var(--raio-botao);
+    background: var(--cor-superficie); color: var(--cor-texto);
+}
+.seletor-hora button {
+    width: 32px; height: 100%;
+    display: grid; place-items: center;
+    color: var(--cor-texto-suave);
+}
+.seletor-hora button .icone { font-size: 18px; }
+.seletor-hora button:disabled { opacity: .35; cursor: not-allowed; }
+.seletor-hora-valor { min-width: 46px; text-align: center; font: 500 14px var(--fonte-mono); }
+
+/* ----- Pílula de estado: "● Livre" ----- */
+.pilula {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px; border-radius: 999px;
+    border: 1px dashed transparent;
+    font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+/* A bolinha é desenhada pelo CSS (::before), com a cor do texto */
+.pilula::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pilula.livre   { background: var(--cor-livre-suave); color: var(--cor-livre-texto); }
+.pilula.ocupado { background: var(--cor-chip); color: var(--cor-texto-suave); }
+.pilula.minha   { background: var(--cor-primaria); color: #fff; }
+.pilula.fila    { background: var(--cor-fila-suave); color: var(--cor-fila-suave); border-color: var(--cor-fila); }
+
+/* ----- Interruptor: "Só disponíveis" ----- */
+.interruptor { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; }
+.interruptor-trilho {
+    position: relative; flex: none;
+    width: 36px; height: 20px; border-radius: 999px;
+    background: var(--cor-borda-forte);
+    transition: background .15s;
+}
+.interruptor-trilho i {
+    position: absolute; left: 2px; top: 2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff;
+    transition: left .15s;
+}
+/* O estado vem do atributo aria-checked, que o JS troca entre "true" e "false" */
+.interruptor[aria-checked="true"] .interruptor-trilho { background: var(--cor-primaria); }
+.interruptor[aria-checked="true"] .interruptor-trilho i { left: 18px; } 
