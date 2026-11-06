@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlotUp · Novo recurso</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/componentes.css">
+    <link rel="stylesheet" href="css/categoria.css">      <!-- reaproveita o cartão do recurso na pré-visualização -->
+    <link rel="stylesheet" href="css/novo-recurso.css">
+</head>
+<body>
+    <div id="cabecalho"></div>
+
+    <main class="conteudo">
+        <nav class="caminho" aria-label="Caminho">
+            <a href="admin.html">Administração</a> / <b>Novo recurso</b>
+        </nav>
+
+        <section class="novo-topo">
+            <h1>Novo recurso</h1>
+            <p>O recurso fica disponível para reserva assim que for guardado.</p>
+        </section>
+
+        <div class="novo-grelha">
+            <!-- novalidate: as validações são feitas pelo JS, com as mensagens do design -->
+            <form id="form-recurso" class="novo-form" novalidate>
+
+                <!-- ===== 1. Categoria ===== -->
+                <section class="bloco">
+                    <h2 class="bloco-titulo"><span>1</span>Categoria</h2>
+                    <div class="escolha-categoria" id="escolha-categoria"></div>
+                    <div class="campo">
+                        <span class="campo-titulo">Tipo</span>
+                        <div class="opcoes" id="escolha-tipo"></div>
+                    </div>
+                </section>
+
+                <!-- ===== 2. Detalhes ===== -->
+                <section class="bloco">
+                    <h2 class="bloco-titulo"><span>2</span>Detalhes</h2>
+
+                    <label class="campo">
+                        <span class="campo-titulo">Nome</span>
+                        <input id="nome" class="campo-texto" maxlength="100" autocomplete="off">
+                    </label>
+                    <p class="campo-erro" id="erro-nome" hidden>Dê um nome ao recurso.</p>
+
+                    <div class="campos-lado-a-lado">
+                        <label class="campo">
+                            <span class="campo-titulo">Localização</span>
+                            <input id="local" class="campo-texto" maxlength="100" autocomplete="off">
+                        </label>
+                        <div class="campo">
+                            <span class="campo-titulo" id="capacidade-titulo"></span>
+                            <div class="seletor-hora seletor-grande">
+                                <button type="button" id="capacidade-menos" aria-label="Menos"><span class="icone">remove</span></button>
+                                <span class="seletor-hora-valor" id="capacidade-valor"></span>
+                                <button type="button" id="capacidade-mais" aria-label="Mais"><span class="icone">add</span></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="campo">
+                        <span class="campo-titulo">Atributos <small>· aparecem nos filtros</small></span>
+                        <div class="opcoes" id="escolha-atributos"></div>
+                    </div>
+                </section>
+
+                <!-- ===== 3. Regras de reserva ===== -->
+                <section class="bloco">
+                    <h2 class="bloco-titulo"><span>3</span>Regras de reserva</h2>
+
+                    <div class="campo">
+                        <span class="campo-titulo">Dias disponíveis</span>
+                        <div class="opcoes" id="escolha-dias"></div>
+                        <p class="campo-erro" id="erro-dias" hidden>Escolha pelo menos um dia.</p>
+                    </div>
+
+                    <div class="campos-lado-a-lado">
+                        <div class="campo">
+                            <span class="campo-titulo">Abre às</span>
+                            <div class="seletor-hora seletor-grande">
+                                <button type="button" id="abre-menos" aria-label="Abre mais cedo"><span class="icone">remove</span></button>
+                                <span class="seletor-hora-valor" id="abre-valor"></span>
+                                <button type="button" id="abre-mais" aria-label="Abre mais tarde"><span class="icone">add</span></button>
+                            </div>
+                        </div>
+                        <div class="campo">
+                            <span class="campo-titulo">Fecha às</span>
+                            <div class="seletor-hora seletor-grande">
+                                <button type="button" id="fecha-menos" aria-label="Fecha mais cedo"><span class="icone">remove</span></button>
+                                <span class="seletor-hora-valor" id="fecha-valor"></span>
+                                <button type="button" id="fecha-mais" aria-label="Fecha mais tarde"><span class="icone">add</span></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="campos-lado-a-lado">
+                        <div class="campo" id="bloco-minimo">
+                            <span class="campo-titulo">Duração mínima</span>
+                            <div class="segmentado" id="escolha-minimo"></div>
+                        </div>
+                        <div class="campo">
+                            <span class="campo-titulo">Duração máxima</span>
+                            <div class="segmentado" id="escolha-maximo"></div>
+                        </div>
+                    </div>
+
+                    <!-- Linha inteira é o interruptor -->
+                    <button type="button" class="interruptor linha-fila" id="permitir-fila" role="switch" aria-checked="true">
+                        <span class="linha-fila-texto">
+                            <b>Permitir fila de espera</b>
+                            <small>Quando abrir uma vaga, o próximo da fila tem 15 min para confirmar.</small>
+                        </span>
+                        <span class="interruptor-trilho"><i></i></span>
+                    </button>
+                </section>
+
+                <div class="novo-acoes">
+                    <a href="admin.html" class="botao botao-secundario">Cancelar</a>
+                    <button type="submit" class="botao botao-primario">Criar recurso</button>
+                </div>
+            </form>
+
+            <!-- ===== Pré-visualização ===== -->
+            <aside class="novo-preview">
+                <span class="preview-etiqueta">Pré-visualização</span>
+                <div id="preview"></div>
+            </aside>
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/layout.js"></script>
+    <script src="js/novo-recurso.js"></script>
+</body>
+</html>

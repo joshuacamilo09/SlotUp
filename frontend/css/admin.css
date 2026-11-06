@@ -1,0 +1,66 @@
+/* ===== ADMINISTRAÇÃO ===== */
+
+/* ----- Título + botão ----- */
+.admin-topo {
+    display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+    gap: 12px;
+}
+.admin-topo h1 { font-size: clamp(24px, 3vw, 28px); font-weight: 800; letter-spacing: -.02em; }
+.admin-topo p { font-size: 13px; color: var(--cor-texto-suave); }
+.botao-com-icone { display: flex; align-items: center; gap: 6px; padding: 10px 16px; }
+.botao-com-icone .icone { font-size: 18px; }
+
+/* ----- Indicadores: quantos de no mínimo 200px couberem ----- */
+.kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+    gap: 14px;
+}
+.kpi {
+    padding: 18px;
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda); border-radius: var(--raio);
+}
+.kpi-titulo { font-size: 13px; font-weight: 600; color: var(--cor-texto-suave); }
+.kpi-valor { margin-top: 6px; font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+
+/* ----- Os dois painéis lado a lado (ocupação 1 parte, recursos 2 partes) ----- */
+.admin-grelha { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.painel-admin {
+    min-width: 0;
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda); border-radius: var(--raio);
+}
+.painel-admin h2 { font-size: 15px; font-weight: 800; }
+.painel-ocupacao { flex: 1 1 280px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.painel-recursos { flex: 2 1 520px; overflow: hidden; }
+
+/* ----- Barras de ocupação ----- */
+#ocupacao { display: flex; flex-direction: column; gap: 16px; }
+.ocupacao-texto {
+    display: flex; justify-content: space-between;
+    margin-bottom: 6px; font-size: 13px; font-weight: 600;
+}
+.ocupacao-barra { height: 8px; border-radius: 4px; background: var(--cor-chip); }
+.ocupacao-barra div { height: 100%; border-radius: 4px; transition: width .3s; }   /* largura e cor vêm do JS */
+
+/* ----- Lista de recursos ----- */
+.painel-recursos-topo {
+    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;
+    padding: 16px 20px;
+}
+.painel-recursos-topo span { font-size: 12px; color: var(--cor-texto-suave); }
+
+.recurso-linha {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--cor-borda);
+    font-size: 13px;
+    transition: opacity .15s;
+}
+.recurso-linha.inativo { opacity: .55; }   /* desativado fica esbatido */
+.recurso-nome { flex: 2 1 180px; }
+.recurso-nome div { font-size: 12px; color: var(--cor-texto-suave); }
+.recurso-tipo { flex: 1 1 140px; display: flex; align-items: center; gap: 6px; }
+.recurso-tipo i { width: 8px; height: 8px; border-radius: 50%; flex: none; }      /* cor da categoria */
+.recurso-hoje { flex: 1 1 100px; color: var(--cor-texto-suave); }
