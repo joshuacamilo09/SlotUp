@@ -67,22 +67,7 @@ def check_slot(db: Session, body: ReservationCreate, settings: Settings) -> tupl
     Devolve o recurso e o início e fim em hora local. Erro: 422 (regra) ou 404 (recurso).
     """
     tz = ZoneInfo(settings.local_timezone)
-
-    if not _fits_opening(resource, start, end):
-        raise _unprocessable("O horário está fora do horário de funcionamento do recurso")
-
-    return resource, start, end
-
-
-@router.post("", response_model=ReservationOut, status_code=status.HTTP_201_CREATED)
-def create_reservation(
-    body: ReservationCreate,
-    user: CurrentUser = Depends(current_user),
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-) -> Reservation:
-    # 1) e 2) Regras de horário e do recurso
-    resource, start, end = check_slot(db, body, settings)
+    start, end = _to_local(body.start_at, tz), _to_local(body.end_at, tz)
 
     # 1) Regras de horário que não dependem do recurso
     if not (_on_grid(start) and _on_grid(end)):
@@ -99,6 +84,18 @@ def create_reservation(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Recurso não encontrado")
     if not _fits_opening(resource, start, end):
         raise _unprocessable("O horário está fora do horário de funcionamento do recurso")
+    return resource, start, end
+
+
+@router.post("", response_model=ReservationOut, status_code=status.HTTP_201_CREATED)
+def create_reservation(
+    body: ReservationCreate,
+    user: CurrentUser = Depends(current_user),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> Reservation:
+    # 1) e 2) Regras de horário e do recurso
+    resource, start, end = check_slot(db, body, settings)
 
     # 3) Grava a reserva. O flush() envia o INSERT já, e é nesse momento que o banco
     #    confere a constraint contra sobreposição (atômica, vale para todas as réplicas).
@@ -134,7 +131,6 @@ def create_reservation(
 
     log.info("reserva_criada user_id=%s reserva_id=%s recurso_id=%s", user.id, reservation.id, resource.id)
     return reservation
-
 
 
 # =========================================================================== consultar e cancelar
@@ -186,7 +182,6 @@ def list_my_reservations(
     return _filtered(query, response, db, periodo, limit, offset)
 
 
-
 @router.get("", response_model=list[ReservationAdminOut])
 def list_all_reservations(
     response: Response,
@@ -207,7 +202,6 @@ def list_all_reservations(
     if user_email:
         query = query.where(func.lower(Reservation.user_email) == user_email.strip().lower())
     return _filtered(query, response, db, periodo, limit, offset)
-
 
 
 def _get_visible(db: Session, reservation_id: uuid.UUID, user: CurrentUser, *, lock: bool = False) -> Reservation:
@@ -242,17 +236,12 @@ def cancel_reservation(
 ) -> Reservation:
     """Cancela a reserva e o horário volta a ficar livre.
 
-    
     * O dono cancela a sua, só antes de ela começar. O ADMIN cancela qualquer uma, até ela acabar.
-   
-     * Reserva já cancelada, ou já terminada, dá 409.
-   
-     * A linha fica bloqueada (FOR UPDATE) até ao commit: se o dono e o admin cancelarem ao
+    * Reserva já cancelada, ou já terminada, dá 409.
+    * A linha fica bloqueada (FOR UPDATE) até ao commit: se o dono e o admin cancelarem ao
       mesmo tempo, o segundo espera, vê a reserva já CANCELLED e recebe 409. Só sai um email.
-    
     * O horário fica livre sozinho: a constraint reservations_no_overlap só olha para
       HELD e CONFIRMED, por isso uma reserva CANCELLED deixa de contar.
-
     * Se houver fila de espera para esse horário, o primeiro recebe logo a oferta.
       Cancelar uma oferta (reserva HELD) é o mesmo que recusá-la.
     """
