@@ -256,3 +256,22 @@ class ReservationAdminOut(ReservationOut):
 # Filtro das listas de reservas. Futura = ainda não acabou (inclui a que está a decorrer).
 Periodo = Literal["futuras", "passadas", "todas"]
 ReservationStatus = Literal["HELD", "CONFIRMED", "CANCELLED"]
+
+
+
+class WaitlistOut(BaseModel):
+    """Um pedido na fila de espera."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    resource_id: uuid.UUID
+    resource_name: str
+    category_name: str
+    desired_start: datetime
+    desired_end: datetime
+    status: str
+    position: int | None = None  # 1 = o próximo; só em WAITING
+    reservation_id: uuid.UUID | None  # a reserva HELD da oferta (OFFERED) ou a confirmada (ACCEPTED)
+    hold_expires_at: datetime | None  # até quando a oferta está guardada (só em OFFERED)
+    created_at: datetime
