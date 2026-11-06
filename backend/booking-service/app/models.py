@@ -120,6 +120,49 @@ class Reservation(Base):
     def category_name(self) -> str:
         return self.resource.category.name
 
+class WaitlistEntry(Base):
+    """Tabela `waitlist_entries` (migração 0002): fila de espera de um horário ocupado.
+
+    WAITING   à espera que o horário fique livre
+    OFFERED   o horário ficou livre e está guardado para esta pessoa (reserva HELD em reservation_id)
+    ACCEPTED  aceitou a oferta (a reserva passou a CONFIRMED)
+    EXPIRED   não respondeu a tempo, ou o horário já passou
+    CANCELLED saiu da fila (ou recusou a oferta)
+    """
+
+    __tablename__ = "waitlist_entries"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=func.gen_random_uuid())
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    user_email: Mapped[str] = mapped_column(String(255))
+    resource_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("resources.id"))
+    desired_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    desired_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(10), server_default="WAITING")
+    reservation_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("reservations.id"), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    resource: Mapped[Resource] = relationship(lazy="joined", innerjoin=True)
+    # A reserva HELD da oferta (só existe em OFFERED e ACCEPTED)
+    reservation: Mapped[Reservation | None] = relationship(lazy="joined")
+
+    @property
+    def resource_name(self) -> str:
+        return self.resource.name
+
+    @property
+    def category_name(self) -> str:
+        return self.resource.category.name
+
+    @property
+    def hold_expires_at(self) -> datetime | None:
+        """Até quando a oferta está guardada (só em OFFERED)."""
+        return self.reservation.hold_expires_at if self.status == "OFFERED" and self.reservation else None
+
 class Notification(Base):
     """Tabela `notifications` (migração 0003): outbox de emails.
 
