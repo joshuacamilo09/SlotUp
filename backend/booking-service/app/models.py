@@ -108,6 +108,18 @@ class Reservation(Base):
     )
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # Carrega o recurso (e a categoria) na mesma consulta: as listas de reservas mostram os nomes
+    resource: Mapped[Resource] = relationship(lazy="joined", innerjoin=True)
+
+    # Nomes usados nas respostas da API (ver ReservationOut em schemas.py)
+    @property
+    def resource_name(self) ->str: 
+        return self.resource.name
+
+    @property
+    def category_name(self) -> str:
+        return self.resource.category.name
+
 class Notification(Base):
     """Tabela `notifications` (migração 0003): outbox de emails.
 
