@@ -15,6 +15,7 @@ app.include_router(categories.router)
 app.include_router(resources.router)
 app.include_router(availability.router)
 app.include_router(reservations.router)
+app.include_router(waitlist.router)
 app.include_router(session_check.router)
 
 
