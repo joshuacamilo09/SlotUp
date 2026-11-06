@@ -161,6 +161,10 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 | Método e rota | Quem | Para quê |
 |---|---|---|
 | `POST /` | usuário (e ADMIN) | reserva `{resource_id, start_at, end_at}` em nome próprio → `201`; horário ocupado → `409` |
+| `GET /minhas` | usuário | as reservas do próprio. `?periodo=futuras\|passadas\|todas`, `?status=`, `?limit=` e `?offset=`; o total vem em `X-Total-Count` |
+| `GET /` | ADMIN | todas as reservas, com `user_id`. Filtros: `periodo`, `status`, `resource_id`, `user_email`, `limit`, `offset` |
+| `GET /{id}` | dono ou ADMIN | uma reserva (a de outra pessoa dá `404`) |
+| `POST /{id}/cancelar` | dono ou ADMIN | cancela → `200`; o horário volta a ficar livre. Já cancelada ou já terminada → `409` |
 
 **Reservas, regras:**
 
@@ -171,6 +175,9 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 - **Quem impede duas reservas no mesmo horário é o PostgreSQL** (constraint `reservations_no_overlap`), e não um `SELECT` antes do `INSERT`. Com várias réplicas do booking, só o primeiro `INSERT` passa. Há um teste com 8 pedidos simultâneos: 1 recebe `201` e 7 recebem `409`.
 - **Email (outbox):** na mesma transação, grava um pedido `RESERVATION_CREATED` na tabela `notifications`. Se a reserva for gravada, o email fica pendente; se falhar, nenhum dos dois fica. O envio por SMTP fica a cargo do worker (ainda não implementado).
 - Todos os recursos são exclusivos: uma reserva ocupa o recurso inteiro. Recursos com vários lugares (ex.: aulas) ficam para a 3.ª entrega.
+- **Futura = ainda não acabou** (a que está a decorrer conta como futura). Futuras da mais próxima para a mais distante; passadas e todas, da mais recente para a mais antiga.
+- **Cancelar:** o dono cancela só **antes** de a reserva começar; o ADMIN cancela qualquer uma até ela **acabar**. A rota bloqueia a linha (`SELECT ... FOR UPDATE`): com dois cancelamentos ao mesmo tempo, o segundo recebe `409` e só sai um email `RESERVATION_CANCELLED`, sempre para o dono da reserva.
+- **Reserva de outra pessoa:** `404`, e não `403`, para ninguém descobrir que ids existem.
 
 ## 3. Decisões de segurança (para o relatório da UC de Segurança)
 
