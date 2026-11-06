@@ -24,6 +24,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import waitlist
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import Notification, Reservation, Resource
@@ -241,12 +242,19 @@ def cancel_reservation(
 ) -> Reservation:
     """Cancela a reserva e o horário volta a ficar livre.
 
+    
     * O dono cancela a sua, só antes de ela começar. O ADMIN cancela qualquer uma, até ela acabar.
-    * Reserva já cancelada, ou já terminada, dá 409.
-    * A linha fica bloqueada (FOR UPDATE) até ao commit: se o dono e o admin cancelarem ao
+   
+     * Reserva já cancelada, ou já terminada, dá 409.
+   
+     * A linha fica bloqueada (FOR UPDATE) até ao commit: se o dono e o admin cancelarem ao
       mesmo tempo, o segundo espera, vê a reserva já CANCELLED e recebe 409. Só sai um email.
+    
     * O horário fica livre sozinho: a constraint reservations_no_overlap só olha para
       HELD e CONFIRMED, por isso uma reserva CANCELLED deixa de contar.
+
+    * Se houver fila de espera para esse horário, o primeiro recebe logo a oferta.
+      Cancelar uma oferta (reserva HELD) é o mesmo que recusá-la.
     """
     reservation = _get_visible(db, reservation_id, user, lock=True)
     now = datetime.now(timezone.utc)
@@ -278,6 +286,8 @@ def cancel_reservation(
             },
         )
     )
+    # O horário ficou livre: se houver fila de espera, o primeiro recebe a oferta (reserva HELD)
+    waitlist.release(db, reservation, now)
     db.commit()
     db.refresh(reservation)
 
