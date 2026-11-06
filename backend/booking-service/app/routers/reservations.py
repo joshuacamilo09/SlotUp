@@ -99,7 +99,7 @@ def create_reservation(
     except IntegrityError as exc:
         db.rollback()
         if _constraint_name(exc) == _NO_OVERLAP:
-            raise HTTPException(status.HTTP_409_CONFLICT, "Este horário já está resrevado") from None
+            raise HTTPException(status.HTTP_409_CONFLICT, "Este horário já está reservado") from None
         raise
 
     # 4) Pedido de email na mesma transação (outbox): ou ficam os dois, ou nenhum
