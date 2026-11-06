@@ -2,6 +2,51 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint3-feature/gerir-reservas`
+
+Mais três tarefas da Sprint 3 do backend: **minhas reservas**, **cancelar reserva** e **todas as reservas (admin)**. Tudo no `booking-service`, **sem migração nova**.
+
+### Rotas novas (prefixo `/api/reservas/reservas`)
+
+| Método e rota | Quem | Para quê |
+|---|---|---|
+| `GET /minhas` | usuário | as reservas de quem pede. `?periodo=futuras\|passadas\|todas` (padrão `todas`), `?status=`, `?limit=` (até 200) e `?offset=` |
+| `GET /` | ADMIN | todas as reservas, com o `user_id`. Filtros: `periodo`, `status`, `resource_id`, `user_email`, `limit` e `offset` |
+| `GET /{id}` | dono ou ADMIN | uma reserva |
+| `POST /{id}/cancelar` | dono ou ADMIN | cancela a reserva → `200`, e o horário volta a ficar livre |
+
+### Regras
+
+- **Futura = ainda não acabou.** Uma reserva a decorrer conta como futura. As futuras vêm da mais próxima para a mais distante; as passadas e a lista completa, da mais recente para a mais antiga.
+- **Paginação:** o total vai no cabeçalho `X-Total-Count`, para o frontend saber quantas páginas há.
+- **As respostas trazem `resource_name`, `category_name`, `updated_at` e `cancelled_at`.** O frontend já não precisa de pedir o recurso à parte. O `POST /` (criar reserva) também passou a devolver estes campos.
+- **A reserva de outra pessoa dá `404`, e não `403`**, tanto ao ver como ao cancelar. Assim ninguém consegue descobrir que ids de reservas existem (ataque IDOR).
+- **Quem pode cancelar:**
+  - o dono, só **antes** de a reserva começar;
+  - o ADMIN, qualquer reserva, até ela **acabar**.
+  
+  Reserva já cancelada, ou já terminada, dá `409`.
+- **O horário fica livre sem código extra:** a constraint `reservations_no_overlap` só conta `HELD` e `CONFIRMED`, por isso uma reserva `CANCELLED` deixa de ocupar o horário.
+- **Email (outbox):** na mesma transação, grava um pedido `RESERVATION_CANCELLED` na tabela `notifications`, sempre para o **dono** da reserva, mesmo quando quem cancela é o admin. O `payload` diz quem cancelou (`"cancelled_by": "USER"` ou `"ADMIN"`).
+- **Dois cancelamentos ao mesmo tempo** (por exemplo, o dono e o admin): a rota bloqueia a linha da reserva (`SELECT ... FOR UPDATE`) até ao commit. O segundo pedido espera, vê a reserva já `CANCELLED` e recebe `409`. Só sai um email. Há um teste que força esta corrida com 8 pedidos: 1 recebe `200` e 7 recebem `409`.
+- **Corrigido:** a mensagem do `409` ao criar reserva dizia "resrevado".
+
+### Para o frontend
+
+- **Próximas reservas da página inicial:** `GET /api/reservas/reservas/minhas?periodo=futuras&limit=3`.
+- **Página "As minhas reservas":** `?periodo=futuras` e `?periodo=passadas`, um em cada separador.
+- **Botão "Cancelar":** `POST /api/reservas/reservas/{id}/cancelar`. Com `409`, mostrar a mensagem do campo `detail`.
+
+### Ainda por fazer
+
+- **Fila de espera:** quando uma reserva é cancelada, o horário deveria ser oferecido ao primeiro da fila (`HELD`). Fica para quando a fila de espera existir.
+
+### Testes desta branch
+
+- `pytest` do booking-service: **139 testes OK** (120 anteriores + 19 novos).
+
+# ATUALIZACAO ANTIGA ABAIXO (NAO E NECESSARIO LEREM SE JA LERAM)
+
 ## O que mudou na branch `dev-sprint3`
 
 Primeiras tarefas da Sprint 3 do backend: **dados de exemplo**, **consultar disponibilidade**, **criar reserva**, **evitar reservas duplicadas** e o **teste de concorrência**. Tudo no `booking-service`, menos o seed dos usuários, que fica no `auth-service`.
