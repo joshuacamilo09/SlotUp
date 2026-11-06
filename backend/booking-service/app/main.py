@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import InterfaceError, OperationalError
 
-from app.routers import availability, categories, health, reservations, resources, session_check
+from app.routers import availability, categories, health, reservations, resources, session_check, waitlist
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("booking")
