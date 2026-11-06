@@ -170,3 +170,26 @@ def list_my_reservations(
     if status_filter:
         query = query.where(Reservation.status == status_filter)
     return _filtered(query, response, db, periodo, limit, offset)
+
+
+
+@router.get("", response_model=list[ReservationAdminOut])
+def list_all_reservations(
+    response: Response,
+    periodo: Periodo = Query("todas", description="futuras, passadas ou todas"),
+    status_filter: ReservationStatus | None = Query(None, alias="status"),
+    resource_id: uuid.UUID | None = Query(None),
+    user_email: str | None = Query(None, max_length=255, description="Email exato (não diferencia maiúsculas)"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    admin: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[Reservation]:
+    query = select(Reservation)
+    if status_filter:
+        query = query.where(Reservation.status == status_filter)
+    if resource_id:
+        query = query.where(Reservation.resource_id == resource_id)
+    if user_email:
+        query = query.where(func.lower(Reservation.user_email) == user_email.strip().lower())
+    return _filtered(query, response, db, periodo, limit, offset)
