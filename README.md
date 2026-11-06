@@ -2,6 +2,63 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint3-feature/fila-de-espera`
+
+As duas últimas tarefas da Sprint 3 do backend: a **fila de espera** ligada ao cancelamento e os **testes dos fluxos de reserva**. Tudo no `booking-service`, **sem migração nova**: as tabelas `waitlist_entries`, o estado `HELD` e os emails `WAITLIST_JOINED`/`WAITLIST_OFFERED` já existiam desde a migração `0002`.
+
+### Como funciona a fila
+
+1. **Entrar na fila.** Alguém quer um horário ocupado e entra na fila (`WAITING`). As regras de horário são as mesmas de uma reserva.
+2. **Oferta.** Quando o horário fica livre (cancelamento, recusa ou oferta expirada), o primeiro da fila recebe uma **oferta**: uma reserva `HELD` guardada só para ele durante **15 minutos** (`OFFERED`). Ninguém mais consegue reservar esse horário, porque a constraint `reservations_no_overlap` também conta `HELD`.
+3. **Resposta.**
+   - **Aceita:** a reserva passa a `CONFIRMED`.
+   - **Recusa ou não responde a tempo:** a reserva passa a `CANCELLED` e o horário vai para o seguinte da fila.
+
+### Rotas novas (prefixo `/api/reservas/fila`)
+
+| Método e rota | Quem | Para quê |
+|---|---|---|
+| `POST /` | usuário | entra na fila de um horário ocupado `{resource_id, start_at, end_at}` → `201`. Horário livre, horário já reservado pelo próprio, ou já está na fila → `409` |
+| `GET /minhas` | usuário | os pedidos do próprio, com a `position` na fila (1 = o próximo) e, se houver oferta, o `reservation_id` e o `hold_expires_at` |
+| `POST /{id}/aceitar` | dono do pedido | aceita a oferta → `200` com a reserva `CONFIRMED`. Sem oferta ou fora de prazo → `409` |
+| `POST /{id}/sair` | dono do pedido | sai da fila. Se já tinha oferta, é uma recusa e o horário passa ao seguinte |
+
+### Regras e decisões
+
+- **Ordem de chegada:** a fila é por `created_at`. Só disputam um horário os pedidos que se sobrepõem a ele.
+- **Horários parciais:** um horário libertado grande (10h–12h) pode servir dois pedidos pequenos (10h–11h e 11h–12h). Um pedido maior do que o horário libertado continua à espera.
+- **Cancelar a reserva de uma oferta** (`POST /api/reservas/reservas/{id}/cancelar`) é o mesmo que recusá-la.
+- **Concorrência entre réplicas:** a fila é lida com `SELECT ... FOR UPDATE SKIP LOCKED`, por isso duas réplicas nunca fazem duas ofertas para o mesmo pedido. Cada oferta é um `INSERT HELD` dentro de um `SAVEPOINT`: se o horário ainda estiver ocupado, só essa tentativa é desfeita e passa-se ao pedido seguinte.
+- **Ordem dos bloqueios:** primeiro a reserva, depois o pedido, sempre na mesma ordem (cancelar, aceitar, sair, expirar). Assim duas transações nunca ficam à espera uma da outra (deadlock).
+- **Pedido de outra pessoa:** `404`, como nas reservas.
+- **A validação do horário foi partilhada:** passou para a função `check_slot()` em `routers/reservations.py`, usada ao criar reserva e ao entrar na fila. O comportamento do `POST /reservas` não mudou.
+
+### Expirar ofertas: `python -m app.expire_holds`
+
+O job fecha as ofertas fora de prazo e passa o horário ao seguinte. Também marca como `EXPIRED` os pedidos cujo horário já começou. Corre uma vez e sai.
+
+- **No Kubernetes (Sprint 4):** fica num **CronJob** a correr a cada minuto. Pode correr em várias réplicas ao mesmo tempo, graças ao `SKIP LOCKED`.
+- **Em desenvolvimento**, para correr à mão:
+
+  ```bash
+  docker compose exec booking python -m app.expire_holds
+  ```
+- **Mesmo sem o job,** aceitar uma oferta fora de prazo dá `409` e passa o horário ao seguinte.
+
+### Testes dos fluxos de reserva
+
+O ficheiro `tests/test_reservation_flows.py` conta 4 histórias completas, passo a passo:
+
+1. **Reservar, conflitar, cancelar e outra pessoa reservar.** Confirma a disponibilidade, as "minhas reservas" de cada um e os emails.
+2. **Permissões, usuário comum contra administrador:** ver, cancelar, listar e criar recursos.
+3. **Fila de espera completa:** conflito, entrar na fila, oferta, recusa, oferta ao seguinte e aceitação.
+4. **Oferta sem resposta:** expira e passa ao seguinte.
+
+### Testes desta branch
+
+- `pytest` do booking-service: **160 testes OK**. São 139 anteriores, mais 17 da fila (`test_waitlist.py`) e 4 fluxos (`test_reservation_flows.py`).
+- **A limpeza da fixture `category`** (em `test_reservations.py`) passou a apagar também os pedidos da fila e os seus emails. Sem isso, as chaves estrangeiras impediam de apagar as reservas e os recursos de teste.
+
 ## O que mudou na branch `dev-sprint3-feature/gerir-reservas`
 
 Mais três tarefas da Sprint 3 do backend: **minhas reservas**, **cancelar reserva** e **todas as reservas (admin)**. Tudo no `booking-service`, **sem migração nova**.
