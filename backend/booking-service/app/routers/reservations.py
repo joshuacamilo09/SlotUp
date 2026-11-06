@@ -193,3 +193,80 @@ def list_all_reservations(
     if user_email:
         query = query.where(func.lower(Reservation.user_email) == user_email.strip().lower())
     return _filtered(query, response, db, periodo, limit, offset)
+
+
+
+def _get_visible(db: Session, reservation_id: uuid.UUID, user: CurrentUser, *, lock: bool = False) -> Reservation:
+    """A reserva, se quem pede for o dono ou o ADMIN. A de outra pessoa dá 404, e não 403:
+    assim ninguém consegue descobrir que ids de reservas existem (ataque IDOR).
+
+    lock=True bloqueia a linha até ao commit (SELECT ... FOR UPDATE).
+    """
+    query = select(Reservation).where(Reservation.id == reservation_id)
+    if lock:
+        query = query.with_for_update(of=Reservation)
+    reservation = db.scalars(query).first()
+    if reservation is None or (reservation.user_id != user.id and user.role != "ADMIN"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Reserva não encontrada")
+    return reservation
+
+
+@router.get("/{reservation_id}", response_model=ReservationOut)
+def get_reservation(
+    reservation_id: uuid.UUID,
+    user: CurrentUser = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> Reservation:
+    return _get_visible(db, reservation_id, user)
+
+
+@router.post("/{reservation_id}/cancelar", response_model=ReservationOut)
+def cancel_reservation(
+    reservation_id: uuid.UUID,
+    user: CurrentUser = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> Reservation:
+    """Cancela a reserva e o horário volta a ficar livre.
+
+    * O dono cancela a sua, só antes de ela começar. O ADMIN cancela qualquer uma, até ela acabar.
+    * Reserva já cancelada, ou já terminada, dá 409.
+    * A linha fica bloqueada (FOR UPDATE) até ao commit: se o dono e o admin cancelarem ao
+      mesmo tempo, o segundo espera, vê a reserva já CANCELLED e recebe 409. Só sai um email.
+    * O horário fica livre sozinho: a constraint reservations_no_overlap só olha para
+      HELD e CONFIRMED, por isso uma reserva CANCELLED deixa de contar.
+    """
+    reservation = _get_visible(db, reservation_id, user, lock=True)
+    now = datetime.now(timezone.utc)
+    is_admin = user.role == "ADMIN"
+
+    if reservation.status not in ACTIVE_STATUSES:
+        raise HTTPException(status.HTTP_409_CONFLICT, "A reserva já está cancelada")
+    if reservation.end_at <= now:
+        raise HTTPException(status.HTTP_409_CONFLICT, "A reserva já terminou")
+    if reservation.start_at <= now and not is_admin:
+        raise HTTPException(status.HTTP_409_CONFLICT, "A reserva já começou e não pode ser cancelada")
+
+    reservation.status = "CANCELLED"
+    reservation.cancelled_at = now  # obrigatório: CHECK reservations_cancelled_has_date (migração 0002)
+    reservation.version += 1
+
+    # Email para o DONO da reserva (mesmo quando quem cancela é o admin), na mesma transação (outbox)
+    db.add(
+        Notification(
+            user_id=reservation.user_id,
+            recipient_email=reservation.user_email,
+            type="RESERVATION_CANCELLED",
+            reservation_id=reservation.id,
+            payload={
+                "resource_name": reservation.resource_name,
+                "start_at": reservation.start_at.isoformat(),
+                "end_at": reservation.end_at.isoformat(),
+                "cancelled_by": "ADMIN" if is_admin and reservation.user_id != user.id else "USER",
+            },
+        )
+    )
+    db.commit()
+    db.refresh(reservation)
+
+    log.info("reserva_cancelada por_user_id=%s papel=%s reserva_id=%s", user.id, user.role, reservation.id)
+    return reservation
