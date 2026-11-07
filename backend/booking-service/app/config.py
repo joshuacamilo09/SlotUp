@@ -1,4 +1,5 @@
 """Configuração do booking-service (variáveis de ambiente)."""
+import socket
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,6 +10,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     service_name: str = "booking-service"
+
+    # Nome desta réplica (booking1-1, booking2-2...). No Compose vem de INSTANCE_NAME;
+    # sem a variável, fica o hostname do contentor.
+    instance_name: str = socket.gethostname()
 
     db_host: str = "db"
     db_port: int = 5432

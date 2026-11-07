@@ -45,7 +45,69 @@ Recuperação de palavra-passe (o link "Esqueceu-se?"). O caminho escolhido é a
 - `pytest` do auth-service: **46 testes OK** (30 anteriores + 16 da recuperação).
 - Migração testada na ida e na volta: `alembic upgrade head`, `alembic downgrade 0001`, `alembic upgrade head`.
 
+
+## O que mudou na branch `dev-sprint4-feature/replicas`
+ 
+Réplicas e balanceamento: o auth e o booking passam a correr em **dois servidores** cada, atrás do Nginx, ligados ao **mesmo PostgreSQL**.
+ 
+```
+                         ┌─► Servidor 1: auth-1 + booking-1 ─┐
+browser ─► nginx :8080 ──┤                                    ├─► db (PostgreSQL)
+                         └─► Servidor 2: auth-2 + booking-2 ─┘
+```
+ 
+### O que mudou
+ 
+- **Compose:** `auth` e `booking` deram lugar a `auth-1`, `auth-2`, `booking-1` e `booking-2`. As réplicas usam a mesma imagem (`slotup-auth:dev` e `slotup-booking:dev`), o mesmo banco e **não têm `container_name` fixo**. Só mudam o `INSTANCE_NAME` e a porta no seu computador. A configuração comum está escrita uma vez, nos blocos `x-auth-service` e `x-booking-service` do `docker-compose.yml`.
+- **Nginx:** dois blocos `upstream` (`auth_servers` e `booking_servers`) com as duas réplicas cada. Os pedidos alternam entre o servidor 1 e o servidor 2 (round-robin). Com `resolve`, o Nginx volta a perguntar o IP das réplicas ao DNS do Docker a cada 10 s. Por isso arranca mesmo que uma réplica ainda não exista e encontra-a sozinho se ela reiniciar com outro IP. A imagem passou a `nginx:1.27.5-alpine`, porque o `resolve` só existe a partir da 1.27.3.
+- **Serviços:** a configuração nova `instance_name` (variável `INSTANCE_NAME`) aparece no `/whoami` e no cabeçalho `X-Instance`, presente em todas as respostas. Sem a variável, fica o hostname do contentor.
+- **Rotas de demo no Nginx:** `/api/auth/whoami` e `/api/reservas/whoami` mostram que réplica respondeu.
+### Portas
+ 
+| Réplica | Porta no seu computador |
+|---|---|
+| `auth-1` / `auth-2` | `8001` / `8011` |
+| `booking-1` / `booking-2` | `8002` / `8012` |
+| Nginx (frontend + API) | `8080` |
+ 
+### Comandos que mudam
+ 
+Nos comandos `docker compose exec` e `logs`, use o nome da réplica. O seed basta correr numa réplica, porque o banco é o mesmo:
+ 
+```bash
+docker compose exec auth-1 python -m app.seed
+docker compose exec booking-1 python -m app.seed
+docker compose logs -f auth-2
+```
+ 
+Nas secções mais antigas deste README, onde está `exec auth` ou `exec booking`, leia `exec auth-1` ou `exec booking-1`.
+ 
+### Como ver o balanceamento
+ 
+```bash
+for i in 1 2 3 4; do curl -s http://localhost:8080/api/auth/whoami; echo; done
+```
+ 
+A resposta alterna entre `auth-1` e `auth-2`. Se parar uma réplica (`docker compose stop auth-2`), todos os pedidos passam a ir para a `auth-1`. Ao ligá-la de novo (`docker compose start auth-2`), volta a alternar em cerca de 10 s. O failover afinado (tempos e tentativas) é a próxima tarefa, "Nginx com failover".
+ 
+### Como atualizar
+ 
+Em `infra/docker`. O `--remove-orphans` apaga os contentores antigos `slotup-auth` e `slotup-booking`, que já não existem no compose:
+ 
+```bash
+docker compose up -d --build --remove-orphans
+docker compose ps
+```
+ 
+### Testes desta branch
+ 
+- `pytest` do auth-service e do booking-service: tudo OK, sem testes novos (o `/whoami` já era testado).
+- `docker compose config`: válido.
+- Nginx 1.27.5 com a configuração nova, quatro réplicas e um DNS como o do Docker: os pedidos alternam 1, 2, 1, 2. Com uma réplica parada, tudo vai para a outra. Uma réplica que volta com IP novo é encontrada em cerca de 10 s. O Nginx arranca com uma réplica ainda em falta.
+
+
 # ANTIGO (SE JA LEU NAO PRECISA LER MAIS)
+
 ## O que mudou na branch `dev-sprint3-feature/fila-de-espera`
 
 As duas últimas tarefas da Sprint 3 do backend: a **fila de espera** ligada ao cancelamento e os **testes dos fluxos de reserva**. Tudo no `booking-service`, **sem migração nova**: as tabelas `waitlist_entries`, o estado `HELD` e os emails `WAITLIST_JOINED`/`WAITLIST_OFFERED` já existiam desde a migração `0002`.

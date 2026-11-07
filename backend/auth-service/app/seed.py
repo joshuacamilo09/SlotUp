@@ -8,7 +8,7 @@ Os dois ficam com o 2FA JÁ ATIVO, com o mesmo segredo TOTP fixo (SEED_TOTP_SECR
 Assim basta adicionar a conta no Authenticator uma vez: continua a valer depois de
 um `docker compose down -v`.
 
-Rodar:  docker compose exec auth python -m app.seed
+Rodar: docker compose exec auth-1 python -m app.seed (basta numa réplica: o banco é o mesmo)
 """
 import os
 import sys

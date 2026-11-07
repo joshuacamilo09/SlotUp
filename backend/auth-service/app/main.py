@@ -62,6 +62,17 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 
+@app.middleware("http")
+async def instance_header(request: Request, call_next):
+    """Cabeçalho X-Instance em todas as respostas: mostra que réplica atendeu o pedido.
+
+    Útil na demo das réplicas: no DevTools do browser (separador Rede) ou com curl -i
+    vê-se cada pedido a cair no servidor 1 ou no servidor 2.
+    """
+    response = await call_next(request)
+    response.headers["X-Instance"] = get_settings().instance_name
+    return response
+
 
 @app.exception_handler(OperationalError)
 @app.exception_handler(InterfaceError)

@@ -3,6 +3,7 @@
 Tudo vem de variáveis de ambiente (12-factor). No Docker Compose são definidas
 em docker-compose.yml; no Kubernetes virão de ConfigMaps e Secrets.
 """
+import socket
 from functools import lru_cache
 from pathlib import Path
 
@@ -14,6 +15,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     service_name: str = "auth-service"
+
+    # Nome desta réplica (auth-1, auth-2...). No Compose vem de INSTANCE_NAME;
+    # sem a variável, fica o hostname do contentor.
+    instance_name: str = socket.gethostname()
 
     # Base de dados (cada serviço só conhece a sua)
     db_host: str = "db"

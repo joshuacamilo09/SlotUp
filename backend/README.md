@@ -71,8 +71,8 @@ python ../../backend/scripts/e2e_smoke.py  # deve terminar com "Tudo certo."
 Deixa os bancos sempre no mesmo ponto de partida, para a demo e os testes manuais. **Só para desenvolvimento**: só roda com `SEED_ENABLED=true` no `.env`.
 
 ```bash
-docker compose exec auth python -m app.seed      # admin do .env + ana@slotup.pt, com 2FA já ativo
-docker compose exec booking python -m app.seed   # apaga reservas, fila, notificações e recursos; recria 15 recursos
+docker compose exec auth-1 python -m app.seed      # admin do .env + ana@slotup.pt, com 2FA já ativo
+docker compose exec booking-1 python -m app.seed   # apaga reservas, fila, notificações e recursos; recria 15 recursos
 ```
 
 - **Usuários:** o admin do `.env` (`ADMIN_EMAIL`) e `ana@slotup.pt` (senha `SEED_USER_PASSWORD`), os dois com o 2FA ativo e o mesmo segredo `SEED_TOTP_SECRET`. Adicione esse segredo **uma vez** no Authenticator ("Inserir chave de configuração"): ele continua valendo depois de um `down -v`.
@@ -196,7 +196,7 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 - Estados do pedido: `WAITING` → `OFFERED` → `ACCEPTED`; ou `CANCELLED` (saiu ou recusou) e `EXPIRED` (não respondeu a tempo, ou o horário já começou).
 - **Quando um horário fica livre** (cancelamento, recusa ou expiração), o primeiro da fila, por ordem de chegada, recebe uma reserva `HELD` guardada durante **15 minutos** (`HOLD_MINUTES` em `app/waitlist.py`), e um email `WAITLIST_OFFERED`.
 - **Duas réplicas nunca fazem duas ofertas para o mesmo pedido:** `SELECT ... FOR UPDATE SKIP LOCKED` na fila. Cada oferta é um `INSERT` dentro de um `SAVEPOINT`: se o horário ainda estiver ocupado, a constraint recusa e passa-se ao pedido seguinte.
-- **Job de expiração:** `python -m app.expire_holds` (no Kubernetes, um CronJob a cada minuto; em desenvolvimento, `docker compose exec booking python -m app.expire_holds`).
+- **Job de expiração:** `python -m app.expire_holds` (no Kubernetes, um CronJob a cada minuto; em desenvolvimento, `docker compose exec booking-1 python -m app.expire_holds`).
 
 
 ## 3. Decisões de segurança (para o relatório da UC de Segurança)

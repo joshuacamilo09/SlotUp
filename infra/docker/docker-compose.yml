@@ -1,5 +1,74 @@
 name: slotup
 
+# ---------------------------------------------------------------------------
+# Blocos reutilizados (x- = extensão: o Compose ignora-os como serviços).
+# Cada "&nome" define um bloco; "<<: *nome" copia-o para dentro de um serviço.
+# Assim as duas réplicas de cada serviço ficam iguais e só se escreve uma vez.
+# ---------------------------------------------------------------------------
+x-auth-image: &auth-image
+  build: ../../backend/auth-service
+  image: slotup-auth:dev                # uma só imagem para auth-migrate, auth-1 e auth-2
+
+x-booking-image: &booking-image
+  build: ../../backend/booking-service
+  image: slotup-booking:dev
+
+x-auth-env: &auth-env
+  DB_HOST: db
+  DB_NAME: auth_db
+  DB_USER: auth_user
+  DB_PASSWORD: ${AUTH_DB_PASSWORD}
+  ADMIN_NAME: ${ADMIN_NAME:-Administrador}
+  ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+  SEED_ENABLED: ${SEED_ENABLED:-false}
+  SEED_TOTP_SECRET: ${SEED_TOTP_SECRET:-}
+  SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
+
+x-booking-env: &booking-env
+  DB_HOST: db
+  DB_NAME: booking_db
+  DB_USER: booking_user
+  DB_PASSWORD: ${BOOKING_DB_PASSWORD}
+  SCHEDULING_URL: http://scheduling:8003
+  SEED_ENABLED: ${SEED_ENABLED:-false}
+
+# Tudo o que as réplicas do auth têm em comum (menos o environment e a porta,
+# que cada réplica define: o "<<" não junta listas nem mapas aninhados)
+x-auth-service: &auth-service
+  <<: *auth-image
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+    auth-migrate:
+      condition: service_completed_successfully
+  secrets:
+    - jwt_private_key
+    - jwt_public_key
+    - totp_encryption_key
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health/ready', timeout=3)"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+
+x-booking-service: &booking-service
+  <<: *booking-image
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+    booking-migrate:
+      condition: service_completed_successfully
+  secrets:
+    - jwt_public_key # só a pública: o booking valida tokens mas não os consegue criar
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health/ready', timeout=3)"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+
 services:
   db:
     image: postgres:17.9
@@ -22,7 +91,7 @@ services:
       retries: 10
 
   auth-migrate:
-    build: ../../backend/auth-service     # mesma imagem do auth
+    <<: *auth-image                       # mesma imagem do auth
     container_name: slotup-auth-migrate
     depends_on:
       db:
@@ -32,40 +101,27 @@ services:
     command: ["alembic", "upgrade", "head"]   # roda as migrações e sai
     restart: "no"                             # não reinicia: é para rodar uma vez
 
-  auth:
-    build: ../../backend/auth-service
-    container_name: slotup-auth
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      auth-migrate:
-        condition: service_completed_successfully
+  # ----- Servidor 1 e servidor 2 do auth: mesma imagem, mesmo banco -----
+  # Sem container_name: o Compose dá um nome a cada contentor e o Nginx encontra-os
+  # pelo nome do serviço (auth-1, auth-2). Só muda o INSTANCE_NAME e a porta no host.
+  auth-1:
+    <<: *auth-service
     environment:
-      DB_HOST: db
-      DB_NAME: auth_db
-      DB_USER: auth_user
-      DB_PASSWORD: ${AUTH_DB_PASSWORD}
-      ADMIN_NAME: ${ADMIN_NAME:-Administrador}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      SEED_ENABLED: ${SEED_ENABLED:-false}
-      SEED_TOTP_SECRET: ${SEED_TOTP_SECRET:-}
-      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
-    secrets:
-      - jwt_private_key
-      - jwt_public_key
-      - totp_encryption_key
+      <<: *auth-env
+      INSTANCE_NAME: auth-1
     ports:
       - "127.0.0.1:8001:8001"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health/ready', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+
+  auth-2:
+    <<: *auth-service
+    environment:
+      <<: *auth-env
+      INSTANCE_NAME: auth-2
+    ports:
+      - "127.0.0.1:8011:8001"
 
   booking-migrate:
-    build: ../../backend/booking-service   # mesma imagem do booking
+    <<: *booking-image                    # mesma imagem do booking
     container_name: slotup-booking-migrate
     depends_on:
       db:
@@ -75,31 +131,22 @@ services:
     command: ["alembic", "upgrade", "head"]
     restart: "no"
 
-  booking:
-    build: ../../backend/booking-service
-    container_name: slotup-booking
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      booking-migrate:
-        condition: service_completed_successfully
+  # ----- Servidor 1 e servidor 2 do booking -----
+  booking-1:
+    <<: *booking-service
     environment:
-      DB_HOST: db
-      DB_NAME: booking_db
-      DB_USER: booking_user
-      DB_PASSWORD: ${BOOKING_DB_PASSWORD}
-      SCHEDULING_URL: http://scheduling:8003
-      SEED_ENABLED: ${SEED_ENABLED:-false}
-    secrets:
-      - jwt_public_key # só a pública: o booking valida tokens mas não os consegue criar
+      <<: *booking-env
+      INSTANCE_NAME: booking-1
     ports:
       - "127.0.0.1:8002:8002"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health/ready', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+
+  booking-2:
+    <<: *booking-service
+    environment:
+      <<: *booking-env
+      INSTANCE_NAME: booking-2
+    ports:
+      - "127.0.0.1:8012:8002"
 
   scheduling:
     build: ../../backend/scheduling-service
@@ -114,12 +161,14 @@ services:
       retries: 5
 
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.27.5-alpine    # 1.27.3 ou mais recente: precisa do "resolve" no upstream
     container_name: slotup-nginx
     restart: unless-stopped
     depends_on:
-      - auth
-      - booking
+      - auth-1
+      - auth-2
+      - booking-1
+      - booking-2
     ports:
       - "127.0.0.1:8080:80"
     volumes:

@@ -1,5 +1,3 @@
-import socket
-
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
 
@@ -28,5 +26,6 @@ def ready() -> dict:
 
 @router.get("/whoami")
 def whoami() -> dict:
-    """Devolve o nome da instância: prova o balanceamento de carga na demo."""
-    return {"service": get_settings().service_name, "instance": socket.gethostname()}
+    """Devolve o nome da réplica que respondeu: prova o balanceamento de carga na demo."""
+    settings = get_settings()
+    return {"service": settings.service_name, "instance": settings.instance_name}
