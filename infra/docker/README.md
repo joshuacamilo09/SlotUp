@@ -111,7 +111,7 @@ browser ─► nginx :8080 ──┤                                    ├─�
 
 - **Mesma imagem:** `auth-migrate`, `auth-1` e `auth-2` usam a imagem `slotup-auth:dev` (o mesmo para o booking). No `docker-compose.yml`, a configuração comum está escrita uma vez nos blocos `x-auth-service` e `x-booking-service`.
 - **O que muda entre réplicas:** só o `INSTANCE_NAME` e a porta no seu computador.
-- **Balanceamento:** o Nginx alterna os pedidos entre as duas réplicas (round-robin). Se uma não responder, o pedido vai para a outra.
+- **Failover:** o servidor 1 (`auth-1`, `booking-1`) recebe todos os pedidos e o servidor 2 (`auth-2`, `booking-2`) fica de reserva (`backup`). Se o servidor 1 falhar, o Nginx refaz o pedido no servidor 2, sem erro para o utilizador. Detalhes em [Failover](#failover).
 - **Porque funciona:** os serviços não guardam estado na memória. A sessão é o JWT, os bloqueios e os códigos TOTP usados estão no banco, e as reservas são protegidas pelas constraints do PostgreSQL. Qualquer réplica pode atender qualquer pedido.
 
 | Serviço | No seu computador | Pelo Nginx |
@@ -121,13 +121,46 @@ browser ─► nginx :8080 ──┤                                    ├─�
 | `booking-1` | `http://localhost:8002` | `http://localhost:8080/api/reservas/...` |
 | `booking-2` | `http://localhost:8012` | (o Nginx escolhe) |
 
-Ver o balanceamento a funcionar:
+Ver que réplica responde:
 
 ```bash
 for i in 1 2 3 4; do curl -s http://localhost:8080/api/auth/whoami; echo; done
 ```
 
-A resposta alterna entre `"instance":"auth-1"` e `"instance":"auth-2"`. O mesmo com `/api/reservas/whoami`. Todas as respostas trazem também o cabeçalho `X-Instance` (no browser: DevTools, separador Rede).
+Responde sempre `"instance":"auth-1"`, até o servidor 1 falhar. O mesmo com `/api/reservas/whoami`. Todas as respostas trazem também o cabeçalho `X-Instance` (no browser: DevTools, separador Rede).
+
+## Failover
+
+Configurado em `nginx/default.conf`:
+
+| O quê | Valor | Para quê |
+|---|---|---|
+| `server auth-1 ... max_fails=1 fail_timeout=10s` | servidor 1, principal | à primeira falha fica 10 s de fora; depois o Nginx volta a experimentá-lo |
+| `server auth-2 ... backup` | servidor 2, reserva | só recebe pedidos quando o 1 falha |
+| `proxy_connect_timeout 1s` | 1 s | réplica que não aceita a ligação |
+| `proxy_read_timeout 5s` | 5 s | réplica ligada mas pendurada |
+| `proxy_next_upstream error timeout http_502 http_503 http_504` | | quando refazer o pedido no servidor 2 |
+| `proxy_next_upstream_tries 2` | 2 | servidor 1 e servidor 2, no máximo |
+
+O que acontece em cada falha:
+
+| Falha no servidor 1 | O que o utilizador vê |
+|---|---|
+| Parado ou a reiniciar (`docker compose stop auth-1`) | nada: o pedido vai para o servidor 2 (`200`). O primeiro pode demorar até 1 s (`proxy_connect_timeout`). |
+| Pendurado (`docker compose pause auth-1`), pedido `GET` | espera 5 s e recebe a resposta do servidor 2 |
+| Pendurado, pedido `POST` (login, reserva) | `504` uma vez. O POST não é repetido porque já chegou ao servidor 1: repeti-lo podia fazer a mesma reserva ou gastar o mesmo código 2FA duas vezes. Os pedidos seguintes já vão para o servidor 2. |
+| Servidores 1 e 2 em baixo | `503` com `{"detail": "Serviço temporariamente indisponível..."}`, que o frontend mostra |
+
+Ver o failover:
+
+```bash
+docker compose stop auth-1
+for i in 1 2 3; do curl -s http://localhost:8080/api/auth/whoami; echo; done
+docker compose logs --tail 3 nginx
+docker compose start auth-1
+```
+
+Com o `auth-1` parado, responde o `auth-2`. O log do Nginx mostra o caminho de cada pedido. Num failover aparecem os dois servidores: `upstream=172.18.0.5:8001, 172.18.0.6:8001 upstream_status=502, 200` (ou `504, 200`, se o servidor 1 não respondeu a tempo). Uns segundos depois do `stop`, o nome `auth-1` sai do DNS do Docker e o log já só mostra o servidor 2. Depois do `start`, o `auth-1` volta a responder em cerca de 10 s.
 
 ## Bancos, usuários e serviços
 

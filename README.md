@@ -2,6 +2,56 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint4-feature/nginx-failover`
+
+O Nginx deixa de alternar entre os dois servidores. Agora o **servidor 1 é o principal** e o **servidor 2 fica de reserva** (`backup`). Os timeouts são curtos: se o servidor 1 falhar, o pedido é refeito no servidor 2 e o utilizador não vê erro nenhum.
+
+```
+browser ─► nginx :8080 ──► Servidor 1: auth-1 + booking-1   (todos os pedidos)
+                      └ ─► Servidor 2: auth-2 + booking-2   (só se o 1 falhar)
+```
+
+### O que mudou (`infra/docker/nginx/default.conf`)
+
+- **`upstream`:** `auth-1` e `booking-1` com `max_fails=1 fail_timeout=10s`. À primeira falha ficam 10 s de fora, e depois o Nginx volta a experimentá-los. `auth-2` e `booking-2` passam a ser `backup`.
+- **Timeouts curtos:** 1 s para ligar (`proxy_connect_timeout`) e 5 s à espera de resposta (`proxy_read_timeout`).
+- **Refazer no servidor 2:** `proxy_next_upstream error timeout http_502 http_503 http_504`, com 2 tentativas no máximo (servidor 1 e servidor 2) e 6 s no total.
+- **Os dois servidores em baixo:** em vez da página HTML do Nginx, o cliente recebe `503` com `{"detail": "Serviço temporariamente indisponível. Tente daqui a pouco."}`, que o frontend mostra como os outros erros.
+- **Log do Nginx com o caminho de cada pedido** (`log_format failover`): mostra que servidor tentou, o que respondeu e quanto demorou. Serve de prova para o "Teste de falha".
+
+### Porque um POST pendurado não é repetido
+
+Um `GET` (ex.: listar recursos) pode ser repetido no servidor 2 sem problema. Um `POST` só é repetido se ainda não tiver chegado ao servidor 1, por exemplo quando a ligação é recusada. Se já chegou e o servidor 1 ficou pendurado, repeti-lo podia fazer a mesma reserva duas vezes, ou gastar duas vezes o mesmo código 2FA (o segundo seria recusado como reutilizado). Nesse caso o utilizador recebe `504` uma vez, e os pedidos seguintes já vão para o servidor 2. É o comportamento por defeito do Nginx, e mantém-se de propósito.
+
+### Como ver
+
+Em `infra/docker`:
+
+```bash
+docker compose up -d
+docker compose stop auth-1
+for i in 1 2 3; do curl -s http://localhost:8080/api/auth/whoami; echo; done
+docker compose logs --tail 3 nginx
+docker compose start auth-1
+```
+
+Com o `auth-1` parado, responde o `auth-2`, e o log do Nginx mostra a tentativa no servidor 1 e a resposta do servidor 2. Os cenários todos estão no [README do Docker](infra/docker/README.md#failover).
+
+### Testes desta branch
+
+Com o Nginx 1.27.5, a configuração nova, quatro réplicas e um DNS como o do Docker:
+
+| Cenário | Resultado |
+|---|---|
+| Tudo ligado | todos os pedidos vão para o servidor 1 |
+| Servidor 1 morto, `GET` e `POST` | `200` e `401` (login errado de propósito) vindos do servidor 2, sem erro |
+| Servidor 1 fora do DNS (como no `docker compose stop`) | `200` do servidor 2 |
+| Servidor 1 pendurado, `GET` | `200` do servidor 2, ao fim de 5 s |
+| Servidor 1 pendurado, `POST` | `504` (não repete, de propósito); os pedidos seguintes vão para o 2 |
+| Servidor 1 volta | ao fim de cerca de 10 s, recebe outra vez os pedidos |
+| Servidores 1 e 2 em baixo | `503` com o JSON `detail` |
+
+
 ## O que mudou na branch `dev-sprint4-feature/recuperar-password`
  
 Recuperação de palavra-passe (o link "Esqueceu-se?"). O caminho escolhido é a **opção B com token**: é o administrador quem entrega o token ao utilizador, por isso não há envio de emails e **o diagrama não muda**. Quando existir o worker de emails, basta enviar o mesmo token por email (opção A), sem mudar a tabela nem a rota de redefinição.
