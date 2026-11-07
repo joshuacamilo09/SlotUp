@@ -43,6 +43,60 @@
         <p class="grelha-nota">Clique numa hora para a selecionar; ajuste início e fim no painel.</p>
       </section>
 
+      <aside class="recurso-lateral">
+       <section class="painel" aria-labelledby="painel-titulo"></section> 
+        <h2 id="painel-titulo">Nova reserva</h2>
+
+        <div class="painel-horas">
+        </div>
+        <span class="campo-rotulo" id="rotulo-inicio">Início</span>
+              <div class="seletor-hora" role="group" aria-labelledby="rotulo-inicio">
+                <button type="button" id="inicio-menos" aria-label="Início 15 minutos mais cedo">
+                  <span class="material-symbols-rounded" aria-hidden="true">remove</span>
+                </button>
+                <output id="inicio-valor"></output>
+                <button type="button" id="inicio-mais" aria-label="Início 15 minutos mais tarde">
+                  <span class="material-symbols-rounded" aria-hidden="true">add</span>
+                </button>
+              </div>
+            </div>
+            <div>
+                <span class="campo-rotulo" id="rotulo-fim">Fim</span>
+                <div class="seletor-hora" role="group" aria-labelledby="rotulo-fim">
+                  <button type="button" id="fim-menos" aria-label="Fim 15 minutos mais cedo">
+                    <span class="material-symbols-rounded" aria-hidden="true">remove</span>
+                    </button>
+                    <output id="fim-valor"></output>
+                    <button type="button" id="fim-mais" aria-label="Fim 15 minutos mais tarde">
+                      <span class="material-symbols-rounded" aria-hidden="true">add</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="estado" id="estado" role="status"></div>
+
+        <button type="button" class="rec-btn primario grande" id="botao-principal"></button>
+
+        <p class="painel-nota">
+            <span class="material-symbols-rounded" aria-hidden="true">mail</span>
+            <span>Enviamos a confirmação para <span id="email-utilizador"></span></span>
+          </p>
+        </section>
+
+        <section class="legenda" aria-label="Legenda">
+          <div class="legenda-item"><i class="amostra livre"></i>Livre</div>
+          <div class="legenda-item"><i class="amostra ocupado"></i>Ocupado</div>
+          <div class="legenda-item"><i class="amostra minha"></i>Reservado por si</div>
+          <div class="legenda-item"><i class="amostra fila"></i>Em fila</div>
+        </section>
+      </aside>
+
+    </div>
+  </main>
+
+            
+
 
 
         
