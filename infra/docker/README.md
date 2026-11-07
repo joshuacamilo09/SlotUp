@@ -67,9 +67,12 @@ O resultado esperado:
 | `slotup-db` | `healthy` |
 | `slotup-auth-migrate` | `Exited (0)` |
 | `slotup-booking-migrate` | `Exited (0)` |
-| `slotup-auth` | `healthy` |
-| `slotup-booking` | `healthy` |
+| `slotup-auth-1-1` e `slotup-auth-2-1` | `healthy` |
+| `slotup-booking-1-1` e `slotup-booking-2-1` | `healthy` |
 | `slotup-scheduling` | `healthy` |
+| `slotup-nginx` | `healthy` |
+
+As réplicas não têm `container_name` fixo, por isso o Compose chama-lhes `slotup-<serviço>-1` (projeto, serviço, número). Nos comandos usa-se sempre o nome do **serviço**: `auth-1`, `auth-2`, `booking-1`, `booking-2`.
 
 `Exited (0)` nos contentores de migração **é o normal**: eles rodam as migrações uma vez e terminam. O `0` significa "terminou sem erro".
 
@@ -80,11 +83,14 @@ No Docker Desktop, os contentores aparecem em **Containers**, dentro do grupo `s
 ```
 db (healthy)
  ├─► auth-migrate     (alembic upgrade head no auth_db, depois termina)
- │     └─► auth       (só sobe se a migração terminou sem erro)
+ │     ├─► auth-1     (servidor 1; só sobe se a migração terminou sem erro)
+ │     └─► auth-2     (servidor 2)
  └─► booking-migrate  (alembic upgrade head no booking_db, depois termina)
-       └─► booking    (só sobe se a migração terminou sem erro)
+       ├─► booking-1  (servidor 1)
+       └─► booking-2  (servidor 2)
 
 scheduling            (não depende de nada: não tem banco)
+nginx                 (porta 8080: serve o frontend e reparte /api pelas réplicas)
 ```
 
 1. Na **primeira criação** do volume, o PostgreSQL roda o `01-roles-and-databases.sql`, que cria os usuários e os bancos vazios.
@@ -92,6 +98,36 @@ scheduling            (não depende de nada: não tem banco)
 3. Só então o auth e o booking arrancam. Se uma migração falhar, o serviço correspondente **não sobe**, o que é melhor do que subir com o banco pela metade.
 
 Os `*-migrate` são o equivalente a um `Job` do Kubernetes. Com várias réplicas, só um processo migra o banco, em vez de todas as réplicas ao mesmo tempo.
+
+## Réplicas e balanceamento
+
+O auth e o booking correm em **duas réplicas** cada, todas ligadas ao **mesmo PostgreSQL**:
+
+```
+                         ┌─► Servidor 1: auth-1 + booking-1 ─┐
+browser ─► nginx :8080 ──┤                                    ├─► db (PostgreSQL)
+                         └─► Servidor 2: auth-2 + booking-2 ─┘
+```
+
+- **Mesma imagem:** `auth-migrate`, `auth-1` e `auth-2` usam a imagem `slotup-auth:dev` (o mesmo para o booking). No `docker-compose.yml`, a configuração comum está escrita uma vez nos blocos `x-auth-service` e `x-booking-service`.
+- **O que muda entre réplicas:** só o `INSTANCE_NAME` e a porta no seu computador.
+- **Balanceamento:** o Nginx alterna os pedidos entre as duas réplicas (round-robin). Se uma não responder, o pedido vai para a outra.
+- **Porque funciona:** os serviços não guardam estado na memória. A sessão é o JWT, os bloqueios e os códigos TOTP usados estão no banco, e as reservas são protegidas pelas constraints do PostgreSQL. Qualquer réplica pode atender qualquer pedido.
+
+| Serviço | No seu computador | Pelo Nginx |
+|---|---|---|
+| `auth-1` | `http://localhost:8001` | `http://localhost:8080/api/auth/...` |
+| `auth-2` | `http://localhost:8011` | (o Nginx escolhe) |
+| `booking-1` | `http://localhost:8002` | `http://localhost:8080/api/reservas/...` |
+| `booking-2` | `http://localhost:8012` | (o Nginx escolhe) |
+
+Ver o balanceamento a funcionar:
+
+```bash
+for i in 1 2 3 4; do curl -s http://localhost:8080/api/auth/whoami; echo; done
+```
+
+A resposta alterna entre `"instance":"auth-1"` e `"instance":"auth-2"`. O mesmo com `/api/reservas/whoami`. Todas as respostas trazem também o cabeçalho `X-Instance` (no browser: DevTools, separador Rede).
 
 ## Bancos, usuários e serviços
 
@@ -130,11 +166,11 @@ Em clientes visuais (DBeaver, pgAdmin): host `localhost`, porta `5436`, banco e 
 | O que fazer | Comando |
 |---|---|
 | Ver o estado (inclusive os que já terminaram) | `docker compose ps -a` |
-| Ver os logs de um contentor | `docker compose logs -f db` (ou `auth`, `booking`, `auth-migrate`…) |
+| Ver os logs de um contentor | `docker compose logs -f db` (ou `auth-1`, `booking-2`, `auth-migrate`…) |
 | Parar (mantém os dados) | `docker compose down` |
 | Ligar de novo | `docker compose up -d` |
 | Reconstruir depois de mudar código ou migrações | `docker compose up -d --build` |
-| Reconstruir só um serviço | `docker compose up -d --build auth` (ou `booking`, `scheduling`) |
+| Reconstruir só um serviço | `docker compose up -d --build auth-1 auth-2` (ou `booking-1 booking-2`, `scheduling`) |
 | Abrir o psql dentro do contentor | `docker compose exec db psql -U postgres` |
 | **Recriar do zero (apaga os dados)** | `docker compose down -v && docker compose up -d --build` |
 
@@ -152,5 +188,7 @@ Em clientes visuais (DBeaver, pgAdmin): host `localhost`, porta `5436`, banco e 
 | `already exists` no log da migração | O volume foi criado por uma versão antiga do projeto, com as tabelas dos scripts SQL. Recrie com `docker compose down -v`. |
 | `password authentication failed` | As senhas são gravadas na **primeira** criação do volume. Se mudou o `.env` depois, recrie com `down -v`. Confira também se a senha tem só letras e números. |
 | `Role "..." does not exist` | O `01-roles-and-databases.sql` não rodou. Veja `docker compose logs db` e recrie com `down -v`. |
-| Auth ou booking `unhealthy` | Veja `docker compose logs auth` (ou `booking`). Se o `/health/ready` responde `503`, o serviço está vivo mas não alcança o banco. |
+| Auth ou booking `unhealthy` | Veja `docker compose logs auth-1` (ou `auth-2`, `booking-1`, `booking-2`). Se o `/health/ready` responde `503`, o serviço está vivo mas não alcança o banco. |
+| Nginx: `invalid parameter "resolve"` | A imagem do Nginx é anterior à 1.27.3. Confirme `image: nginx:1.27.5-alpine` no compose e corra `docker compose pull nginx`. |
+| `port is already allocated` (8011 ou 8012) | Outro programa usa a porta da réplica 2. Troque o número da esquerda no compose (ex.: `"127.0.0.1:8021:8001"`). |
 | `permission denied for database` | Você está usando o usuário de outro serviço. É o comportamento esperado (isolamento). |

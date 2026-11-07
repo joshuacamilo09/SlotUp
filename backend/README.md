@@ -71,8 +71,8 @@ python ../../backend/scripts/e2e_smoke.py  # deve terminar com "Tudo certo."
 Deixa os bancos sempre no mesmo ponto de partida, para a demo e os testes manuais. **Só para desenvolvimento**: só roda com `SEED_ENABLED=true` no `.env`.
 
 ```bash
-docker compose exec auth python -m app.seed      # admin do .env + ana@slotup.pt, com 2FA já ativo
-docker compose exec booking python -m app.seed   # apaga reservas, fila, notificações e recursos; recria 15 recursos
+docker compose exec auth-1 python -m app.seed      # admin do .env + ana@slotup.pt, com 2FA já ativo
+docker compose exec booking-1 python -m app.seed   # apaga reservas, fila, notificações e recursos; recria 15 recursos
 ```
 
 - **Usuários:** o admin do `.env` (`ADMIN_EMAIL`) e `ana@slotup.pt` (senha `SEED_USER_PASSWORD`), os dois com o 2FA ativo e o mesmo segredo `SEED_TOTP_SECRET`. Adicione esse segredo **uma vez** no Authenticator ("Inserir chave de configuração"): ele continua valendo depois de um `down -v`.
@@ -108,8 +108,6 @@ Daí em diante:  Authorization: Bearer <access_token>   em todos os serviços
 | `POST /register` | público | criar conta |
 | `POST /login` | público | passo 1 |
 | `POST /2fa/setup`, `/2fa/enable` | token `pre_auth` | configurar o 2FA |
-| `POST /users/{id}/password/reset` | ADMIN | gera um token de redefinição de uso único (30 min), que aparece só nesta resposta → `201 {token, expires_at}` |
-| `POST /password/reset` | público | `{token, new_password}` → `204`. Token errado, usado ou expirado → `400`. O 2FA continua obrigatório |
 | `POST /2fa/verify` | token `pre_auth` | passo 2 |
 | `GET /me` | usuário | dados do próprio |
 | `GET /users` | ADMIN | listar usuários |
@@ -196,7 +194,7 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 - Estados do pedido: `WAITING` → `OFFERED` → `ACCEPTED`; ou `CANCELLED` (saiu ou recusou) e `EXPIRED` (não respondeu a tempo, ou o horário já começou).
 - **Quando um horário fica livre** (cancelamento, recusa ou expiração), o primeiro da fila, por ordem de chegada, recebe uma reserva `HELD` guardada durante **15 minutos** (`HOLD_MINUTES` em `app/waitlist.py`), e um email `WAITLIST_OFFERED`.
 - **Duas réplicas nunca fazem duas ofertas para o mesmo pedido:** `SELECT ... FOR UPDATE SKIP LOCKED` na fila. Cada oferta é um `INSERT` dentro de um `SAVEPOINT`: se o horário ainda estiver ocupado, a constraint recusa e passa-se ao pedido seguinte.
-- **Job de expiração:** `python -m app.expire_holds` (no Kubernetes, um CronJob a cada minuto; em desenvolvimento, `docker compose exec booking python -m app.expire_holds`).
+- **Job de expiração:** `python -m app.expire_holds` (no Kubernetes, um CronJob a cada minuto; em desenvolvimento, `docker compose exec booking-1 python -m app.expire_holds`).
 
 
 ## 3. Decisões de segurança (para o relatório da UC de Segurança)
@@ -210,7 +208,6 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 | Reutilização de códigos | guarda-se o último *time-step* usado; o `UPDATE` condicional é atômico, por isso funciona com várias réplicas | `routers/auth.py` |
 | Segredo do 2FA | cifrado com AES-256-GCM antes de ir para o banco, ligado ao id do usuário | `security.py` |
 | Força bruta | 5 falhas (senha ou código) bloqueiam a conta por 15 min; o contador é atômico e fica no banco, não na memória | `routers/auth.py` |
-| Recuperação de senha | o admin gera um token aleatório de 256 bits, de uso único e válido 30 min; no banco fica só o hash SHA-256; gastar o token é um `UPDATE` atômico; resposta igual para token errado, usado ou expirado | `routers/users.py`, `routers/auth.py` |
 | Isolamento | cada serviço só acessa o seu banco (usuários e permissões separados) | `infra/docker/db/init/01-roles-and-databases.sql` |
 | Falha do banco | os serviços respondem `503` (e não `500`) e se recuperam sozinhos quando o banco volta, sem reiniciar | `main.py`, `database.py` |
 
@@ -246,7 +243,6 @@ Cada serviço tem a sua própria tabela `alembic_version`. As migrações de um 
 | Serviço | Migração | O que faz |
 |---|---|---|
 | auth-service | `0001` | tabela `users` (2FA, tentativas de login, bloqueio) |
-| auth-service | `0002` | tabela `password_reset_tokens` (hash do token, validade, uso único) |
 | booking-service | `0001` | extensão `btree_gist`, `categories`, `resources`, `availability_rules` |
 | booking-service | `0002` | `reservations` (com constraint contra sobreposição) e `waitlist_entries` |
 | booking-service | `0003` | `notifications` (outbox de emails) |
