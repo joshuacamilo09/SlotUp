@@ -1,0 +1,5 @@
+# Tudo o que é do SlotUp fica no namespace "slotup"
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: slotup

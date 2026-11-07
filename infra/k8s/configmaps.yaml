@@ -1,0 +1,51 @@
+# Configuração dos serviços no Kubernetes: endereços, portas e regras. SEM senhas nem chaves
+# (essas estão nos Secrets, criados por create-secrets.sh, e nunca vão para o Git).
+# São os mesmos valores de infra/docker/config/*.env; só mudam os endereços que no
+# Kubernetes têm outro nome (ex.: o PostgreSQL).
+#
+# Os Deployments vão ler isto com:
+#   envFrom:
+#     - configMapRef: { name: auth-config }
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-config
+  namespace: slotup
+data:
+  # Base de dados: serviço de escrita do cluster PostgreSQL (CloudNativePG cria "<nome>-rw")
+  DB_HOST: slotup-db-rw
+  DB_PORT: "5432"
+  DB_NAME: auth_db
+  DB_USER: auth_user
+  # JWT: os ficheiros vêm dos Secrets jwt-private-key e jwt-public-key, montados em /run/secrets
+  JWT_PRIVATE_KEY_FILE: /run/secrets/jwt_private_key
+  JWT_PUBLIC_KEY_FILE: /run/secrets/jwt_public_key
+  JWT_ISSUER: slotup-auth
+  JWT_AUDIENCE: slotup
+  ACCESS_TOKEN_MINUTES: "30"
+  PRE_AUTH_TOKEN_MINUTES: "5"
+  # 2FA: o ficheiro vem do Secret totp-encryption-key
+  TOTP_ENCRYPTION_KEY_FILE: /run/secrets/totp_encryption_key
+  TOTP_ISSUER: SlotUp
+  # Bloqueio por tentativas falhadas e validade do token de redefinição
+  MAX_FAILED_ATTEMPTS: "10"
+  LOCK_MINUTES: "15"
+  PASSWORD_RESET_MINUTES: "30"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: booking-config
+  namespace: slotup
+data:
+  DB_HOST: slotup-db-rw
+  DB_PORT: "5432"
+  DB_NAME: booking_db
+  DB_USER: booking_user
+  # Só a chave PÚBLICA do JWT (a mesma do auth): valida tokens, não os cria
+  JWT_PUBLIC_KEY_FILE: /run/secrets/jwt_public_key
+  JWT_ISSUER: slotup-auth
+  JWT_AUDIENCE: slotup
+  # Service do scheduling no mesmo namespace
+  SCHEDULING_URL: http://scheduling:8003
+  LOCAL_TIMEZONE: Europe/Lisbon
