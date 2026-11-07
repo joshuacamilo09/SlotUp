@@ -52,3 +52,16 @@ class TokenOut(BaseModel):
 class TotpSetupOut(BaseModel):
     secret: str
     otpauth_uri: str
+
+
+
+class PasswordResetTokenOut(BaseModel):
+    """Resposta ao admin. O token só aparece aqui, uma única vez: não fica guardado em lado nenhum."""
+
+    token: str
+    expires_at: datetime
+
+
+class PasswordResetIn(BaseModel):
+    token: str = Field(min_length=20, max_length=128)
+    new_password: str = Field(min_length=10, max_length=128)  # mesma regra do registo

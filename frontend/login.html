@@ -62,12 +62,19 @@
             <div class="field-head">
               <label for="password">Palavra-passe</label>
               <!-- TODO: ligar à recuperação de palavra-passe quando existir -->
-              <a href="#" id="forgot-link">Esqueceu-se?</a>
+                            <!-- Não há email: quem redefine é o administrador (ver js/login.js) -->
+              <a href="#" id="forgot-link" aria-controls="forgot-help" aria-expanded="false">Esqueceu-se?</a>
             </div>
             <!-- DEMO: o mock aceita qualquer palavra-passe; trocar o placeholder em produção -->
             <input id="password" type="password" autocomplete="current-password" required>
           </div>
-
+          
+          <!-- Aparece ao clicar em "Esqueceu-se?" -->
+          <div id="forgot-help" class="alert info hidden">
+            Contacte o administrador do complexo. Ele dá-lhe um código de uso único, válido durante 30 minutos.
+            <a href="reset.html">Já tenho um código</a>
+          </div>
+          
           <button class="btn block" type="submit" id="login-btn">Continuar</button>
           <div id="login-alert" class="alert hidden" role="alert"></div>
 

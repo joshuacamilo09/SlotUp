@@ -113,6 +113,8 @@ Daí em diante:  Authorization: Bearer <access_token>   em todos os serviços
 | `GET /users` | ADMIN | listar usuários |
 | `PATCH /users/{id}/role` | ADMIN | mudar papel (não o próprio) |
 | `POST /users/{id}/2fa/reset` | ADMIN | quem perdeu o celular volta a configurar o 2FA |
+| `POST /users/{id}/password/reset` | ADMIN | gera um token de redefinição de uso único (30 min), que aparece só nesta resposta → `201 {token, expires_at}` |
+| `POST /password/reset` | público | `{token, new_password}` → `204`. Token errado, usado ou expirado → `400`. O 2FA continua obrigatório |
 
 ### Rotas do `booking-service` (prefixo `/api/reservas`)
 
@@ -208,6 +210,7 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 | Reutilização de códigos | guarda-se o último *time-step* usado; o `UPDATE` condicional é atômico, por isso funciona com várias réplicas | `routers/auth.py` |
 | Segredo do 2FA | cifrado com AES-256-GCM antes de ir para o banco, ligado ao id do usuário | `security.py` |
 | Força bruta | 5 falhas (senha ou código) bloqueiam a conta por 15 min; o contador é atômico e fica no banco, não na memória | `routers/auth.py` |
+| Recuperação de senha | o admin gera um token aleatório de 256 bits, de uso único e válido 30 min; no banco fica só o hash SHA-256; gastar o token é um `UPDATE` atômico; resposta igual para token errado, usado ou expirado | `routers/users.py`, `routers/auth.py` |
 | Isolamento | cada serviço só acessa o seu banco (usuários e permissões separados) | `infra/docker/db/init/01-roles-and-databases.sql` |
 | Falha do banco | os serviços respondem `503` (e não `500`) e se recuperam sozinhos quando o banco volta, sem reiniciar | `main.py`, `database.py` |
 
@@ -243,6 +246,7 @@ Cada serviço tem a sua própria tabela `alembic_version`. As migrações de um 
 | Serviço | Migração | O que faz |
 |---|---|---|
 | auth-service | `0001` | tabela `users` (2FA, tentativas de login, bloqueio) |
+| auth-service | `0002` | tabela `password_reset_tokens` (hash do token, validade, uso único) |
 | booking-service | `0001` | extensão `btree_gist`, `categories`, `resources`, `availability_rules` |
 | booking-service | `0002` | `reservations` (com constraint contra sobreposição) e `waitlist_entries` |
 | booking-service | `0003` | `notifications` (outbox de emails) |
