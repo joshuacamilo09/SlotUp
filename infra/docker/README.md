@@ -20,10 +20,14 @@ docker compose version
 ```
 infra/docker/
 ├── docker-compose.yml
+├── config/
+│   ├── auth.env                      # configuração do auth: endereços, portas, regras (vai para o Git)
+│   └── booking.env                   # configuração do booking (vai para o Git)
 ├── .env.example                      # modelo das senhas (vai para o Git)
 ├── .env                              # suas senhas reais (NÃO vai para o Git)
 ├── gen-secrets.sh                    # gera as chaves de desenvolvimento
 ├── secrets/                          # chaves geradas (NÃO vai para o Git)
+├── nginx/default.conf                # Nginx: frontend + failover para as réplicas
 ├── README.md
 └── db/
     └── init/
@@ -98,6 +102,21 @@ nginx                 (porta 8080: serve o frontend e reparte /api pelas réplic
 3. Só então o auth e o booking arrancam. Se uma migração falhar, o serviço correspondente **não sobe**, o que é melhor do que subir com o banco pela metade.
 
 Os `*-migrate` são o equivalente a um `Job` do Kubernetes. Com várias réplicas, só um processo migra o banco, em vez de todas as réplicas ao mesmo tempo.
+
+## Configuração e segredos
+
+A configuração e os segredos estão separados. A configuração vai para o Git; os segredos nunca vão.
+
+| O quê | Exemplos | No Docker Compose | No Kubernetes | No Git? |
+|---|---|---|---|---|
+| **Configuração** | `DB_HOST`, `DB_PORT`, `SCHEDULING_URL`, `JWT_ISSUER`, minutos de bloqueio | `config/auth.env`, `config/booking.env` | ConfigMaps `auth-config` e `booking-config` (`infra/k8s/configmaps.yaml`) | sim |
+| **Senhas** | `AUTH_DB_PASSWORD`, `ADMIN_PASSWORD` | `.env` (modelo: `.env.example`) | Secrets `auth-secrets` e `booking-secrets` | **não** |
+| **Chaves** | chave privada e pública do JWT, chave de cifra do 2FA | ficheiros em `secrets/` (`bash gen-secrets.sh`) | Secrets `jwt-private-key`, `jwt-public-key` e `totp-encryption-key` | **não** |
+
+- **A mesma chave do JWT nos dois servidores.** `auth-1` e `auth-2` montam o **mesmo** ficheiro `secrets/jwt_private.pem`, e todas as réplicas montam o mesmo `jwt_public.pem`. Por isso um token criado no servidor 1 é aceite no servidor 2 e no booking. No Kubernetes, é um único Secret montado em todos os pods.
+- **Cada serviço só recebe o que precisa.** O booking só tem a chave **pública** (valida tokens, não os cria) e a sua própria senha da base de dados.
+- **Mudar uma regra** (ex.: `LOCK_MINUTES`): edite `config/auth.env` e faça `docker compose up -d`. O Compose recria as réplicas com o valor novo. Não é preciso mexer no código nem reconstruir a imagem.
+- **No Kubernetes:** `kubectl apply -f infra/k8s/namespace.yaml -f infra/k8s/configmaps.yaml` e depois `bash infra/k8s/create-secrets.sh`. O script cria os Secrets a partir **deste** `.env` e **desta** pasta `secrets/`, por isso nenhum segredo é escrito num ficheiro YAML. Para ver o que seria criado sem mexer no cluster: `DRY_RUN=1 bash infra/k8s/create-secrets.sh`.
 
 ## Réplicas e balanceamento
 

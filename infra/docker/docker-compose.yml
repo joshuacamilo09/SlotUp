@@ -13,10 +13,9 @@ x-booking-image: &booking-image
   build: ../../backend/booking-service
   image: slotup-booking:dev
 
+# Só o que é SEGREDO vem do .env. A configuração (endereços, portas, regras) está em
+# config/auth.env e config/booking.env, que vão para o Git (no Kubernetes: ConfigMaps).
 x-auth-env: &auth-env
-  DB_HOST: db
-  DB_NAME: auth_db
-  DB_USER: auth_user
   DB_PASSWORD: ${AUTH_DB_PASSWORD}
   ADMIN_NAME: ${ADMIN_NAME:-Administrador}
   ADMIN_EMAIL: ${ADMIN_EMAIL:-}
@@ -26,11 +25,7 @@ x-auth-env: &auth-env
   SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
 
 x-booking-env: &booking-env
-  DB_HOST: db
-  DB_NAME: booking_db
-  DB_USER: booking_user
   DB_PASSWORD: ${BOOKING_DB_PASSWORD}
-  SCHEDULING_URL: http://scheduling:8003
   SEED_ENABLED: ${SEED_ENABLED:-false}
 
 # Tudo o que as réplicas do auth têm em comum (menos o environment e a porta,
@@ -38,6 +33,7 @@ x-booking-env: &booking-env
 x-auth-service: &auth-service
   <<: *auth-image
   restart: unless-stopped
+  env_file: config/auth.env # configuração (no Kubernetes: ConfigMap auth-config)
   depends_on:
     db:
       condition: service_healthy
@@ -56,6 +52,7 @@ x-auth-service: &auth-service
 x-booking-service: &booking-service
   <<: *booking-image
   restart: unless-stopped
+  env_file: config/booking.env         # configuração (no Kubernetes: ConfigMap booking-config)
   depends_on:
     db:
       condition: service_healthy
@@ -182,8 +179,10 @@ services:
       timeout: 3s
       retries: 5
 
-# Segredos como ficheiros (montados em /run/secrets/<nome>). No Kubernetes passam a ser Secrets.
-# Gerados por ./gen-secrets.sh; a pasta secrets/ NÃO vai para o Git.
+# Segredos como ficheiros (montados em /run/secrets/<nome>). No Kubernetes passam a ser Secrets
+# (infra/k8s/create-secrets.sh). Gerados por ./gen-secrets.sh; a pasta secrets/ NÃO vai para o Git.
+# As duas réplicas do auth e do booking montam os MESMOS ficheiros: a mesma chave do JWT
+# nos dois servidores, por isso um token de um servidor vale no outro.
 secrets:
   jwt_private_key:
     file: ./secrets/jwt_private.pem
