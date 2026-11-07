@@ -101,25 +101,6 @@
 
 .opcao-dia { width: 46px; height: 40px; border-radius: var(--raio-pequeno); color: var(--cor-texto-suave); }
 
-/* ----- Controlo segmentado (durações) ----- */
-.segmentado { display: flex; padding: 3px; border-radius: var(--raio-botao); background: var(--cor-chip); }
-.segmentado button {
-    flex: 1; padding: 8px 6px;
-    border-radius: calc(var(--raio-botao) - 3px);
-    font-size: 13px; font-weight: 700; white-space: nowrap;
-    color: var(--cor-texto-suave);
-}
-.segmentado button.ativo { background: var(--cor-superficie); color: var(--cor-texto); }
-
-/* ----- Linha "Permitir fila de espera" ----- */
-.linha-fila {
-    gap: 14px; text-align: left;
-    padding-top: 14px; border-top: 1px solid var(--cor-borda);
-}
-.linha-fila-texto { flex: 1; display: flex; flex-direction: column; }
-.linha-fila-texto b { font-size: 14px; }
-.linha-fila-texto small { font-size: 12px; font-weight: 500; color: var(--cor-texto-suave); }
-
 .novo-acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 .novo-acoes .botao-primario { padding: 13px 22px; }
 .novo-acoes .botao-secundario { padding: 12px 20px; }

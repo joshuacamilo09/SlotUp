@@ -1,85 +1,57 @@
 // ===== NOVO RECURSO (administração) =====
-// Formulário em 3 partes (categoria, detalhes, regras) com pré-visualização ao lado.
-// Por agora não grava nada: mostra no Console o pedido que vai ser enviado à API.
+// Formulário em 3 partes (categoria, detalhes, horário) com pré-visualização ao lado.
+// Grava com POST /api/reservas/recursos. Textos dos códigos em js/catalogo.js.
 
 const utilizador = requireAuth();
 if (utilizador && utilizador.role !== "ADMIN") location.replace("index.html");   // só administradores
 
-// ===== OPÇÕES DE CADA CATEGORIA (do design) =====
-const CATEGORIAS = {
-  coworking:      { name: "Coworking",      icon: "desk",          description: "Mesas e salas de reunião" },
-  estacionamento: { name: "Estacionamento", icon: "local_parking", description: "Vagas nos pisos -1 e -2" },
-  desporto:       { name: "Desporto",       icon: "sports_tennis", description: "Ginásio, pilates e padel" },
+// Exemplos que aparecem dentro dos campos vazios: [nome, localização]
+const EXEMPLOS = {
+  coworking:      ["Ex.: Sala de Reunião D", "Ex.: Piso 4, ala sul"],
+  estacionamento: ["Ex.: Vaga Carro 3", "Ex.: Piso -1, zona B"],
+  desporto:       ["Ex.: Quadra de Padel 2", "Ex.: Exterior"],
 };
-// [nome do tipo, ícone]
-const TIPOS = {
-  coworking:      [["Salas de reunião", "groups"], ["Mesas individuais", "desk"]],
-  estacionamento: [["Piso -1", "directions_car"], ["Piso -2", "directions_car"]],
-  desporto:       [["Padel", "sports_tennis"], ["Ginásio", "fitness_center"], ["Pilates", "self_improvement"]],
-};
-// [nome do atributo, ícone]
-const ATRIBUTOS = {
-  coworking:      [["Ecrã", "tv"], ["Videoconferência", "videocam"], ["Quadro", "edit_note"], ["Monitor", "desktop_windows"], ["Janela", "window"], ["Acessível", "accessible"]],
-  estacionamento: [["Carregador EV", "ev_station"], ["Junto ao elevador", "elevator"], ["Coberta", "roofing"], ["Mota", "two_wheeler"], ["Acessível", "accessible"]],
-  desporto:       [["Iluminação", "light_mode"], ["Coberta", "roofing"], ["Balneário", "shower"], ["Equipamento incluído", "sports"], ["Acessível", "accessible"]],
-};
-// [texto do campo, valor inicial]
+// Texto do campo da capacidade e valor inicial
 const CAPACIDADE = {
   coworking:      ["Capacidade (pessoas)", 8],
   estacionamento: ["Lugares", 1],
   desporto:       ["Participantes máx.", 4],
 };
-// Exemplos que aparecem dentro dos campos vazios: [nome, localização]
-const EXEMPLOS = {
-  coworking:      ["Ex.: Sala Pacífico", "Ex.: Piso 4, ala sul"],
-  estacionamento: ["Ex.: Vaga P-120", "Ex.: Piso -1, zona B"],
-  desporto:       ["Ex.: Quadra de padel 3", "Ex.: Exterior"],
-};
-const DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-// Durações em minutos: [valor, texto]
-const DURACOES_MIN = [[15, "15 min"], [30, "30 min"], [60, "1 h"]];
-const DURACOES_MAX = [[60, "1 h"], [120, "2 h"], [240, "4 h"], [720, "Dia todo"]];
-
-const PASSO_HORARIO = 30;   // abre/fecha andam de 30 em 30 minutos
+const DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];   // índice = weekday do backend (0 = segunda)
+const PASSO_HORARIO = 30;      // abre/fecha andam de 30 em 30 minutos
+const FIM_DO_DIA = 24 * 60;    // 24:00
 
 // ===== AJUDANTES =====
 // 570 → "09:30"
 function paraHora(minutos) {
   return String(Math.floor(minutos / 60)).padStart(2, "0") + ":" + String(minutos % 60).padStart(2, "0");
 }
-// 90 → "1h30", 720 → "dia todo"
-function textoDuracao(minutos) {
-  if (minutos >= 720) return "dia todo";
-  if (minutos < 60) return minutos + " min";
-  return minutos % 60 ? `${Math.floor(minutos / 60)}h${minutos % 60}` : `${minutos / 60} h`;
-}
-// Capacidade em texto, como aparece nos cartões ("até 8 pessoas", "1 lugar"...)
-function textoCapacidade(categoria, n) {
-  if (categoria === "coworking") return n > 1 ? `até ${n} pessoas` : "1 pessoa";
-  if (categoria === "estacionamento") return n > 1 ? `${n} lugares` : "1 lugar";
-  return `até ${n} participantes`;
+// Para o backend: a coluna é "time", que não aceita 24:00. Fechar à meia-noite vira 23:59 (como no seed)
+function horaParaApi(minutos) {
+  return minutos >= FIM_DO_DIA ? "23:59" : paraHora(minutos);
 }
 
-// ===== ESTADO DO FORMULÁRIO =====
-// Valores iniciais de cada categoria. Ao trocar de categoria, o nome e a localização ficam.
+// ===== ESTADO =====
+// Categorias vindas da API, já com o id curto: [{ id: "coworking", uuid: "…", name: "Coworking" }, …]
+let categorias = [];
+let estado = null;
+
+// Valores iniciais de uma categoria. Ao trocar de categoria, o nome e a localização ficam.
 function estadoInicial(categoria, anterior = {}) {
   return {
     categoria,
-    tipo: TIPOS[categoria][0][0],
+    tipo: Object.keys(TIPOS_UI[categoria])[0],   // primeiro código do dicionário (ex.: "sala")
     nome: anterior.nome ?? "",
     local: anterior.local ?? "",
     capacidade: CAPACIDADE[categoria][1],
-    atributos: [],
-    dias: [true, true, true, true, true, false, false],      // seg a sex
+    atributos: [],                               // chaves escolhidas (ex.: ["monitor", "janela"])
+    dias: [true, true, true, true, true, false, false],
     abre: 8 * 60,
     fecha: 20 * 60,
-    minimo: categoria === "estacionamento" ? null : 15,      // estacionamento não tem duração mínima
-    maximo: categoria === "estacionamento" ? 720 : 240,
-    fila: true,
     erros: {},
+    aEnviar: false,
   };
 }
-let estado = estadoInicial("coworking");
 
 // ===== DESENHO =====
 // Os campos de texto (nome e localização) não são redesenhados, para não perderem o foco.
@@ -87,22 +59,22 @@ function render() {
   const c = estado.categoria;
 
   // ----- 1. Categoria (cartões) e tipo -----
-  document.getElementById("escolha-categoria").innerHTML = Object.entries(CATEGORIAS).map(([id, cat]) => `
-    <button type="button" class="opcao-categoria${id === c ? " ativo" : ""}" data-categoria="${id}"
-            aria-pressed="${id === c}" style="--cor-cat: var(--${id}); --cor-cat-suave: var(--${id}-suave)">
+  document.getElementById("escolha-categoria").innerHTML = categorias.map((cat) => `
+    <button type="button" class="opcao-categoria${cat.id === c ? " ativo" : ""}" data-categoria="${cat.id}"
+            aria-pressed="${cat.id === c}" style="--cor-cat: var(--${cat.id}); --cor-cat-suave: var(--${cat.id}-suave)">
       <div class="opcao-categoria-topo">
-        <div class="icone-caixa"><span class="icone">${cat.icon}</span></div>
+        <div class="icone-caixa"><span class="icone">${CATEGORIAS_UI[cat.id].icon}</span></div>
         <span class="opcao-radio"></span>
       </div>
       <div>
-        <div class="opcao-categoria-nome">${cat.name}</div>
-        <div class="opcao-categoria-descricao">${cat.description}</div>
+        <div class="opcao-categoria-nome">${esc(cat.name)}</div>
+        <div class="opcao-categoria-descricao">${CATEGORIAS_UI[cat.id].description}</div>
       </div>
     </button>`).join("");
 
-  document.getElementById("escolha-tipo").innerHTML = TIPOS[c].map(([tipo, icone]) => `
-    <button type="button" class="opcao-tipo${tipo === estado.tipo ? " ativo" : ""}" data-tipo="${tipo}" aria-pressed="${tipo === estado.tipo}">
-      <span class="icone">${icone}</span>${tipo}
+  document.getElementById("escolha-tipo").innerHTML = Object.entries(TIPOS_UI[c]).map(([codigo, [texto, icone]]) => `
+    <button type="button" class="opcao-tipo${codigo === estado.tipo ? " ativo" : ""}" data-tipo="${codigo}" aria-pressed="${codigo === estado.tipo}">
+      <span class="icone">${icone}</span>${texto}
     </button>`).join("");
 
   // ----- 2. Detalhes -----
@@ -110,20 +82,21 @@ function render() {
   document.getElementById("local").placeholder = EXEMPLOS[c][1];
   document.getElementById("nome").classList.toggle("com-erro", !!estado.erros.nome);
   document.getElementById("erro-nome").hidden = !estado.erros.nome;
+  document.getElementById("erro-nome").textContent = estado.erros.nome || "";
 
   document.getElementById("capacidade-titulo").textContent = CAPACIDADE[c][0];
   document.getElementById("capacidade-valor").textContent = estado.capacidade;
   document.getElementById("capacidade-menos").disabled = estado.capacidade <= 1;
-  document.getElementById("capacidade-mais").disabled = estado.capacidade >= 50;
+  document.getElementById("capacidade-mais").disabled = estado.capacidade >= 1000;   // limite do backend
 
-  document.getElementById("escolha-atributos").innerHTML = ATRIBUTOS[c].map(([atributo, icone]) => {
-    const ativo = estado.atributos.includes(atributo);
-    return `<button type="button" class="opcao-atributo${ativo ? " ativo" : ""}" data-atributo="${atributo}" aria-pressed="${ativo}">
-              <span class="icone">${icone}</span>${atributo}
+  document.getElementById("escolha-atributos").innerHTML = Object.entries(ATRIBUTOS_UI[c]).map(([chave, [texto, icone]]) => {
+    const ativo = estado.atributos.includes(chave);
+    return `<button type="button" class="opcao-atributo${ativo ? " ativo" : ""}" data-atributo="${chave}" aria-pressed="${ativo}">
+              <span class="icone">${icone}</span>${texto}
             </button>`;
   }).join("");
 
-  // ----- 3. Regras -----
+  // ----- 3. Horário -----
   document.getElementById("escolha-dias").innerHTML = DIAS.map((dia, i) => `
     <button type="button" class="opcao-dia${estado.dias[i] ? " ativo" : ""}" data-dia="${i}" aria-pressed="${estado.dias[i]}">${dia}</button>`).join("");
   document.getElementById("erro-dias").hidden = !estado.erros.dias;
@@ -134,16 +107,12 @@ function render() {
   document.getElementById("abre-menos").disabled = estado.abre - PASSO_HORARIO < 0;
   document.getElementById("abre-mais").disabled = estado.abre + PASSO_HORARIO > estado.fecha - 60;
   document.getElementById("fecha-menos").disabled = estado.fecha - PASSO_HORARIO < estado.abre + 60;
-  document.getElementById("fecha-mais").disabled = estado.fecha + PASSO_HORARIO > 24 * 60;
+  document.getElementById("fecha-mais").disabled = estado.fecha + PASSO_HORARIO > FIM_DO_DIA;
 
-  // Duração mínima: escondida no estacionamento
-  document.getElementById("bloco-minimo").hidden = estado.minimo === null;
-  document.getElementById("escolha-minimo").innerHTML = DURACOES_MIN.map(([v, t]) =>
-    `<button type="button" class="${v === estado.minimo ? "ativo" : ""}" data-minimo="${v}" aria-pressed="${v === estado.minimo}">${t}</button>`).join("");
-  document.getElementById("escolha-maximo").innerHTML = DURACOES_MAX.map(([v, t]) =>
-    `<button type="button" class="${v === estado.maximo ? "ativo" : ""}" data-maximo="${v}" aria-pressed="${v === estado.maximo}">${t}</button>`).join("");
-
-  document.getElementById("permitir-fila").setAttribute("aria-checked", estado.fila);
+  // Botão de enviar: desativado enquanto espera a resposta
+  const enviar = document.getElementById("criar-btn");
+  enviar.disabled = estado.aEnviar;
+  enviar.textContent = estado.aEnviar ? "A criar…" : "Criar recurso";
 
   renderPreview();
 }
@@ -151,9 +120,9 @@ function render() {
 // Pré-visualização: o cartão como vai aparecer na lista da categoria
 function renderPreview() {
   const c = estado.categoria;
-  const icone = TIPOS[c].find(([tipo]) => tipo === estado.tipo)[1];
   const nome = estado.nome.trim() || EXEMPLOS[c][0].replace("Ex.: ", "");
-  const local = estado.local.trim() || estado.tipo;
+  const local = estado.local.trim();
+  const tags = estado.atributos.map((chave) => ATRIBUTOS_UI[c][chave][0]);
 
   // 12 barrinhas das 08h às 20h: livres dentro do horário de abertura, cinza fora
   let barras = "";
@@ -162,13 +131,9 @@ function renderPreview() {
     barras += `<i class="${aberto ? "" : "fechado"}"></i>`;
   }
 
-  // Resumo das regras: "Seg, Ter, Qua · 08:00–20:00 · reservas de 15 min a 4 h · com fila de espera"
+  // Resumo do horário: "Seg, Ter, Qua, Qui, Sex · 08:00–20:00"
   const diasOn = DIAS.filter((_, i) => estado.dias[i]);
   const dias = diasOn.length === 7 ? "Todos os dias" : diasOn.join(", ") || "Sem dias";
-  const duracao = estado.minimo === null
-    ? `reservas até ${textoDuracao(estado.maximo)}`
-    : `reservas de ${textoDuracao(estado.minimo)} a ${textoDuracao(estado.maximo)}`;
-  const regras = `${dias} · ${paraHora(estado.abre)}–${paraHora(estado.fecha)} · ${duracao} · ${estado.fila ? "com" : "sem"} fila de espera`;
 
   const preview = document.getElementById("preview");
   preview.style.setProperty("--cor-cat", `var(--${c})`);
@@ -177,29 +142,29 @@ function renderPreview() {
     <article class="cartao-recurso">
       <div class="cartao-topo">
         <div class="preview-titulo">
-          <div class="icone-caixa"><span class="icone">${icone}</span></div>
+          <div class="icone-caixa"><span class="icone">${iconeTipo(c, estado.tipo)}</span></div>
           <div>
             <div class="cartao-nome">${esc(nome)}</div>
-            <div class="cartao-local">${esc(local)} · ${textoCapacidade(c, estado.capacidade)}</div>
+            <div class="cartao-local">${local ? esc(local) + " · " : ""}${textoCapacidade(c, estado.capacidade)}</div>
           </div>
         </div>
         <span class="pilula livre">Livre</span>
       </div>
-      <div class="cartao-tags">${estado.atributos.map((t) => `<span>${esc(t)}</span>`).join("")}</div>
+      <div class="cartao-tags">${tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>
       <div class="linha-dia">
         <div class="linha-dia-barras">${barras}</div>
         <div class="linha-dia-horas"><span>08</span><span>14</span><span>20</span></div>
       </div>
       <div class="botao botao-primario">Reservar</div>
     </article>
-    <p class="preview-regras">${regras}</p>`;
+    <p class="preview-regras">${dias} · ${paraHora(estado.abre)}–${paraHora(estado.fecha)} · reservas de 15 em 15 min</p>`;
 }
 
 // ===== EVENTOS =====
 // Todos os botões de opção do formulário: um só "ouvinte" (delegação)
 document.getElementById("form-recurso").addEventListener("click", (e) => {
   const b = e.target.closest("button");
-  if (!b) return;
+  if (!b || !estado || b.type === "submit") return;
   const d = b.dataset;   // atributos data-*: data-tipo → d.tipo, data-dia → d.dia...
 
   if (d.categoria) estado = estadoInicial(d.categoria, estado);   // nova categoria: valores iniciais dela
@@ -214,22 +179,13 @@ document.getElementById("form-recurso").addEventListener("click", (e) => {
     estado.dias[Number(d.dia)] = !estado.dias[Number(d.dia)];
     estado.erros.dias = false;
   }
-  else if (d.minimo) {
-    estado.minimo = Number(d.minimo);
-    estado.maximo = Math.max(estado.maximo, estado.minimo);      // o máximo nunca fica abaixo do mínimo
-  }
-  else if (d.maximo) {
-    estado.maximo = Number(d.maximo);
-    if (estado.minimo !== null) estado.minimo = Math.min(estado.minimo, estado.maximo);
-  }
   else if (b.id === "capacidade-menos") estado.capacidade--;
   else if (b.id === "capacidade-mais") estado.capacidade++;
   else if (b.id === "abre-menos") estado.abre -= PASSO_HORARIO;
   else if (b.id === "abre-mais") estado.abre += PASSO_HORARIO;
   else if (b.id === "fecha-menos") estado.fecha -= PASSO_HORARIO;
   else if (b.id === "fecha-mais") estado.fecha += PASSO_HORARIO;
-  else if (b.id === "permitir-fila") estado.fila = !estado.fila;
-  else return;   // outro botão (ex.: "Criar recurso" é tratado no submit)
+  else return;
 
   render();
 });
@@ -238,7 +194,7 @@ document.getElementById("form-recurso").addEventListener("click", (e) => {
 document.getElementById("nome").addEventListener("input", (e) => {
   estado.nome = e.target.value;
   if (estado.erros.nome) {               // começou a escrever: tira o erro
-    estado.erros.nome = false;
+    estado.erros.nome = "";
     render();
   } else {
     renderPreview();
@@ -250,39 +206,72 @@ document.getElementById("local").addEventListener("input", (e) => {
 });
 
 // ----- Criar recurso -----
-document.getElementById("form-recurso").addEventListener("submit", (e) => {
+document.getElementById("form-recurso").addEventListener("submit", async (e) => {
   e.preventDefault();   // impede o formulário de recarregar a página
+  if (!estado || estado.aEnviar) return;
 
-  estado.erros = { nome: !estado.nome.trim(), dias: !estado.dias.some(Boolean) };
+  // Validação no frontend (o backend volta a validar tudo)
+  const nome = estado.nome.trim();
+  estado.erros = {
+    nome: nome.length < 2 ? "Dê um nome ao recurso (mínimo 2 letras)." : "",
+    dias: !estado.dias.some(Boolean),
+  };
   if (estado.erros.nome || estado.erros.dias) {
     render();
     if (estado.erros.nome) document.getElementById("nome").focus();
     return;
   }
 
-  // Pedido que vai para a API (nomes provisórios, a alinhar com o booking-service)
+  // Pedido no formato do ResourceCreate do backend
   const pedido = {
-    category: estado.categoria,
-    type: estado.tipo,
-    name: estado.nome.trim(),
-    location: estado.local.trim() || estado.tipo,
+    category_id: categorias.find((c) => c.id === estado.categoria).uuid,
+    name: nome,
+    resource_type: estado.tipo,
+    description: estado.local.trim() || null,                                  // a localização vai na description
     capacity: estado.capacidade,
-    tags: estado.atributos,
-    available_days: DIAS.map((_, i) => i).filter((i) => estado.dias[i]),   // 0 = segunda ... 6 = domingo
-    opens_at: paraHora(estado.abre),
-    closes_at: paraHora(estado.fecha),
-    min_duration_minutes: estado.minimo,
-    max_duration_minutes: estado.maximo,
-    waitlist_enabled: estado.fila,
+    attributes: Object.fromEntries(estado.atributos.map((chave) => [chave, true])),   // ["monitor"] → {monitor: true}
+    // Um intervalo por dia escolhido (weekday: 0 = segunda ... 6 = domingo)
+    schedule: DIAS.map((_, i) => i).filter((i) => estado.dias[i]).map((i) => ({
+      weekday: i,
+      open_time: horaParaApi(estado.abre),
+      close_time: horaParaApi(estado.fecha),
+    })),
   };
-  console.log("Pedido que vai para a API:", pedido);
 
-  // Deixa um aviso para a Administração mostrar quando abrir
+  estado.aEnviar = true;
+  render();
   try {
-    sessionStorage.setItem("slotup_aviso", `${pedido.name} já está disponível para reserva.`);
-  } catch (err) { /* sem acesso ao sessionStorage: segue sem aviso */ }
-  location.href = "admin.html";
+    const criado = await api.createResource(pedido);
+    try {
+      sessionStorage.setItem("slotup_aviso", `${criado.name} já está disponível para reserva.`);
+    } catch (err) { /* sem acesso ao sessionStorage: segue sem aviso */ }
+    location.href = "admin.html";
+  } catch (err) {
+    estado.aEnviar = false;
+    if (err.status === 409) {
+      estado.erros.nome = err.message;       // "Já existe um recurso com esse nome nesta categoria"
+      render();
+      document.getElementById("nome").focus();
+    } else {
+      render();
+      toast(err.message, true);              // outros erros (422, 503...) num aviso em baixo
+    }
+  }
 });
 
 // ===== ARRANQUE =====
-render();
+// Busca as categorias ativas e fica só com as que o frontend conhece (estão no catalogo.js)
+async function iniciar() {
+  try {
+    const daApi = await api.categories();
+    categorias = daApi
+      .map((c) => ({ id: idCategoria(c.name), uuid: c.id, name: c.name }))
+      .filter((c) => TIPOS_UI[c.id]);
+    if (categorias.length === 0) throw new Error("Não há categorias ativas.");
+    estado = estadoInicial(categorias[0].id);
+    render();
+  } catch (err) {
+    document.getElementById("escolha-categoria").innerHTML = `<p class="campo-erro">${esc(err.message)}</p>`;
+  }
+}
+iniciar();

@@ -64,3 +64,6 @@
 .recurso-tipo { flex: 1 1 140px; display: flex; align-items: center; gap: 6px; }
 .recurso-tipo i { width: 8px; height: 8px; border-radius: 50%; flex: none; }      /* cor da categoria */
 .recurso-hoje { flex: 1 1 100px; color: var(--cor-texto-suave); }
+
+/* Mensagem de "A carregar…" ou de erro na lista de recursos */
+.admin-erro { padding: 24px 20px; border-top: 1px solid var(--cor-borda); font-size: 14px; color: var(--cor-texto-suave); }

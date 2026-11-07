@@ -74,12 +74,12 @@
 
                 <!-- ===== 3. Regras de reserva ===== -->
                 <section class="bloco">
-                    <h2 class="bloco-titulo"><span>3</span>Regras de reserva</h2>
+                    <h2 class="bloco-titulo"><span>3</span>Horário de funcionamento</h2>
 
                     <div class="campo">
                         <span class="campo-titulo">Dias disponíveis</span>
                         <div class="opcoes" id="escolha-dias"></div>
-                        <p class="campo-erro" id="erro-dias" hidden>Escolha pelo menos um dia.</p>
+                        <p class="campo-erro" id="erro-dias" hidden></p>
                     </div>
 
                     <div class="campos-lado-a-lado">
@@ -100,31 +100,11 @@
                             </div>
                         </div>
                     </div>
-
-                    <div class="campos-lado-a-lado">
-                        <div class="campo" id="bloco-minimo">
-                            <span class="campo-titulo">Duração mínima</span>
-                            <div class="segmentado" id="escolha-minimo"></div>
-                        </div>
-                        <div class="campo">
-                            <span class="campo-titulo">Duração máxima</span>
-                            <div class="segmentado" id="escolha-maximo"></div>
-                        </div>
-                    </div>
-
-                    <!-- Linha inteira é o interruptor -->
-                    <button type="button" class="interruptor linha-fila" id="permitir-fila" role="switch" aria-checked="true">
-                        <span class="linha-fila-texto">
-                            <b>Permitir fila de espera</b>
-                            <small>Quando abrir uma vaga, o próximo da fila tem 15 min para confirmar.</small>
-                        </span>
-                        <span class="interruptor-trilho"><i></i></span>
-                    </button>
                 </section>
 
                 <div class="novo-acoes">
                     <a href="admin.html" class="botao botao-secundario">Cancelar</a>
-                    <button type="submit" class="botao botao-primario">Criar recurso</button>
+                    <button type="submit" class="botao botao-primario" id="criar-btn">Criar recurso</button>
                 </div>
             </form>
 
@@ -138,6 +118,7 @@
 
     <script src="js/api.js"></script>
     <script src="js/layout.js"></script>
+    <script src="js/catalogo.js"></script>
     <script src="js/novo-recurso.js"></script>
 </body>
 </html>
