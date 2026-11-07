@@ -1,37 +1,37 @@
 import logging
 from datetime import datetime, timedelta, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.dependencies import current_user, pre_auth_user
-from app.models import User
+from app.models import PasswordResetToken ,User
 from app.schemas import (
     CodeIn,
     LoginIn,
+    PasswordResetIn,
     PreAuthOut,
     RegisterIn,
     TokenOut,
     TotpSetupOut,
     UserOut,
 )
-from app.security import (
+from app.security import(
     burn_password_time,
     create_token,
     decrypt_totp_secret,
     encrypt_totp_secret,
     hash_password,
+    hash_reset_token,
     match_totp_step,
     new_totp_secret,
     provisioning_uri,
     verify_password,
 )
 
-log = logging.getLogger("auth.security")
+log = logging.getLogger("auth.security") 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 INVALID_CREDENTIALS = HTTPException(status.HTTP_401_UNAUTHORIZED, "Email ou password inválidos")
@@ -222,3 +222,41 @@ def verify_2fa(
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(current_user)) -> User:
     return user
+
+
+
+# --------------------------------------------------------------------------- redefinir a palavra-passe
+INVALID_RESET_TOKEN = HTTPException(status.HTTP_400_BAD_REQUEST, "Token inválido ou expirado")
+
+
+@router.post("/password/reset", status_code=status.HTTP_204_NO_CONTENT)
+def reset_password(body: PasswordResetIn, db: Session = Depends(get_db)) -> None:
+    """Rota pública: troca a palavra-passe com o token que o admin entregou.
+
+    * Um só UPDATE atómico gasta o token: só passa se existir, não estiver usado e não tiver
+      expirado. Com dois pedidos ao mesmo tempo (até em réplicas diferentes), só um consegue.
+    * Token errado, já usado ou expirado: sempre a mesma resposta, para não dar pistas.
+    * Desbloqueia a conta (contador de falhas a zero). O 2FA continua igual e obrigatório.
+    """
+    user_id = db.scalar(
+        update(PasswordResetToken)
+        .where(
+            PasswordResetToken.token_hash == hash_reset_token(body.token),
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.expires_at > func.now(),
+        )
+        .values(used_at=func.now())
+        .returning(PasswordResetToken.user_id)
+    )
+    if user_id is None:
+        db.rollback()
+        log.warning("password_reset_token_invalido")
+        raise INVALID_RESET_TOKEN
+
+    db.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(password_hash=hash_password(body.new_password), failed_login_attempts=0, locked_until=None)
+    )
+    db.commit()
+    log.info("password_redefinida user_id=%s", user_id)
