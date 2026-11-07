@@ -13,7 +13,6 @@ from app.dependencies import require_admin
 from app.models import PasswordResetToken, User
 from app.schemas import PasswordResetTokenOut, RoleIn, UserOut
 from app.security import hash_reset_token, new_reset_token
-from app.schemas import RoleIn, UserOut
 
 log = logging.getLogger("auth.security")
 router = APIRouter(prefix="/api/auth/users", tags=["admin"])

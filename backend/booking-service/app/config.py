@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     service_name: str = "booking-service"
 
-    # Nome desta réplica (booking1-1, booking2-2...). No Compose vem de INSTANCE_NAME;
+    # Nome desta réplica (booking1, booking2...). No Compose vem de INSTANCE_NAME;
     # sem a variável, fica o hostname do contentor.
     instance_name: str = socket.gethostname()
 

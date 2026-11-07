@@ -5,7 +5,7 @@ Deixa o booking_db sempre no mesmo ponto de partida:
   2. deixa só as 3 categorias base (Coworking, Estacionamento, Desporto), ativas;
   3. recria os recursos de exemplo, com ids FIXOS (iguais em todas as execuções).
 
-Rodar:  docker compose exec booking python -m app.seed
+Rodar: docker compose exec booking-1 python -m app.seed (basta numa réplica: o banco é o mesmo)
 """
 import os
 import sys
