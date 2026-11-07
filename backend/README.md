@@ -161,6 +161,10 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 | Método e rota | Quem | Para quê |
 |---|---|---|
 | `POST /` | usuário (e ADMIN) | reserva `{resource_id, start_at, end_at}` em nome próprio → `201`; horário ocupado → `409` |
+| `GET /minhas` | usuário | as reservas do próprio. `?periodo=futuras\|passadas\|todas`, `?status=`, `?limit=` e `?offset=`; o total vem em `X-Total-Count` |
+| `GET /` | ADMIN | todas as reservas, com `user_id`. Filtros: `periodo`, `status`, `resource_id`, `user_email`, `limit`, `offset` |
+| `GET /{id}` | dono ou ADMIN | uma reserva (a de outra pessoa dá `404`) |
+| `POST /{id}/cancelar` | dono ou ADMIN | cancela → `200`; o horário volta a ficar livre. Já cancelada ou já terminada → `409` |
 
 **Reservas, regras:**
 
@@ -171,6 +175,27 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 - **Quem impede duas reservas no mesmo horário é o PostgreSQL** (constraint `reservations_no_overlap`), e não um `SELECT` antes do `INSERT`. Com várias réplicas do booking, só o primeiro `INSERT` passa. Há um teste com 8 pedidos simultâneos: 1 recebe `201` e 7 recebem `409`.
 - **Email (outbox):** na mesma transação, grava um pedido `RESERVATION_CREATED` na tabela `notifications`. Se a reserva for gravada, o email fica pendente; se falhar, nenhum dos dois fica. O envio por SMTP fica a cargo do worker (ainda não implementado).
 - Todos os recursos são exclusivos: uma reserva ocupa o recurso inteiro. Recursos com vários lugares (ex.: aulas) ficam para a 3.ª entrega.
+- **Futura = ainda não acabou** (a que está a decorrer conta como futura). Futuras da mais próxima para a mais distante; passadas e todas, da mais recente para a mais antiga.
+- **Cancelar:** o dono cancela só **antes** de a reserva começar; o ADMIN cancela qualquer uma até ela **acabar**. A rota bloqueia a linha (`SELECT ... FOR UPDATE`): com dois cancelamentos ao mesmo tempo, o segundo recebe `409` e só sai um email `RESERVATION_CANCELLED`, sempre para o dono da reserva.
+- **Reserva de outra pessoa:** `404`, e não `403`, para ninguém descobrir que ids existem.
+
+
+### Fila de espera (prefixo `/api/reservas/fila`)
+
+| Método e rota | Quem | Para quê |
+|---|---|---|
+| `POST /` | usuário | entra na fila de um horário ocupado `{resource_id, start_at, end_at}` → `201`; horário livre, do próprio, ou já na fila → `409` |
+| `GET /minhas` | usuário | os pedidos do próprio, com `position` (1 = o próximo), `reservation_id` e `hold_expires_at` da oferta |
+| `POST /{id}/aceitar` | dono do pedido | aceita a oferta: a reserva `HELD` passa a `CONFIRMED`. Sem oferta ou fora de prazo → `409` |
+| `POST /{id}/sair` | dono do pedido | sai da fila; se já tinha oferta, recusa-a e o horário passa ao seguinte |
+
+**Fila de espera, regras:**
+
+- Estados do pedido: `WAITING` → `OFFERED` → `ACCEPTED`; ou `CANCELLED` (saiu ou recusou) e `EXPIRED` (não respondeu a tempo, ou o horário já começou).
+- **Quando um horário fica livre** (cancelamento, recusa ou expiração), o primeiro da fila, por ordem de chegada, recebe uma reserva `HELD` guardada durante **15 minutos** (`HOLD_MINUTES` em `app/waitlist.py`), e um email `WAITLIST_OFFERED`.
+- **Duas réplicas nunca fazem duas ofertas para o mesmo pedido:** `SELECT ... FOR UPDATE SKIP LOCKED` na fila. Cada oferta é um `INSERT` dentro de um `SAVEPOINT`: se o horário ainda estiver ocupado, a constraint recusa e passa-se ao pedido seguinte.
+- **Job de expiração:** `python -m app.expire_holds` (no Kubernetes, um CronJob a cada minuto; em desenvolvimento, `docker compose exec booking python -m app.expire_holds`).
+
 
 ## 3. Decisões de segurança (para o relatório da UC de Segurança)
 

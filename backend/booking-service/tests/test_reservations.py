@@ -59,9 +59,12 @@ def category():
 
     of_category = "SELECT id FROM resources WHERE category_id = :id"
     of_reservations = f"SELECT id FROM reservations WHERE resource_id IN ({of_category})"
+    of_waitlist = f"SELECT id FROM waitlist_entries WHERE resource_id IN ({of_category})"
     with SessionLocal() as db:
-        # ordem: notificações (apontam para reservas) -> reservas -> recursos -> categoria
-        db.execute(text(f"DELETE FROM notifications WHERE reservation_id IN ({of_reservations})"), {"id": category_id})
+        # ordem: notificações (apontam para reservas e pedidos da fila) -> fila -> reservas -> recursos -> categoria
+        db.execute(text(f"DELETE FROM notifications WHERE reservation_id IN ({of_reservations})"
+                        f" OR waitlist_entry_id IN ({of_waitlist})"), {"id": category_id})
+        db.execute(text(f"DELETE FROM waitlist_entries WHERE resource_id IN ({of_category})"), {"id": category_id})
         db.execute(text(f"DELETE FROM reservations WHERE resource_id IN ({of_category})"), {"id": category_id})
         db.execute(text("DELETE FROM resources WHERE category_id = :id"), {"id": category_id})
         db.execute(text("DELETE FROM categories WHERE id = :id"), {"id": category_id})
