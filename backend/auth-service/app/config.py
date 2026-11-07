@@ -1,7 +1,9 @@
 """Configuração do auth-service.
 
-Tudo vem de variáveis de ambiente (12-factor). No Docker Compose são definidas
-em docker-compose.yml; no Kubernetes virão de ConfigMaps e Secrets.
+Tudo vem de variáveis de ambiente (12-factor). Os valores abaixo são só os de
+omissão; quem manda é o ambiente:
+  * Docker Compose: infra/docker/config/auth.env (configuração) e .env (senhas)
+  * Kubernetes: ConfigMap auth-config e Secrets (infra/k8s/)
 """
 import socket
 from functools import lru_cache

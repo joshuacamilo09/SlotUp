@@ -2,6 +2,47 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint4-feature/configuracoes-segredos`
+
+A configuração (endereços, portas, regras) fica separada dos segredos (senhas e chaves). A configuração vai para o Git; os segredos nunca vão. Separei da mesma forma no Docker Compose e no Kubernetes.
+
+| O quê | Docker Compose | Kubernetes | No Git? |
+|---|---|---|---|
+| Configuração: `DB_HOST`, `DB_PORT`, `SCHEDULING_URL`, `JWT_ISSUER`, regras de bloqueio... | `infra/docker/config/auth.env` e `booking.env` | ConfigMaps `auth-config` e `booking-config` | sim |
+| Senhas: base de dados, administrador | `infra/docker/.env` (modelo: `.env.example`) | Secrets `auth-secrets` e `booking-secrets` | **não** |
+| Chaves: JWT (privada e pública), cifra do 2FA | `infra/docker/secrets/` (`gen-secrets.sh`) | Secrets `jwt-private-key`, `jwt-public-key`, `totp-encryption-key` | **não** |
+
+### O que mudou
+
+- **`infra/docker/config/auth.env` e `config/booking.env` (novos):** toda a configuração de cada serviço, com comentários. O `docker-compose.yml` lê-os com `env_file`, e o `.env` passa a ter **só senhas**.
+- **`.env.exemplo` → `.env.example`:** os READMEs já mandavam fazer `cp .env.example .env`, mas o ficheiro tinha outro nome. Agora o comando funciona. Também atualizei os comentários (`exec auth-1`).
+- **A mesma chave do JWT nos dois servidores:** as réplicas `auth-1` e `auth-2` montam os **mesmos** ficheiros de `secrets/`. Um token criado no servidor 1 é aceite no servidor 2 e no booking. É isto que deixa o failover funcionar sem obrigar o utilizador a fazer login outra vez. No Kubernetes, é um único Secret montado em todos os pods.
+- **`infra/k8s/` (novo):**
+  - `namespace.yaml`: namespace `slotup`.
+  - `configmaps.yaml`: `auth-config` e `booking-config`, com os mesmos valores do Compose. Só muda o endereço da base de dados (`slotup-db-rw`, o nome que o CloudNativePG dá ao serviço de escrita).
+  - `create-secrets.sh`: cria os 5 Secrets a partir do **mesmo** `.env` e da **mesma** pasta `secrets/` do Docker. Nenhum segredo é escrito em YAML. Cada serviço só recebe o que precisa: o booking nunca vê a chave privada do JWT.
+- **`config.py` dos serviços:** a docstring explica que os valores no código são só os de omissão. Quem manda é o `config/*.env` (Compose) ou o ConfigMap (Kubernetes).
+
+### Precisa de fazer alguma coisa?
+
+Não. O seu `.env` continua igual (os nomes das variáveis não mudaram). Basta:
+
+```bash
+cd infra/docker
+docker compose up -d
+```
+
+Para mudar uma regra (ex.: `LOCK_MINUTES`), edite `config/auth.env` e repita o `docker compose up -d`. Não precisa de reconstruir a imagem.
+
+### Testes desta branch
+
+- `docker compose config`: válido. Cada réplica recebe a configuração do `config/*.env` e as senhas do `.env`.
+- Os dois serviços leem todas as variáveis do `config/*.env` sem erros (pydantic).
+- `kubeconform`: o namespace, os 2 ConfigMaps e os 5 Secrets gerados são válidos.
+- `DRY_RUN=1 bash infra/k8s/create-secrets.sh`: gera os 5 Secrets. A chave pública dentro do Secret é igual ao ficheiro. Senhas com espaços, `#`, aspas ou fins de linha do Windows passam bem. Se faltar uma senha no `.env`, o script para e diz qual.
+- `pytest` do auth (46) e do booking (160): tudo OK.
+
+
 ## O que mudou na branch `dev-sprint4-feature/nginx-failover`
 
 O Nginx deixa de alternar entre os dois servidores. Agora o **servidor 1 é o principal** e o **servidor 2 fica de reserva** (`backup`). Os timeouts são curtos: se o servidor 1 falhar, o pedido é refeito no servidor 2 e o utilizador não vê erro nenhum.

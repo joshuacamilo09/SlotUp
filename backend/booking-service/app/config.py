@@ -1,4 +1,10 @@
-"""Configuração do booking-service (variáveis de ambiente)."""
+"""Configuração do booking-service.
+
+Tudo vem de variáveis de ambiente (12-factor). Os valores abaixo são só os de
+omissão; quem manda é o ambiente:
+  * Docker Compose: infra/docker/config/booking.env (configuração) e .env (senha)
+  * Kubernetes: ConfigMap booking-config e Secrets (infra/k8s/)
+"""
 import socket
 from functools import lru_cache
 
