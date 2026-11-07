@@ -1,7 +1,9 @@
 """Tudo o que é criptografia: passwords, JWT e TOTP."""
 import base64
+import hashlib
 import hmac
 import os
+import secrets
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -39,6 +41,23 @@ def burn_password_time(password: str) -> None:
     quais emails estão registados.
     """
     verify_password(_DUMMY_HASH, password)
+
+
+
+# --------------------------------------------------------------------------- tokens de redefinição
+def new_reset_token() -> str:
+    """Token aleatório de 256 bits, seguro para pôr num URL (ex.: reset.html#token=...)."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_reset_token(token: str) -> str:
+    """SHA-256 do token, em hexadecimal (64 caracteres). É isto que vai para a base de dados.
+
+    Aqui SHA-256 chega (não é preciso Argon2): o token tem 256 bits aleatórios, por isso
+    não há dicionário nem força bruta possível. E, sem salt, o mesmo token dá sempre o mesmo
+    hash, o que deixa procurá-lo com um índice.
+    """
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 # --------------------------------------------------------------------------- JWT (RS256)
