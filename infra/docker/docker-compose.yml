@@ -113,6 +113,26 @@ services:
       timeout: 5s
       retries: 5
 
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: slotup-nginx
+    restart: unless-stopped
+    depends_on:
+      - auth
+      - booking
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      # Frontend montado só para leitura: editou o HTML, é só recarregar a página
+      - ../../frontend:/usr/share/nginx/html:ro
+      # A nossa configuração substitui a padrão do Nginx
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 # Segredos como ficheiros (montados em /run/secrets/<nome>). No Kubernetes passam a ser Secrets.
 # Gerados por ./gen-secrets.sh; a pasta secrets/ NÃO vai para o Git.
 secrets:

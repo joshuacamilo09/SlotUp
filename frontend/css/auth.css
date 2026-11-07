@@ -1,10 +1,11 @@
 body.auth {
-  --auth-green: #37776d;
-  --auth-green-dark: #2d645b;
-  --auth-link: #2f6e63;
-  --auth-ink: #14181f;
-  --auth-muted: #5d6675;
-  --auth-line: #dadde2;
+  --auth-green: var(--cor-primaria);
+  --auth-green-dark: color-mix(in oklch, var(--cor-primaria) 85%, black);
+  --auth-link: var(--cor-primaria);
+  --auth-ink: var(--cor-texto);
+  --auth-muted: var(--var-texto-suave);
+  --auth-line: var(--cor-borda-forte);
+  line-height: 1.5;
   font-family: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: #fff;
   color: var(--auth-ink);
@@ -20,14 +21,14 @@ body.auth .auth-brand {
   font-size: 24px;
   line-height: 1;
   letter-spacing: -0.03em;
-  text-decoration: nome;
+  text-decoration: none;
   color: var(--auth-ink);
 }
 body.auth .auth-brand svg { height: 32px; width: auto; flex: none; }
 body.auth .auth-brand.on-dark { color: #fff; }
 
 /* ---------- Tipografia dos formulários ---------- */
-body .auth  .auth-title {
+body .auth .auth-title {
   margin: 0 0 4px;
   font-size: 30px;
   font-weight: 800;
@@ -88,15 +89,17 @@ body.auth .code-input {
 }
 
 /* -------- Botão e ligações ---------- */
+/* Botão completo: antes metade vinha do style.css antigo */
 body.auth .btn {
-  height: 48px;
-  border-radius: 12px;
-  background: var(--auth-green);
-  font-size: 16px;
-  font-weight: 600;
-  }
-body.auth .btn:hover { filter: none; background: var(--auth-green-dark); }
-body.auth .btn.block { margin-top: 0; }
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 48px; padding: 0 16px;
+  border: 0; border-radius: 12px;
+  background: var(--auth-green); color: #fff;
+  font-size: 16px; font-weight: 600; cursor: pointer;
+}
+body.auth .btn:hover { background: var(--auth-green-dark); }
+body.auth .btn:disabled { opacity: .55; cursor: not-allowed; }   /* enquanto espera a resposta */
+body.auth .btn.block { width: 100%; }
 
 body.auth a {
   color: var(--auth-link);
@@ -132,7 +135,10 @@ body.auth .link-row {
   text-align: center;
   color: var(--auth-muted);
   }
-body.auth .alert { border-radius: 10px; margin-top: 14px; }
+/* Mensagens de erro/aviso dos formulários */
+body.auth .alert { margin-top: 14px; padding: 10px 12px; border-radius: 10px; font-size: 14px; }
+body.auth .alert.error { background: color-mix(in oklch, var(--cor-perigo) 10%, #fff); color: var(--cor-perigo); }
+body.auth .alert.info  { background: var(--cor-fila-suave); color: var(--cor-fila-texto); }
 
 /* =====================================================================
    LOGIN – ecrã dividido 50 / 50
@@ -185,7 +191,7 @@ body.auth .form-box { width: 100%; max-width: 380px; }
 /* =====================================================================
    REGISTO – cartão centrado
    ===================================================================== */
-body.auth.auth-center { background: var(--bg); }
+body.auth.auth-center { background: var(--cor-fundo); }
 body.auth .center-wrap {
   min-height: 100vh;
   display: grid;
@@ -196,7 +202,7 @@ body.auth .center-card {
   width: 100%;
   max-width: 440px;
   background: #fff;
-  border: 1px solid var(--line);
+  border: 1px solid var(--cor-borda);
   border-radius: 24px;
   padding: 36px;
   box-shadow: 0 1px 2px rgba(20, 24, 31, 0.04), 0 8px 32px rgba(20, 24, 31, 0.05);
@@ -209,10 +215,19 @@ body.auth .card-top {
   }
 body.auth .step-label { font-size: 14px; font-weight: 600; color: var(--auth-muted); }
 body.auth .center-card p { margin-top: 0; }
-body.auth .center-card .hint { font-size: 0.88rem; color: var(--auth-muted); margin: 0; }
-body.auth .qr-box { border-radius: 14px; }
-body.auth .secret { border-radius: 8px; margin: 6px 0 18px; }
-
+body.auth .hint { font-size: 0.88rem; color: var(--auth-muted); margin: 0; }
+/* Caixa do QR code e chave secreta do 2FA */
+body.auth .qr-box {
+  display: grid; place-items: center;
+  margin: 14px 0 8px; padding: 14px;
+  background: #fff; border: 1px dashed var(--cor-borda-forte); border-radius: 14px;
+}
+body.auth .secret {
+  margin: 6px 0 18px; padding: 6px 10px; border-radius: 8px;
+  background: var(--cor-chip);
+  font-family: var(--fonte-mono); font-size: 14px;
+  word-break: break-all;               /* quebra a chave longa em vez de estourar o cartão */
+}
 /* ---------- Mobile ---------- */
 @media (max-width: 880px) {
   body.auth .split { grid-template-columns: 1fr; }
@@ -224,24 +239,3 @@ body.auth .secret { border-radius: 8px; margin: 6px 0 18px; }
 @media (max-width: 480px) {
   body.auth .center-card { padding: 28px 22px 24px; border-radius: 20px; }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-  
-  
-
-  
-

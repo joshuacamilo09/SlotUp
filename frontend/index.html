@@ -1,14 +1,73 @@
 <!DOCTYPE html>
 <html lang="pt-PT">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SlotUp</title>
-  <script src="api.js"></script>
-  <script>
-    // Ponto de entrada: encaminha conforme haja sessão ou não.
-    location.replace(Auth.getToken() ? "resources.html" : "login.html");
-  </script>
-</head>
-<body></body>
+    <head>
+        <meta charset="UTF-8">
+        <!-- Faz a página se adaptar à largura da tela -->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>SlotUp · Início</title>
+        <!-- Fontes do design: Plus Jakarta Sans (texto) e IBM Plex Mono (horários) -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+        <!-- Ícones: cada ícone é escrito pelo nome, ex.: <span class="icone">desk</span> -->
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+
+        <link rel="stylesheet" href="css/style.css">
+    </head>
+
+    <body>
+        <div id="cabecalho"></div>
+
+        <!-- ===== CONTEÚDO ===== -->
+        <main class="conteudo">
+            <section id="banner-vaga">
+                <div class="banner">
+                    <!-- Anel do contador: o JS vai diminuindo a parte laranja -->
+                    <div class="banner-anel" id="vaga-anel">
+                        <div class="banner-tempo" id="vaga-tempo">5:00</div>
+                    </div>
+
+                    <div class="banner-texto">
+                        <div class="banner-titulo">
+                            Abriu uma vaga para si: <span id="vaga-nome">Personal trainer · Rui</span>,
+                            <span id="vaga-quando">sex, 23 out 08:00-09:00</span>
+                        </div>
+                        <div class="banner-sub">Está guardada até o tempo acabar. Depois passa para o próximo na fila.</div>
+                    </div>
+
+                    <div class="banner-acoes">
+                        <button class="botao botao-secundario" id="vaga-recusar">Recusar</button>
+                        <button class="botao botao-primario" id="vaga-confirmar">Confirmar vaga</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="saudacao">
+                <h1 id="saudacao-titulo">Olá</h1>
+                <p id="saudacao-data"></p>
+            </section>
+
+            <section class="categorias" id="lista-categorias"></section>
+
+            <div class="grelha-inferior">
+                <section class="painel painel-reservas">
+                    <div class="painel-cabecalho">
+                        <h2>Próximas reservas</h2>
+                        <a href="reservas.html" class="link">Ver todas</a>
+                    </div>
+                    <div id="lista-reservas"></div>
+                </section>
+
+                <section class="painel painel-fila">
+                    <div class="painel-cabecalho">
+                        <h2>Fila de espera</h2>
+                    </div>
+                    <div id="lista-fila"></div>
+                </section>
+            </div>
+        </main>
+
+        <script src="js/api.js"></script>
+        <script src="js/layout.js"></script>
+        <script src="js/home.js"></script>
+    </body>
 </html>

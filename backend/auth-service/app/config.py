@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     totp_issuer: str = "SlotUp"
 
     # Proteção contra tentativas repetidas (password e código TOTP)
-    max_failed_attempts: int = 5
+    max_failed_attempts: int = 10
     lock_minutes: int = 15
 
     # Administrador inicial (opcional; criado no arranque se não existir)

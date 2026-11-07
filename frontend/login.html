@@ -7,8 +7,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="auth.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/auth.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body class="auth">
   <div class="split">
@@ -54,7 +55,7 @@
           <div class="field">
             <label for="email">Email</label>
             <!-- DEMO: remover o value= quando for para produção -->
-            <input id="email" type="email" value="marta.sousa@empresa.pt" autocomplete="username" required>
+            <input id="email" type="email" autocomplete="username" required>
           </div>
 
           <div class="field">
@@ -64,14 +65,13 @@
               <a href="#" id="forgot-link">Esqueceu-se?</a>
             </div>
             <!-- DEMO: o mock aceita qualquer palavra-passe; trocar o placeholder em produção -->
-            <input id="password" type="password" placeholder="Qualquer palavra-passe" autocomplete="current-password" required>
+            <input id="password" type="password" autocomplete="current-password" required>
           </div>
 
           <button class="btn block" type="submit" id="login-btn">Continuar</button>
           <div id="login-alert" class="alert hidden" role="alert"></div>
 
           <!-- TODO: confirmar destino. Por agora o 2FA é configurado no registo. -->
-          <p class="auth-alt"><a href="register.html">Primeiro acesso? Configurar 2FA</a></p>
           <p class="auth-footer">Ainda não tem conta? <a href="register.html">Registar-se</a></p>
         </form>
 
@@ -87,69 +87,33 @@
 
           <button class="btn block" type="submit" id="code-btn">Verificar e entrar</button>
           <div id="code-alert" class="alert hidden" role="alert"></div>
-          <p class="auth-footer"><a href="#" id="back-link">Voltar</a></p>
+          <p class="auth-footer"><a href="#" class="back-link">Voltar</a></p>
+        </form>
+
+        <!-- Passo 2 (primeiro acesso): configurar o 2FA -->
+        <form id="setup-form" class="hidden">
+          <h1 class="auth-title">Ative a verificação em dois passos</h1>
+          <p class="auth-lead">Leia o código QR com uma app de autenticação (Google Authenticator, Microsoft Authenticator ou Authy) e introduza o código de 6 dígitos.</p>
+
+          <div class="qr-box"><div id="qrcode"></div></div>
+          <p class="hint">Não consegue ler o QR? Introduza esta chave manualmente:</p>
+          <p class="secret" id="secret"></p>
+
+          <div class="field">
+            <label for="setup-code">Código de 6 dígitos</label>
+            <input id="setup-code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>
+          </div>
+
+          <button class="btn block" type="submit" id="setup-btn">Ativar e entrar</button>
+          <div id="setup-alert" class="alert hidden" role="alert"></div>
+          <p class="auth-footer"><a href="#" class="back-link">Voltar</a></p>
         </form>
 
       </div>
     </main>
   </div>
 
-  <script src="api.js"></script>
-  <script src="mock.js"></script>
-  <script>
-    if (Auth.getToken()) location.replace("resources.html");
-
-    const loginForm = document.getElementById("login-form");
-    const codeForm = document.getElementById("code-form");
-    const loginAlert = document.getElementById("login-alert");
-    const codeAlert = document.getElementById("code-alert");
-    let tempToken = null;
-
-    // TODO: substituir quando existir recuperação de palavra-passe
-    document.getElementById("forgot-link").addEventListener("click", (e) => e.preventDefault());
-
-    loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      hideAlert(loginAlert);
-      const btn = document.getElementById("login-btn");
-      btn.disabled = true;
-      try {
-        const res = await api.login(
-          document.getElementById("email").value.trim(),
-          document.getElementById("password").value
-        );
-        tempToken = res.temp_token;
-        loginForm.classList.add("hidden");
-        codeForm.classList.remove("hidden");
-        document.getElementById("code").focus();
-      } catch (err) {
-        showAlert(loginAlert, err.message);
-      } finally {
-        btn.disabled = false;
-      }
-    });
-
-    codeForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      hideAlert(codeAlert);
-      const btn = document.getElementById("code-btn");
-      btn.disabled = true;
-      try {
-        const res = await api.verify2fa(tempToken, document.getElementById("code").value.trim());
-        Auth.setSession(res.access_token, res.user);
-        location.href = "resources.html";
-      } catch (err) {
-        showAlert(codeAlert, err.message);
-        btn.disabled = false;
-      }
-    });
-
-    document.getElementById("back-link").addEventListener("click", (e) => {
-      e.preventDefault();
-      tempToken = null;
-      codeForm.classList.add("hidden");
-      loginForm.classList.remove("hidden");
-    });
-  </script>
+  <script src="js/api.js"></script>
+  <script src="js/login.js"></script>
 </body>
 </html>
