@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redefinir palavra-passe – SlotUp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/auth.css">
+</head>
+<body class="auth">
+  <div class="split">
+
+    <!-- Painel verde -->
+    <aside class="split-hero">
+      <span class="auth-brand on-dark">
+        <svg viewBox="0 0 19 32" width="19" height="32" fill="none" aria-hidden="true">
+          <rect x="1.25" y="1.25" width="16.5" height="29.5" rx="8.25" stroke="currentColor" stroke-width="2.5"/>
+          <circle cx="9.5" cy="9.5" r="3.5" fill="currentColor"/>
+        </svg>
+        SlotUp
+      </span>
+
+      <div>
+        <h2 class="hero-title">Reserve espaços<br>e serviços do<br>complexo<br>em segundos.</h2>
+        <div class="hero-chips">
+          <span class="hero-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18V8a2 2 0 0 1 2-2h8v12"/><path d="M13 10h5a2 2 0 0 1 2 2v6"/><path d="M2 18h20"/></svg>
+            Coworking
+          </span>
+          <span class="hero-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21V4h5a4.5 4.5 0 0 1 0 9H8"/></svg>
+            Estacionamento
+          </span>
+          <span class="hero-chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="14" cy="8" r="5"/><path d="M10.5 12 4 19"/><circle cx="18" cy="19" r="2"/></svg>
+            Desporto
+          </span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Painel do formulário -->
+    <main class="split-form">
+      <div class="form-box">
+       
+        <!-- Código do administrador + palavra-passe nova -->
+        <form id="reset-form">
+          <h1 class="auth-title">Redefinir palavra-passe</h1>
+          <p class="auth-lead">Introduza o código que o administrador lhe deu. Só pode ser usado uma vez e é válido durante 30 minutos.</p>
+
+          <div class="field">
+            <label for="token">Código de redefinição</label>
+            <!-- autocomplete off e spellcheck false: o browser não guarda nem "corrige" o código -->
+            <input id="token" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" minlength="20" maxlength="128" required>
+          </div>
+
+          <div class="field">
+            <label for="password">Nova palavra-passe</label>
+            <input id="password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required>
+            <p class="hint">Pelo menos 10 caracteres.</p>
+          </div>
+
+          <div class="field">
+            <label for="password2">Confirmar a nova palavra-passe</label>
+            <input id="password2" type="password" autocomplete="new-password" minlength="10" maxlength="128" required>
+          </div>
+
+          <button class="btn block" type="submit" id="reset-btn">Alterar palavra-passe</button>
+          <div id="reset-alert" class="alert hidden" role="alert"></div>
+
+          <p class="auth-footer"><a href="login.html">Voltar ao início de sessão</a></p>
+        </form>
+
+        <!-- Depois de alterar: segue para o login (o 2FA continua a ser pedido) -->
+        <section id="reset-done" class="hidden">
+          <h1 class="auth-title">Palavra-passe alterada</h1>
+          <p class="auth-lead">Já pode iniciar sessão com a nova palavra-passe. A verificação em dois passos continua ativa: tenha a app de autenticação à mão.</p>
+          <a class="btn block" href="login.html">Iniciar sessão</a>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/reset.js"></script>
+</body>
+</html>

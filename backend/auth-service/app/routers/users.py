@@ -1,13 +1,18 @@
 import logging
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.config import Settings, get_settings
 from app.database import get_db
 from app.dependencies import require_admin
-from app.models import User
+from app.models import PasswordResetToken, User
+from app.schemas import PasswordResetTokenOut, RoleIn, UserOut
+from app.security import hash_reset_token, new_reset_token
 from app.schemas import RoleIn, UserOut
 
 log = logging.getLogger("auth.security")
@@ -65,3 +70,42 @@ def reset_2fa(
     db.commit()
     log.info("2fa_reposto admin_id=%s user_id=%s", admin.id, user.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+
+@router.post("/{user_id}/password/reset", response_model=PasswordResetTokenOut, status_code=status.HTTP_201_CREATED)
+def create_password_reset(
+    user_id: uuid.UUID,
+    response: Response,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> PasswordResetTokenOut:
+    """Recuperação de palavra-passe: gera um token de uso único que o admin entrega ao utilizador.
+
+    * O token aparece só nesta resposta. Na base de dados fica apenas o hash SHA-256.
+    * Pedir outra vez anula o token anterior que ainda não foi usado.
+    * A palavra-passe antiga continua a funcionar até o token ser usado.
+    """
+    user = _get_or_404(db, user_id)
+    token = new_reset_token()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.password_reset_minutes)
+
+    # Anula o token anterior por usar (o índice password_reset_tokens_one_active só deixa existir um)
+    db.execute(
+        delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None))
+    )
+    db.add(PasswordResetToken(
+        user_id=user.id, token_hash=hash_reset_token(token), created_by=admin.id, expires_at=expires_at
+    ))
+    try:
+        db.commit()
+    except IntegrityError:
+        # Dois admins a pedir ao mesmo tempo (réplicas diferentes): o índice deixa passar só um
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Já foi pedida uma redefinição agora mesmo; tente outra vez") from None
+
+    # Resposta com um segredo: o browser e os proxies não a podem guardar em cache
+    response.headers["Cache-Control"] = "no-store"
+    log.info("password_reset_pedido admin_id=%s user_id=%s expira=%s", admin.id, user.id, expires_at.isoformat())
+    return PasswordResetTokenOut(token=token, expires_at=expires_at)

@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     max_failed_attempts: int = 10
     lock_minutes: int = 15
 
+    # Validade do token de redefinição de palavra-passe
+    password_reset_minutes: int = 30
+
     # Administrador inicial (opcional; criado no arranque se não existir)
     admin_name: str | None = None
     admin_email: str | None = None
