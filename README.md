@@ -2,6 +2,50 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint4-feature/recuperar-password`
+ 
+Recuperação de palavra-passe (o link "Esqueceu-se?"). O caminho escolhido é a **opção B com token**: é o administrador quem entrega o token ao utilizador, por isso não há envio de emails e **o diagrama não muda**. Quando existir o worker de emails, basta enviar o mesmo token por email (opção A), sem mudar a tabela nem a rota de redefinição.
+ 
+### Como funciona
+ 
+1. **O utilizador esqueceu-se da palavra-passe** e fala com o administrador. O "Esqueceu-se?" do login mostra "Contacte o administrador do complexo".
+2. **O administrador pede a redefinição:** `POST /api/auth/users/{id}/password/reset`. O auth gera um **token aleatório de uso único** (256 bits), válido **30 minutos**, e devolve-o **só nessa resposta**.
+3. **O administrador entrega o token** ao utilizador, pessoalmente (depois de confirmar quem é).
+4. **O utilizador redefine** no ecrã `reset.html`, que chama `POST /api/auth/password/reset` com `{token, new_password}`.
+5. **No login seguinte**, entra com a palavra-passe nova e **o 2FA continua a ser pedido**.
+### Rotas novas (auth-service)
+ 
+| Método e rota | Quem | Para quê |
+|---|---|---|
+| `POST /api/auth/users/{id}/password/reset` | ADMIN | gera o token → `201 {token, expires_at}`. Pedir outra vez anula o token anterior por usar |
+| `POST /api/auth/password/reset` | público | `{token, new_password}` → `204`. Token errado, já usado ou expirado → `400` "Token inválido ou expirado" |
+ 
+### Segurança (para o relatório da UC de Segurança)
+ 
+- **Na base de dados fica só o hash SHA-256 do token**, nunca o token. Quem conseguir ler a tabela não consegue usar os tokens.
+  - **Porque SHA-256 e não Argon2, como nas palavras-passe?** O token tem 256 bits aleatórios: não há dicionário nem força bruta possível. E, sem salt, o mesmo token dá sempre o mesmo hash, o que deixa procurá-lo com um índice.
+- **Uso único e atómico.** Um único `UPDATE ... WHERE used_at IS NULL AND expires_at > now() RETURNING` gasta o token. Com vários pedidos ao mesmo tempo, mesmo em réplicas diferentes, só um consegue. Há um teste com 8 pedidos simultâneos: 1 recebe `204` e 7 recebem `400`.
+- **No máximo um token ativo por utilizador:** índice único parcial `password_reset_tokens_one_active` (`WHERE used_at IS NULL`).
+- **A mesma resposta para token errado, usado ou expirado.** Não se dá nenhuma pista a quem está a tentar adivinhar.
+- **A resposta com o token leva `Cache-Control: no-store`.** O browser e os proxies não a guardam.
+- **Redefinir desbloqueia a conta:** o contador de falhas volta a zero. O 2FA não muda.
+- **Auditoria:** a tabela guarda que admin pediu (`created_by`) e quando o token foi usado (`used_at`). Os logs registam o pedido e a redefinição, sem o token.
+- **Limitação assumida:** a palavra-passe antiga continua a funcionar até o token ser usado, e os tokens de acesso já emitidos valem até expirarem (30 min), porque não há revogação de JWT.
+### Ecrãs (frontend)
+ 
+- **`login.html`:** o "Esqueceu-se?" abre o aviso "Contacte o administrador do complexo", com o link "Já tenho um código".
+- **`reset.html`** (novo, com `js/reset.js`): código + palavra-passe nova + confirmação. Valida no browser (mínimo 10 caracteres, as duas iguais) e chama `POST /api/auth/password/reset`. No fim manda para o login.
+  - O código também pode vir num link `reset.html#token=...`. Vai depois do `#`, que o browser nunca envia ao servidor, por isso o código não fica nos logs do Nginx. A página tira-o logo da barra de endereço.
+  - O `reset.js` usa o `request()` do `api.js` diretamente, sem mexer no objeto `api` (que é do Gabriel).
+### Migração nova (auth)
+ 
+- `0002`: tabela `password_reset_tokens` (`token_hash` único, `expires_at`, `used_at`, `created_by`, e `ON DELETE CASCADE` para o utilizador).
+### Testes desta branch
+ 
+- `pytest` do auth-service: **46 testes OK** (30 anteriores + 16 da recuperação).
+- Migração testada na ida e na volta: `alembic upgrade head`, `alembic downgrade 0001`, `alembic upgrade head`.
+
+
 ## O que mudou na branch `dev-sprint3-feature/fila-de-espera`
 
 As duas últimas tarefas da Sprint 3 do backend: a **fila de espera** ligada ao cancelamento e os **testes dos fluxos de reserva**. Tudo no `booking-service`, **sem migração nova**: as tabelas `waitlist_entries`, o estado `HELD` e os emails `WAITLIST_JOINED`/`WAITLIST_OFFERED` já existiam desde a migração `0002`.
