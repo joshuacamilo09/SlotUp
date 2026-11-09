@@ -92,7 +92,35 @@ const api = {
   verify2fa: (preToken, code)        => request("POST", "/auth/2fa/verify", { code }, preToken),
   me:        ()                      => request("GET", "/auth/me"),
 
-  // ----- Reservas (booking-service): entram quando ligarmos a home -----
+  // ----- Booking: categorias e recursos -----
+  // includeInactive só funciona para o ADMIN (o backend devolve 403 aos outros)
+  categories: (includeInactive) =>
+    request("GET", "/reservas/categorias" + (includeInactive ? "?include_inactive=true" : "")),
+  resources: ({ categoryId, includeInactive } = {}) => {
+    const p = new URLSearchParams();                 // monta "?category_id=...&include_inactive=true"
+    if (categoryId) p.set("category_id", categoryId);
+    if (includeInactive) p.set("include_inactive", "true");
+    const q = p.toString();
+    return request("GET", "/reservas/recursos" + (q ? "?" + q : ""));
+  },
+  resource:       (id)        => request("GET", `/reservas/recursos/${id}`),
+  createResource: (dados)     => request("POST", "/reservas/recursos", dados),
+  updateResource: (id, dados) => request("PATCH", `/reservas/recursos/${id}`, dados),
+  availability:   (id, dia)   => request("GET", `/reservas/recursos/${id}/disponibilidade?day=${dia}`),   // dia: "AAAA-MM-DD"
+
+  // ----- Booking: reservas -----
+  // start_at/end_at sem fuso ("2026-11-09T10:00") = hora local do complexo
+  createReservation: (resource_id, start_at, end_at) =>
+    request("POST", "/reservas/reservas", { resource_id, start_at, end_at }),
+  myReservations: (periodo = "futuras", limit = 50) =>
+    request("GET", `/reservas/reservas/minhas?periodo=${periodo}&limit=${limit}`),
+  cancelReservation: (id) => request("POST", `/reservas/reservas/${id}/cancelar`),
+
+  // ----- Booking: fila de espera -----
+  joinWaitlist:  (resource_id, start_at, end_at) => request("POST", "/reservas/fila", { resource_id, start_at, end_at }),
+  myWaitlist:    ()   => request("GET", "/reservas/fila/minhas"),
+  acceptOffer:   (id) => request("POST", `/reservas/fila/${id}/aceitar`),
+  leaveWaitlist: (id) => request("POST", `/reservas/fila/${id}/sair`),
 };
 
 /* ---------- Ajudantes do login ---------- */

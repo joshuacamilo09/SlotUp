@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlotUp · Administração</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/componentes.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <div id="cabecalho"></div>
+
+    <main class="conteudo">
+        <!-- Título + botão "Novo recurso" -->
+        <section class="admin-topo">
+            <div>
+                <h1>Administração</h1>
+                <p id="admin-data"></p>
+            </div>
+            <a href="novo-recurso.html" class="botao botao-primario botao-com-icone">
+                <span class="icone">add</span>Novo recurso
+            </a>
+        </section>
+
+        <!-- 4 indicadores: preenchidos pelo JS -->
+        <section class="kpis" id="kpis"></section>
+
+        <div class="admin-grelha">
+            <!-- Ocupação agora, por categoria -->
+            <section class="painel-admin painel-ocupacao">
+                <h2>Ocupação agora</h2>
+                <div id="ocupacao"></div>
+            </section>
+
+            <!-- Lista de recursos com ativar/desativar -->
+            <section class="painel-admin painel-recursos">
+                <div class="painel-recursos-topo">
+                    <h2>Recursos</h2>
+                    <span>Desativar esconde o recurso dos utilizadores</span>
+                </div>
+                <div id="lista-recursos"></div>
+            </section>
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/layout.js"></script>
+    <script src="js/catalogo.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>

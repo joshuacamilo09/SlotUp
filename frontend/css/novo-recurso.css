@@ -1,0 +1,122 @@
+/* ===== NOVO RECURSO ===== */
+
+.novo-topo h1 { font-size: clamp(24px, 3vw, 28px); font-weight: 800; letter-spacing: -.02em; }
+.novo-topo p { margin-top: 4px; font-size: 14px; color: var(--cor-texto-suave); }
+
+/* Formulário (largo) + pré-visualização (estreita); em tela pequena ficam um por baixo do outro */
+.novo-grelha { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+.novo-form { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+.novo-preview {
+    flex: 1 1 300px;
+    display: flex; flex-direction: column; gap: 10px;
+    position: sticky; top: 84px;          /* acompanha a rolagem, logo abaixo do cabeçalho */
+}
+
+/* ----- Blocos numerados ----- */
+.bloco {
+    display: flex; flex-direction: column; gap: 16px;
+    padding: 24px;
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda); border-radius: var(--raio);
+}
+.bloco-titulo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; }
+.bloco-titulo span {                       /* o número dentro da bolinha escura */
+    width: 24px; height: 24px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--cor-texto); color: var(--cor-superficie);
+    font-size: 12px; font-weight: 800;
+}
+
+/* ----- Campos ----- */
+.campo { display: flex; flex-direction: column; gap: 6px; }
+.campo-titulo { font-size: 12px; font-weight: 700; }
+.campo-titulo small { font-size: 12px; font-weight: 500; color: var(--cor-texto-suave); }
+.campo-texto {
+    height: 44px; padding: 0 14px;
+    border: 1px solid var(--cor-borda-forte); border-radius: var(--raio-botao);
+    font: inherit; font-size: 14px;
+    background: var(--cor-superficie); color: var(--cor-texto);
+    outline: none;
+}
+.campo-texto:focus {
+    border-color: var(--cor-primaria);
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--cor-primaria) 13%, transparent);   /* anel verde suave */
+}
+.campo-texto.com-erro { border-color: var(--cor-perigo); }
+.campo-erro { margin-top: -8px; font-size: 13px; font-weight: 600; color: var(--cor-perigo); }
+.campo .campo-erro { margin-top: 0; }
+.campos-lado-a-lado {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+    gap: 12px;
+}
+/* Seletor − valor + maior, ocupando a largura do campo */
+.seletor-grande { height: 44px; justify-content: space-between; }
+.seletor-grande button { width: 40px; }
+.seletor-grande .seletor-hora-valor { font-size: 15px; }
+
+/* ----- 1. Cartões de categoria (escolha única) ----- */
+.escolha-categoria {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+    gap: 10px;
+}
+.opcao-categoria {
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 16px; text-align: left;
+    border: 2px solid var(--cor-borda); border-radius: var(--raio-botao);
+    background: var(--cor-superficie);
+}
+.opcao-categoria.ativo { border-color: var(--cor-cat); background: var(--cor-cat-suave); }
+.opcao-categoria-topo { display: flex; justify-content: space-between; align-items: flex-start; }
+.opcao-categoria .icone-caixa { width: 42px; height: 42px; }
+.opcao-categoria .icone-caixa .icone { font-size: 24px; }
+.opcao-categoria.ativo .icone-caixa { background: var(--cor-superficie); }
+.opcao-radio {                             /* bolinha de seleção, como um "radio" */
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 1.5px solid var(--cor-borda-forte);
+}
+.opcao-categoria.ativo .opcao-radio { border: 5px solid var(--cor-cat); }
+.opcao-categoria-nome { font-size: 15px; font-weight: 800; }
+.opcao-categoria-descricao { margin-top: 2px; font-size: 12px; color: var(--cor-texto-suave); }
+
+/* ----- Grupos de opções (tipo, atributos, dias) ----- */
+.opcoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.opcao-tipo, .opcao-atributo, .opcao-dia {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    border: 1px solid var(--cor-borda-forte);
+    background: var(--cor-superficie);
+    font-size: 13px; font-weight: 700;
+}
+.opcao-tipo { padding: 9px 14px; border-radius: var(--raio-botao); }
+.opcao-tipo .icone { font-size: 18px; }
+.opcao-tipo.ativo, .opcao-dia.ativo { background: var(--cor-texto); border-color: var(--cor-texto); color: var(--cor-superficie); }
+
+.opcao-atributo { padding: 7px 12px; border-radius: 999px; }
+.opcao-atributo .icone { font-size: 16px; }
+.opcao-atributo.ativo {
+    border-color: var(--cor-primaria); color: var(--cor-primaria);
+    background: color-mix(in oklch, var(--cor-primaria) 13%, var(--cor-superficie));
+}
+
+.opcao-dia { width: 46px; height: 40px; border-radius: var(--raio-pequeno); color: var(--cor-texto-suave); }
+
+.novo-acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.novo-acoes .botao-primario { padding: 13px 22px; }
+.novo-acoes .botao-secundario { padding: 12px 20px; }
+
+/* ----- Pré-visualização ----- */
+.preview-etiqueta {
+    font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--cor-texto-suave);
+}
+#preview { display: flex; flex-direction: column; gap: 10px; }
+.preview-titulo { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.preview-titulo .icone-caixa { width: 40px; height: 40px; flex: none; }
+.preview-titulo .icone-caixa .icone { font-size: 22px; }
+.preview-titulo > div:last-child { min-width: 0; }
+.preview-titulo .cartao-nome { overflow: hidden; text-overflow: ellipsis; }
+.linha-dia-barras i.fechado { background: var(--cor-chip); }       /* hora fora do horário de abertura */
+#preview .botao { height: 42px; display: grid; place-items: center; }
+#preview .cartao-recurso:hover { border-color: var(--cor-borda); box-shadow: none; }   /* é só um exemplo: sem hover */
+.preview-regras { font-size: 12px; line-height: 1.5; color: var(--cor-texto-suave); }
