@@ -162,10 +162,14 @@ services:
     container_name: slotup-nginx
     restart: unless-stopped
     depends_on:
-      - auth-1
-      - auth-2
-      - booking-1
-      - booking-2
+      auth-1:
+        condition: service_healthy
+      auth-2:
+        condition: service_healthy
+      booking-1:
+        condition: service_healthy
+      booking-2:
+        condition: service_healthy
     ports:
       - "127.0.0.1:8080:80"
     volumes:

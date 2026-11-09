@@ -2,6 +2,52 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint4` (migrações, saúde e identificação do servidor)
+
+Três tarefas da Sprint 4. Duas já estavam quase feitas pelas tarefas anteriores; aqui ficaram completas e com prova.
+
+### Migrações automáticas
+
+- O Alembic roda **uma única vez**, antes dos servidores subirem, nos contentores `auth-migrate` e `booking-migrate`. Eles rodam `alembic upgrade head` e terminam (`Exited (0)`).
+- As réplicas (`auth-1`, `auth-2`, `booking-1`, `booking-2`) só arrancam depois de a migração terminar **sem erro** (`service_completed_successfully`). Se a migração falhar, nenhum servidor sobe com o banco pela metade.
+- No Kubernetes, o equivalente é um `Job`.
+
+### Verificação de saúde e ordem de subida
+
+```
+db (healthy) → auth-migrate / booking-migrate (Exited 0) → auth-1/2, booking-1/2 (healthy) → nginx
+```
+
+- Todos os serviços têm `healthcheck` em `/health/ready`, que testa a ligação ao banco.
+- **Novo:** o Nginx só arranca quando as **4 réplicas** estão `healthy` (`condition: service_healthy`). Antes, ele arrancava assim que os contentores ligavam, e podia receber pedidos enquanto as réplicas ainda se ligavam ao banco.
+- O `depends_on` só conta **no arranque**. Com tudo a correr, parar uma réplica não mexe no Nginx, e o failover continua a funcionar.
+
+### Identificação do servidor: `X-Served-By`
+
+- **Todas** as respostas do auth e do booking trazem o cabeçalho `X-Served-By` com o nome da réplica que atendeu (`auth-1`, `auth-2`, `booking-1` ou `booking-2`), inclusive as respostas de erro.
+- Substitui o antigo `X-Instance`, que só mudou de nome. Nada mais dependia dele.
+- Para ver: no browser, DevTools → separador Rede → um pedido → Cabeçalhos. Ou no terminal:
+
+```bash
+curl -si "http://localhost:8080/api/auth/whoami" | grep -i "x-served-by"
+```
+
+### Como atualizar
+
+Em `infra/docker`:
+
+```bash
+docker compose up -d --build
+docker compose ps -a
+```
+
+### Testes desta branch
+
+- `pytest` do auth-service: **48 testes OK** (46 + 2 do `X-Served-By`).
+- `pytest` do booking-service: **162 testes OK** (160 + 2 do `X-Served-By`).
+- Os testes novos confirmam o cabeçalho numa resposta normal e numa resposta de erro (`404`).
+- No Docker: `X-Served-By: auth-1` e `X-Served-By: booking-1` pelo Nginx, e `auth-2` com o servidor 1 parado.
+
 ## O que mudou na branch `dev-sprint4-feature/configuracoes-segredos`
 
 A configuração (endereços, portas, regras) fica separada dos segredos (senhas e chaves). A configuração vai para o Git; os segredos nunca vão. Separei da mesma forma no Docker Compose e no Kubernetes.
@@ -568,12 +614,19 @@ cp .env.example .env
 # 2) Chaves de desenvolvimento: JWT RS256 e chave de cifra do 2FA, na pasta secrets/ (fora do Git)
 bash gen-secrets.sh
 
-# 3) Construir e subir: banco, migrações e os 3 serviços
+# 3) Construir e subir: banco, migrações, as 2 réplicas de cada serviço e o Nginx
 docker compose up -d --build
 
-# 4) Conferir: os *-migrate devem estar "Exited (0)" e os outros 4 "healthy"
+# 4) Conferir: os 2 *-migrate devem estar "Exited (0)" e os outros 7 "healthy"
+#    (db, auth-1, auth-2, booking-1, booking-2, scheduling, nginx)
 docker compose ps -a
+
+# 5) Dados de exemplo: admin do .env + ana@slotup.pt (2FA ativo) e 13 recursos
+docker compose exec auth-1 python -m app.seed
+docker compose exec booking-1 python -m app.seed
 ```
+
+O sistema fica em **`http://localhost:8080`** (frontend e API, pelo Nginx).
 
 Teste de ponta a ponta, que percorre o fluxo real entre os 3 serviços:
 
@@ -584,7 +637,7 @@ pip install httpx pyotp
 python ../../backend/scripts/e2e_smoke.py    # deve terminar com "Tudo certo."
 ```
 
-Documentação interativa de cada API (Swagger): `http://localhost:8001/docs` (auth), `:8002/docs` (booking) e `:8003/docs` (scheduling).
+Documentação interativa de cada API (Swagger), direto no servidor 1: `http://localhost:8001/docs` (auth), `:8002/docs` (booking) e `:8003/docs` (scheduling). O servidor 2 está em `:8011` e `:8012`.
 
 ## Estrutura do repositório
 

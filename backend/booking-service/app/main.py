@@ -20,14 +20,16 @@ app.include_router(waitlist.router)
 app.include_router(session_check.router)
 
 @app.middleware("http")
-async def instance_header(request: Request, call_next):
-    """Cabeçalho X-Instance em todas as respostas: mostra que réplica atendeu o pedido.
+async def served_by_header(request: Request, call_next):
+    """Cabeçalho X-Served-By em todas as respostas: mostra que réplica atendeu o pedido.
 
-    Útil na demo das réplicas: no DevTools do browser (separador Rede) ou com curl -i
-    vê-se cada pedido a cair no servidor 1 ou no servidor 2.
+    Útil na demo das réplicas e do failover: no DevTools do browser (separador Rede)
+    ou com curl -i vê-se cada pedido a cair no servidor 1 ou no servidor 2.
     """
+    # Um middleware corre em TODOS os pedidos: o call_next passa o pedido à rota
+    # e devolve a resposta, à qual acrescentamos o cabeçalho antes de a enviar.
     response = await call_next(request)
-    response.headers["X-Instance"] = get_settings().instance_name
+    response.headers["X-Served-By"] = get_settings().instance_name
     return response
 
 @app.exception_handler(OperationalError)

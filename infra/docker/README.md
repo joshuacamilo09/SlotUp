@@ -146,7 +146,7 @@ Ver que réplica responde:
 for i in 1 2 3 4; do curl -s http://localhost:8080/api/auth/whoami; echo; done
 ```
 
-Responde sempre `"instance":"auth-1"`, até o servidor 1 falhar. O mesmo com `/api/reservas/whoami`. Todas as respostas trazem também o cabeçalho `X-Instance` (no browser: DevTools, separador Rede).
+Responde sempre `"instance":"auth-1"`, até o servidor 1 falhar. O mesmo com `/api/reservas/whoami`. Todas as respostas trazem também o cabeçalho `X-Served-By` (no browser: DevTools, separador Rede).
 
 ## Failover
 

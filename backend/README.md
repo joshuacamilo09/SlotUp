@@ -72,7 +72,7 @@ Deixa os bancos sempre no mesmo ponto de partida, para a demo e os testes manuai
 
 ```bash
 docker compose exec auth-1 python -m app.seed      # admin do .env + ana@slotup.pt, com 2FA já ativo
-docker compose exec booking-1 python -m app.seed   # apaga reservas, fila, notificações e recursos; recria 15 recursos
+docker compose exec booking-1 python -m app.seed   # apaga reservas, fila, notificações e recursos; recria 13 recursos
 ```
 
 - **Usuários:** o admin do `.env` (`ADMIN_EMAIL`) e `ana@slotup.pt` (senha `SEED_USER_PASSWORD`), os dois com o 2FA ativo e o mesmo segredo `SEED_TOTP_SECRET`. Adicione esse segredo **uma vez** no Authenticator ("Inserir chave de configuração"): ele continua valendo depois de um `down -v`.
