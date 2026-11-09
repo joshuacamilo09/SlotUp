@@ -1,0 +1,43 @@
+/* Cores por categoria: a classe da categoria define --cat e --cat-suave */
+.cat-coworking      { --cat: var(--coworking);      --cat-suave: var(--coworking-suave); }
+.cat-estacionamento { --cat: var(--estacionamento); --cat-suave: var(--estacionamento-suave); }
+.cat-desporto       { --cat: var(--desporto);       --cat-suave: var(--desporto-suave); }
+
+/* ---------- Caminho (fica acima das duas colunas) ---------- */
+.conteudo > .caminho { margin-bottom: 24px; }
+
+/* ---------- Layout em duas colunas ---------- */
+.recurso-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 28px;
+}
+.recurso-principal { flex: 999 1 480px; min-width: 0; }
+.recurso-lateral {
+  flex: 1 1 300px;
+  min-width: 0;
+  position: sticky;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.rec-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--cor-borda-forte);
+  border-radius: var(--raio);
+  background: #fff;
+  color: var(--cor-texto);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
