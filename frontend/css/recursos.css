@@ -1,3 +1,9 @@
+/* =====================================================================
+   recurso.css – estilos só da tela "Detalhe do recurso"
+   Os componentes (.caminho, .chips-dias, .seletor-hora...) vêm de
+   componentes.css; aqui só se ajustam tamanhos, sem mudar o componente.
+   ===================================================================== */
+
 /* Cores por categoria: a classe da categoria define --cat e --cat-suave */
 .cat-coworking      { --cat: var(--coworking);      --cat-suave: var(--coworking-suave); }
 .cat-estacionamento { --cat: var(--estacionamento); --cat-suave: var(--estacionamento-suave); }
@@ -24,6 +30,7 @@
   gap: 18px;
 }
 
+/* ---------- Botões desta tela e das janelas ---------- */
 .rec-btn {
   display: inline-flex;
   align-items: center;
@@ -54,3 +61,384 @@
   color: var(--cor-fila);
 }
 .rec-btn.grande { width: 100%; height: 48px; font-size: 16px; font-weight: 800; }
+
+/* ---------- b) Cabeçalho do recurso ---------- */
+.recurso-cab {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+.recurso-cab > div { min-width: 0; }
+.recurso-icone {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--raio);
+  background: var(--cat-suave);
+  color: var(--cat);
+}
+.recurso-icone .material-symbols-rounded {
+  font-size: 34px;
+  font-variation-settings: "FILL" 1;
+}
+.recurso-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.recurso-titulo h1 {
+  margin: 0;
+  font-size: clamp(22px, 3vw, 28px);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.pilula-cat {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--cat-suave);
+  color: var(--cat);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.recurso-sub {
+  margin: 5px 0 7px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--cor-texto-suave);
+}
+.recurso-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.recurso-tag {
+  padding: 4px 8px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-pequeno);
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* ---------- c) Dias (componente .chips-dias; aqui só o tamanho maior) ---------- */
+.recurso-principal .chips-dias {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+.recurso-principal .chip-dia {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 57px;
+  padding: 0;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: #fff;
+  color: var(--cor-texto);
+  font-family: inherit;
+  cursor: pointer;
+}
+.recurso-principal .chip-dia:focus-visible { outline: 2px solid var(--cor-primaria); outline-offset: 2px; }
+.cd-semana { font-size: 12px; font-weight: 700; line-height: 1.2; }
+.cd-numero { font-size: 18px; font-weight: 800; line-height: 1.1; }
+/* dia escolhido: fundo escuro, texto branco */
+.recurso-principal .chip-dia.ativo,
+.recurso-principal .chip-dia[aria-pressed="true"] {
+  background: var(--cor-texto);
+  border-color: var(--cor-texto);
+  color: #fff;
+}
+
+/* ---------- d) Grelha do dia ---------- */
+.grelha-cartao {
+  margin-top: 20px;
+  padding: 20px 16px 20px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: calc(var(--raio) + 6px);
+  background: #fff;
+}
+.grelha {
+  position: relative;
+  height: 576px; /* 12 horas × 48px */
+  cursor: pointer;
+}
+.grelha-hora { position: absolute; left: 0; right: 0; height: 0; }
+.grelha-hora span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 52px;
+  transform: translateY(-50%);
+  font-family: var(--fonte-mono);
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
+.grelha-hora::after {
+  content: "";
+  position: absolute;
+  left: 52px;
+  right: 0;
+  top: 0;
+  border-top: 1px solid var(--cor-borda);
+}
+/* área onde ficam os blocos (à direita da margem das horas) */
+.grelha-area { position: absolute; left: 52px; right: 0; top: 0; bottom: 0; }
+
+.bloco {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 0;
+  overflow: hidden;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.bloco.curto { padding-top: 0; align-items: center; font-size: 12px; }
+.bloco-hora { font-family: var(--fonte-mono); font-size: 13px; font-weight: 500; white-space: nowrap; }
+
+.bloco.ocupado {
+  background: repeating-linear-gradient(135deg, var(--cor-ocupado-claro) 0 3px, var(--cor-ocupado) 3px 6px);
+  color: var(--cor-texto-suave);
+}
+.bloco.fila {
+  background: var(--cor-fila-suave);
+  border: 1.5px dashed var(--cor-fila);
+  color: var(--cor-fila);
+}
+.bloco.minha {
+  background: var(--cor-primaria);
+  color: #fff;
+  font-weight: 700;
+}
+.bloco.selecao {
+  z-index: 2;
+  border: 2px solid var(--cor-primaria);
+  background: color-mix(in srgb, var(--cor-primaria) 12%, transparent);
+  color: var(--cor-primaria);
+  font-weight: 700;
+  pointer-events: none; /* o clique passa para a grelha */
+  transition: top 0.15s, height 0.15s;
+}
+.bloco.selecao:not(.curto) { padding-top: 8px; }
+
+.linha-agora {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  height: 2px;
+  background: #E5484D;
+  pointer-events: none;
+}
+.linha-agora::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #E5484D;
+}
+.grelha-nota { margin: 12px 0 0; font-size: 13px; color: var(--cor-texto-suave); }
+
+/* ---------- e) Painel "Nova reserva" ---------- */
+.painel {
+  padding: 22px;
+  border: 1px solid var(--cor-borda);
+  border-radius: calc(var(--raio) + 6px);
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(20, 22, 31, 0.06);
+}
+.painel h2 { margin: 0 0 15px; font-size: 17px; font-weight: 800; line-height: 1.3; }
+.painel-dia {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  font-size: 15px;
+  font-weight: 600;
+}
+.painel-dia .material-symbols-rounded { font-size: 20px; color: var(--cor-texto-suave); }
+.painel-horas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+.campo-rotulo { display: block; margin-bottom: 4px; font-size: 14px; line-height: 18px; font-weight: 600; }
+
+/* Seletor − 16:00 + (componente .seletor-hora; aqui só o tamanho maior) */
+.painel .seletor-hora {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  padding: 0 4px;
+  border: 1px solid var(--cor-borda-forte);
+  border-radius: var(--raio);
+  background: #fff;
+}
+.painel .seletor-hora button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cor-texto-suave);
+  cursor: pointer;
+}
+.painel .seletor-hora button:hover:not(:disabled) { background: rgba(20, 22, 31, 0.06); }
+.painel .seletor-hora button:focus-visible { outline: 2px solid var(--cor-primaria); }
+.painel .seletor-hora button:disabled { opacity: 0.35; cursor: not-allowed; }
+.painel .seletor-hora .material-symbols-rounded { font-size: 20px; }
+.painel .seletor-hora output { font-family: var(--fonte-mono); font-size: 15px; font-weight: 500; }
+
+.painel .estado { margin-top: 16px; }
+.painel .rec-btn.grande { margin-top: 16px; }
+.painel-nota {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0 0;
+  font-size: 14px;
+  line-height: 1.3;
+  color: var(--cor-texto-suave);
+  overflow-wrap: anywhere;
+}
+.painel-nota .material-symbols-rounded { flex: none; font-size: 20px; }
+
+/* ---------- f) Legenda ---------- */
+.legenda {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  padding: 14px 20px;
+  border: 1px solid var(--cor-borda);
+  border-radius: calc(var(--raio) + 6px);
+  background: #fff;
+}
+.legenda-item { display: flex; align-items: center; gap: 10px; font-size: 14px; line-height: 18px; font-weight: 500; }
+.amostra { flex: none; width: 16px; height: 16px; border-radius: 4px; }
+.amostra.livre { background: #fff; border: 1px solid var(--cor-borda-forte); }
+.amostra.ocupado { background: repeating-linear-gradient(135deg, var(--cor-ocupado-claro) 0 3px, var(--cor-ocupado) 3px 6px); }
+.amostra.minha { background: var(--cor-primaria); }
+.amostra.fila { background: var(--cor-fila-suave); border: 1.5px dashed var(--cor-fila); }
+
+/* ---------- g) Janela "Reserva confirmada" ---------- */
+.modal-titulo { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+.modal-texto { margin: 6px 0 0; font-size: 14px; color: var(--cor-texto-suave); }
+.centrado { text-align: center; }
+.conf-icone {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cor-livre);
+  color: #fff;
+}
+.conf-icone .material-symbols-rounded { font-size: 30px; font-weight: 700; }
+.conf-tabela { margin: 22px 0 0; border-top: 1px solid var(--cor-borda); }
+.conf-tabela > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cor-borda);
+  font-size: 14px;
+}
+.conf-tabela dt { color: var(--cor-texto-suave); }
+.conf-tabela dd { margin: 0; font-weight: 700; text-align: right; }
+.conf-tabela dd.mono { font-family: var(--fonte-mono); }
+.modal-acoes { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+
+/* ---------- h) Janela "Este horário já está ocupado" ---------- */
+.conflito-cab { display: flex; gap: 14px; align-items: flex-start; padding-right: 28px; }
+.conflito-cab .modal-titulo { font-size: 22px; }
+.conflito-icone {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--raio);
+  background: var(--cor-fila-suave);
+  color: var(--cor-fila);
+}
+.sugestoes-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 0 10px;
+  font-size: 14px;
+  font-weight: 800;
+}
+.sugestoes-titulo .material-symbols-rounded { font-size: 20px; color: var(--cor-primaria); }
+.sugestoes-lista { display: flex; flex-direction: column; gap: 8px; }
+.sugestao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sugestao.ativa {
+  border: 2px solid var(--cor-primaria);
+  padding: 11px 13px;
+  background: color-mix(in srgb, var(--cor-primaria) 8%, transparent);
+}
+.sugestao-nome { display: block; font-size: 14px; font-weight: 800; }
+.sugestao-tag { color: var(--cor-primaria); font-weight: 700; }
+.sugestao-sub { display: block; margin-top: 2px; font-size: 13px; color: var(--cor-texto-suave); }
+.sugestao-hora { font-family: var(--fonte-mono); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.caixa-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1.5px dashed var(--cor-fila);
+  border-radius: var(--raio);
+  background: var(--cor-fila-suave);
+  font-size: 14px;
+}
+.caixa-fila[hidden] { display: none; }
+#bloco-sugestoes[hidden] { display: none; }
+
+/* ---------- Ecrã estreito ---------- */
+@media (max-width: 860px) {
+  .recurso-lateral { position: static; }
+}
+@media (max-width: 480px) {
+  .recurso-icone { width: 56px; height: 56px; }
+  .grelha-cartao { padding: 16px 10px 16px 8px; }
+  .modal-cartao { padding: 28px 20px 20px; }
+  .modal-acoes { flex-direction: column-reverse; }
+  .modal-acoes .rec-btn { width: 100%; }
+  .caixa-fila { flex-direction: column; align-items: stretch; }
+}
