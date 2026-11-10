@@ -2,7 +2,7 @@ import logging
 
 from fastapi import FastAPI
 
-from app.routers import health
+from app.routers import health, plan
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
@@ -10,3 +10,4 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 # O algoritmo CSP entra aqui em /api/scheduling/... (tarefas da componente de IA).
 app = FastAPI(title="SlotUp · scheduling-service")
 app.include_router(health.router)
+app.include_router(plan.router)
