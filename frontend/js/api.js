@@ -112,8 +112,9 @@ const api = {
   // start_at/end_at sem fuso ("2026-11-09T10:00") = hora local do complexo
   createReservation: (resource_id, start_at, end_at) =>
     request("POST", "/reservas/reservas", { resource_id, start_at, end_at }),
-  myReservations: (periodo = "futuras", limit = 50) =>
-    request("GET", `/reservas/reservas/minhas?periodo=${periodo}&limit=${limit}`),
+  // status opcional: "CONFIRMED", "HELD" ou "CANCELLED"
+  myReservations: (periodo = "futuras", limit = 50, status) =>
+    request("GET", `/reservas/reservas/minhas?periodo=${periodo}&limit=${limit}` + (status ? `&status=${status}` : "")),
   cancelReservation: (id) => request("POST", `/reservas/reservas/${id}/cancelar`),
 
   // ----- Booking: fila de espera -----
