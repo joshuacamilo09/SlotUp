@@ -72,6 +72,7 @@
 .linha-dia-barras i.ocupado { background: var(--cor-ocupado); }
 .linha-dia-barras i.minha { background: var(--cor-primaria); }
 .linha-dia-barras i.fila { background: var(--cor-fila); }
+.linha-dia-barras i.fechado { background: var(--cor-chip); }   /* hora em que o recurso está fechado */
 .linha-dia-barras i.no-filtro { outline: 1px solid var(--cor-texto); outline-offset: 1px; }
 .linha-dia-horas {
     display: flex; justify-content: space-between;

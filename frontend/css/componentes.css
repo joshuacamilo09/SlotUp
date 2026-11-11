@@ -47,6 +47,17 @@
 .seletor-hora button:disabled { opacity: .35; cursor: not-allowed; }
 .seletor-hora-valor { min-width: 46px; text-align: center; font: 500 14px var(--fonte-mono); }
 
+/* A hora do seletor é uma lista: sem a seta e a borda do navegador, igual ao texto de antes */
+select.seletor-hora-valor {
+    appearance: none; -webkit-appearance: none;
+    height: 100%; padding: 0 2px;
+    border: 0; background: transparent; color: inherit;
+    font: 500 14px var(--fonte-mono);
+    text-align: center; text-align-last: center;   /* centra o texto da lista (Chrome e Safari) */
+    cursor: pointer;
+}
+select.seletor-hora-valor:focus-visible { outline: 2px solid var(--cor-primaria); border-radius: 4px; }
+
 /* ----- Pílula de estado: "● Livre" ----- */
 .pilula {
     display: inline-flex; align-items: center; gap: 6px;
@@ -60,6 +71,7 @@
 .pilula.ocupado { background: var(--cor-chip); color: var(--cor-texto-suave); }
 .pilula.minha   { background: var(--cor-primaria); color: #fff; }
 .pilula.fila    { background: var(--cor-fila-suave); color: var(--cor-fila-suave); border-color: var(--cor-fila); }
+.pilula.fechado { background: var(--cor-chip); color: var(--cor-texto-suave); }   /* fora do horário de abertura */
 
 /* ----- Interruptor: "Só disponíveis" ----- */
 .interruptor { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; }
