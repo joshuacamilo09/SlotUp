@@ -221,6 +221,8 @@
   color: #fff;
   font-weight: 700;
 }
+/* Horas em que o recurso está fechado (ex.: antes da abertura, ou o dia todo ao sábado) */
+.bloco.fechado { background: var(--cor-chip); color: var(--cor-texto-suave); font-weight: 500; }
 .bloco.selecao {
   z-index: 2;
   border: 2px solid var(--cor-primaria);
@@ -231,6 +233,11 @@
   transition: top 0.15s, height 0.15s;
 }
 .bloco.selecao:not(.curto) { padding-top: 8px; }
+
+/* Seleção por cima de um bloco: só a moldura (sem fundo), para o texto do bloco se ler */
+.bloco.selecao.sobre-bloco { background: transparent; }
+/* Moldura vermelha: neste horário não se pode reservar */
+.bloco.selecao.conflito { border-color: var(--cor-perigo); }
 
 .linha-agora {
   position: absolute;
@@ -293,6 +300,7 @@
   border-radius: var(--raio);
   background: #fff;
 }
+.painel select.seletor-hora-valor { font-size: 15px; }   /* a lista de horas do painel, um pouco maior */
 .painel .seletor-hora button {
   width: 34px;
   height: 34px;

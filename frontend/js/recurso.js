@@ -1,7 +1,7 @@
 // =====================================================================
 // SlotUp – tela "Detalhe do recurso" (recurso.html)
-// URL: recurso.html?id=<id>&dia=AAAA-MM-DD&inicio=HH:MM&fim=HH:MM
-// Por agora usa dados fictícios (DADOS_FALSOS); depois liga-se à API.
+// URL: recurso.html?id=<uuid>&dia=AAAA-MM-DD&inicio=HH:MM&fim=HH:MM
+// Dados reais do booking-service (js/api.js); textos dos códigos em js/catalogo.js.
 // =====================================================================
 
 // Sem sessão, requireAuth() manda para o login.
@@ -9,35 +9,32 @@ const utilizador = requireAuth();
 const emailUtilizador = (utilizador && utilizador.email) || "";
 
 // ---------------------------------------------------------------------
-// Dados fictícios: tudo o que vem de "fora" fica aqui, para ser trocado
-// depois por chamadas à API.
+// Dados da API. Os intervalos ficam em minutos do dia escolhido: { ini: 600, fim: 660 } = 10:00–11:00
 // ---------------------------------------------------------------------
-const DADOS_FALSOS = {
-  recurso: { id: 1, name: "Sala Atlântico", category: "coworking", type: "Salas de reunião",
-             location: "Piso 2", capacity: "até 8 pessoas", tags: ["Ecrã", "Videoconferência"], icon: "groups" },
-  ocupados:   [{ start: "09:00", end: "10:30" }, { start: "13:00", end: "14:30" }],
-  minhas:     [{ start: "11:00", end: "12:00" }],
-  naFila:     [],
-  sugestoes:  [{ name: "Sala Índico", tag: "Mesmo horário", sub: "Piso 2 · até 8 pessoas", time: "09:00–10:30" }],
+const dados = {
+  recurso: null,      // o recurso, como vem da API
+  cat: "coworking",   // id curto da categoria (para cores e textos)
+  abertura: [],       // quando o recurso está aberto neste dia
+  ocupados: [],       // reservas (de qualquer pessoa) neste dia
+  minhas: [],         // as minhas reservas confirmadas neste recurso, neste dia
+  naFila: [],         // os meus pedidos ativos na fila deste recurso, neste dia
 };
-const dados = DADOS_FALSOS;
+let todasMinhas = [];  // as minhas reservas neste recurso (todas as datas), como vêm da API
+let todaFila = [];     // os meus pedidos na fila deste recurso (todas as datas)
+let pedidoAtual = 0;   // para ignorar respostas antigas quando se troca de dia depressa
+let aEnviar = false;   // enquanto espera a resposta de "Reservar": botão desativado
 
 // ---------------------------------------------------------------------
 // Constantes e regras de horário (iguais às do backend)
 // ---------------------------------------------------------------------
-const ABERTURA = 8 * 60;  // 08:00, em minutos desde a meia-noite
-const FECHO = 20 * 60;    // 20:00
+const ABERTURA = 8 * 60;  // a grelha mostra das 08:00...
+const FECHO = 20 * 60;    // ...às 20:00
 const PASSO = 15;         // horários de 15 em 15 minutos (também a duração mínima)
 const PX_HORA = 48;       // altura de cada hora na grelha
 const MAX_DIAS = 30;      // no máximo 30 dias à frente
 
 const SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-const CATEGORIAS = {
-  coworking: "Coworking",
-  estacionamento: "Estacionamento",
-  desporto: "Desporto",
-};
 
 // ---------------------------------------------------------------------
 // Funções auxiliares de horas e datas
@@ -80,11 +77,23 @@ function agoraMin() {
   const n = new Date();
   return n.getHours() * 60 + n.getMinutes();
 }
+// Horas da API (ISO com fuso) -> { ini, fim } em minutos desde a meia-noite do dia escolhido
+function emMinutos(inicioIso, fimIso) {
+  const meiaNoite = deISO(estado.dia);
+  return {
+    ini: Math.round((new Date(inicioIso) - meiaNoite) / 60000),
+    fim: Math.round((new Date(fimIso) - meiaNoite) / 60000),
+  };
+}
+// Só os intervalos que tocam neste dia (0 a 24h)
+const doDia = (i) => i.fim > 0 && i.ini < 24 * 60;
 
 // ---------------------------------------------------------------------
-// Parâmetros da URL: dia, inicio e fim
+// Parâmetros da URL: id, dia, inicio e fim
 // ---------------------------------------------------------------------
 const params = new URLSearchParams(location.search);
+const idRecurso = params.get("id");
+if (!idRecurso) location.replace("index.html");   // sem recurso: volta à home
 const hoje = new Date();
 hoje.setHours(0, 0, 0, 0);
 
@@ -96,7 +105,7 @@ function diaValido(iso) {
   return paraISO(d) === iso && diff >= 0 && diff <= MAX_DIAS;
 }
 
-// "HH:MM" válido = múltiplo de 15 minutos dentro do horário de abertura; senão null
+// "HH:MM" válido = múltiplo de 15 minutos dentro da grelha; senão null
 function horaValida(txt) {
   if (!/^\d{2}:\d{2}$/.test(txt || "")) return null;
   const m = paraMin(txt);
@@ -120,7 +129,6 @@ const estado = {
   dia: diaValido(params.get("dia")) ? params.get("dia") : paraISO(hoje),
   inicio: inicial.inicio,
   fim: inicial.inicio + inicial.duracao,
-  sugestao: 0, // índice da sugestão escolhida na janela de conflito
 };
 
 const eHoje = () => estado.dia === paraISO(hoje);
@@ -141,11 +149,13 @@ function posicionar(inicio, duracao) {
   estado.fim = i + dur;
 }
 
-// Estado da seleção: passado, minha, fila, ocupado ou livre
+// Estado da seleção: passado, fechado, minha, fila, ocupado ou livre
 function calcularEstado() {
   const { inicio, fim } = estado;
-  const cruza = (b) => sobrepoe(inicio, fim, paraMin(b.start), paraMin(b.end));
+  const cruza = (b) => sobrepoe(inicio, fim, b.ini, b.fim);
   if (inicio < minInicio()) return "passado";
+  // Tem de caber inteira num intervalo de abertura (a mesma regra do backend)
+  if (!dados.abertura.some((a) => a.ini <= inicio && fim <= a.fim)) return "fechado";
   if (dados.minhas.some(cruza)) return "minha";
   if (dados.naFila.some(cruza)) return "fila";
   if (dados.ocupados.some(cruza)) return "ocupado";
@@ -178,7 +188,6 @@ const el = {
   modalConfirmacao: $("modal-confirmacao"),
   modalConflito: $("modal-conflito"),
   blocoSugestoes: $("bloco-sugestoes"),
-  listaSugestoes: $("sugestoes-lista"),
   caixaFila: $("caixa-fila"),
   botaoFila: $("botao-fila"),
   botaoSugestao: $("botao-sugestao"),
@@ -187,30 +196,27 @@ const el = {
 // ---------------------------------------------------------------------
 // Desenho: caminho e cabeçalho do recurso (textos de dados passam por esc())
 // ---------------------------------------------------------------------
-function chaveCategoria() {
-  return CATEGORIAS[dados.recurso.category] ? dados.recurso.category : "coworking";
-}
-
 function desenharCaminho() {
   const r = dados.recurso;
-  const chave = chaveCategoria();
   el.caminho.innerHTML =
     `<a href="index.html">Início</a> / ` +
-    `<a href="categoria.html?cat=${encodeURIComponent(chave)}">${esc(CATEGORIAS[chave])}</a> / ` +
+    `<a href="categoria.html?cat=${encodeURIComponent(dados.cat)}">${esc(r.category_name)}</a> / ` +
     `<strong>${esc(r.name)}</strong>`;
 }
 
 function desenharCabecalho() {
   const r = dados.recurso;
-  const chave = chaveCategoria();
-  const sub = [r.type, r.location, r.capacity].filter(Boolean).map(esc).join(" · ");
-  const tags = (r.tags || []).map((t) => `<span class="recurso-tag">${esc(t)}</span>`).join("");
+  const c = dados.cat;
+  // "Salas de reunião · Piso 2 · até 8 pessoas" (a localização está na description)
+  const sub = [textoTipo(c, r.resource_type), r.description, textoCapacidade(c, r.capacity)]
+    .filter(Boolean).map(esc).join(" · ");
+  const tags = atributosEmTexto(c, r.attributes).map((t) => `<span class="recurso-tag">${esc(t)}</span>`).join("");
 
-  el.cabecalho.classList.add("cat-" + chave);
+  el.cabecalho.classList.add("cat-" + c);
   el.cabecalho.innerHTML =
-    `<div class="recurso-icone"><span class="material-symbols-rounded" aria-hidden="true">${esc(r.icon)}</span></div>` +
+    `<div class="recurso-icone"><span class="material-symbols-rounded" aria-hidden="true">${esc(iconeTipo(c, r.resource_type))}</span></div>` +
     `<div>` +
-      `<div class="recurso-titulo"><h1>${esc(r.name)}</h1><span class="pilula-cat">${esc(CATEGORIAS[chave])}</span></div>` +
+      `<div class="recurso-titulo"><h1>${esc(r.name)}</h1><span class="pilula-cat">${esc(r.category_name)}</span></div>` +
       `<p class="recurso-sub">${sub}</p>` +
       `<div class="recurso-tags">${tags}</div>` +
     `</div>`;
@@ -237,14 +243,14 @@ function desenharDias() {
 
 el.chipsDias.addEventListener("click", (e) => {
   const botao = e.target.closest(".chip-dia");
-  if (!botao) return;
+  if (!botao || botao.dataset.dia === estado.dia) return;
   estado.dia = botao.dataset.dia;
   // guarda o dia na URL, para se poder partilhar/recarregar
   params.set("dia", estado.dia);
   history.replaceState(null, "", location.pathname + "?" + params.toString());
   posicionar(estado.inicio, estado.fim - estado.inicio);
   desenharDias();
-  atualizar();
+  carregarDia();   // a disponibilidade muda de dia para dia
 });
 
 // ---------------------------------------------------------------------
@@ -259,27 +265,43 @@ function desenharHoras() {
   el.grelhaHoras.innerHTML = html;
 }
 
-// Um bloco (ocupado, em fila ou minha reserva) posicionado pela hora
+// Um bloco (fechado, ocupado, em fila ou minha reserva) posicionado pela hora.
+// Corta o que fica fora da grelha (ex.: estacionamento ocupado das 07:00 às 09:00 → 08:00–09:00)
 function htmlBloco(b, classe, titulo) {
-  const ini = paraMin(b.start);
-  const fim = paraMin(b.end);
+  const ini = Math.max(b.ini, ABERTURA);
+  const fim = Math.min(b.fim, FECHO);
+  if (fim <= ini) return "";   // fora da grelha
   const topo = ((ini - ABERTURA) / 60) * PX_HORA + 1;
   const altura = ((fim - ini) / 60) * PX_HORA - 2;
   return (
     `<div class="bloco ${classe}${altura < 30 ? " curto" : ""}" style="top:${topo}px;height:${altura}px">` +
-    `<span>${esc(titulo)}</span><span class="bloco-hora">${esc(b.start)}–${esc(b.end)}</span></div>`
+    `<span>${esc(titulo)}</span><span class="bloco-hora">${paraHora(ini)}–${paraHora(fim)}</span></div>`
   );
 }
 
-function desenharBlocos() {
-  const cruzaFila = (o) =>
-    dados.naFila.some((f) => sobrepoe(paraMin(o.start), paraMin(o.end), paraMin(f.start), paraMin(f.end)));
+// Partes da grelha (08:00–20:00) em que o recurso está fechado = o que sobra da abertura
+function intervalosFechados() {
+  const fechados = [];
+  let cursor = ABERTURA;
+  for (const a of [...dados.abertura].sort((x, y) => x.ini - y.ini)) {
+    if (a.ini > cursor) fechados.push({ ini: cursor, fim: a.ini });
+    cursor = Math.max(cursor, a.fim);
+  }
+  if (cursor < FECHO) fechados.push({ ini: cursor, fim: FECHO });
+  return fechados;
+}
 
-  const ocupados = dados.ocupados.map((o) =>
-    cruzaFila(o) ? htmlBloco(o, "fila", "Ocupado · está na fila") : htmlBloco(o, "ocupado", "Ocupado")
-  );
+function desenharBlocos() {
+  const igual = (a, b) => a.ini === b.ini && a.fim === b.fim;
+  const cruzaFila = (o) => dados.naFila.some((f) => sobrepoe(o.ini, o.fim, f.ini, f.fim));
+
+  const fechados = intervalosFechados().map((f) => htmlBloco(f, "fechado", "Fechado"));
+  // O "busy" da API também inclui as minhas reservas: essas desenham-se à parte, como "A sua reserva"
+  const ocupados = dados.ocupados
+    .filter((o) => !dados.minhas.some((m) => igual(m, o)))
+    .map((o) => (cruzaFila(o) ? htmlBloco(o, "fila", "Ocupado · está na fila") : htmlBloco(o, "ocupado", "Ocupado")));
   const minhas = dados.minhas.map((m) => htmlBloco(m, "minha", "A sua reserva"));
-  el.grelhaBlocos.innerHTML = ocupados.join("") + minhas.join("");
+  el.grelhaBlocos.innerHTML = fechados.join("") + ocupados.join("") + minhas.join("");
 }
 
 // A seleção é um único elemento, para o top/height poderem animar
@@ -288,11 +310,21 @@ function desenharSelecao() {
   el.selecao.style.top = ((estado.inicio - ABERTURA) / 60) * PX_HORA + "px";
   el.selecao.style.height = altura + "px";
   el.selecao.classList.toggle("curto", altura < 34);
-  el.selecao.innerHTML =
-    `<span>Seleção</span><span class="bloco-hora">${paraHora(estado.inicio)}–${paraHora(estado.fim)}</span>`;
+  el.selecao.classList.toggle("curto", altura < 34);
+
+  // A seleção toca num bloco (ocupado, em fila, minha reserva ou fechado)?
+  const cruza = (b) => sobrepoe(estado.inicio, estado.fim, b.ini, b.fim);
+  const sobreBloco = [...dados.ocupados, ...dados.minhas, ...intervalosFechados()].some(cruza);
+  // Por cima de um bloco: só o contorno, sem fundo nem texto, para o texto do bloco continuar legível
+  el.selecao.classList.toggle("sobre-bloco", sobreBloco);
+  // Contorno vermelho quando não se pode reservar ali (ocupado, em fila, fechado ou passado)
+  el.selecao.classList.toggle("conflito", ["ocupado", "fila", "fechado", "passado"].includes(calcularEstado()));
+  el.selecao.innerHTML = sobreBloco
+    ? ""
+    : `<span>Seleção</span><span class="bloco-hora">${paraHora(estado.inicio)}–${paraHora(estado.fim)}</span>`;
 }
 
-// Linha vermelha de "agora" (só se o dia for hoje e estivermos em horário de abertura)
+// Linha vermelha de "agora" (só se o dia for hoje e estivermos dentro da grelha)
 function desenharAgora() {
   const m = agoraMin();
   const visivel = eHoje() && m >= ABERTURA && m <= FECHO;
@@ -317,12 +349,23 @@ const TEXTOS_ESTADO = {
   fila:    { icone: "hourglass_top",   texto: "Ocupado · já está na fila" },
   minha:   { icone: "event_available", texto: "Já tem uma reserva aqui" },
   passado: { icone: "schedule",        texto: "Este horário já passou" },
+  fechado: { icone: "block",           texto: "Fechado neste horário" },
 };
+
+// Preenche uma lista (<select>) com as horas de 15 em 15 min, de "de" até "ate", e escolhe "valor"
+function preencherHoras(lista, de, ate, valor) {
+  let html = "";
+  for (let m = de; m <= ate; m += PASSO) {
+    html += `<option value="${m}"${m === valor ? " selected" : ""}>${paraHora(m)}</option>`;
+  }
+  lista.innerHTML = html;
+}
 
 function desenharPainel() {
   el.painelDia.textContent = textoDia(estado.dia);
-  el.inicioValor.textContent = paraHora(estado.inicio);
-  el.fimValor.textContent = paraHora(estado.fim);
+  // Listas de horas: o início vai do mínimo do dia até 19:45; o fim, de início + 15 min até 20:00
+  preencherHoras(el.inicioValor, Math.min(minInicio(), estado.inicio), FECHO - PASSO, estado.inicio);
+  preencherHoras(el.fimValor, estado.inicio + PASSO, FECHO, estado.fim);
 
   // Os botões + / − não deixam passar dos limites
   el.inicioMenos.disabled = estado.inicio - PASSO < minInicio();
@@ -333,15 +376,17 @@ function desenharPainel() {
   const tipo = calcularEstado();
   const info = TEXTOS_ESTADO[tipo];
   const texto = tipo === "livre" ? "Disponível · " + duracaoTexto(estado.fim - estado.inicio) : info.texto;
-  el.estado.className = "estado " + (tipo === "passado" ? "ocupado" : tipo);
+  el.estado.className = "estado " + (tipo === "passado" || tipo === "fechado" ? "ocupado" : tipo);
   el.estado.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true">${info.icone}</span><span>${texto}</span>`;
 
   // O botão principal muda conforme o estado
   const intervalo = paraHora(estado.inicio) + "–" + paraHora(estado.fim);
-  el.botaoPrincipal.disabled = tipo === "passado";
-  if (tipo === "livre") el.botaoPrincipal.textContent = "Reservar " + intervalo;
+  el.botaoPrincipal.disabled = aEnviar || tipo === "passado" || tipo === "fechado";
+  if (aEnviar) el.botaoPrincipal.textContent = "A reservar…";
+  else if (tipo === "livre") el.botaoPrincipal.textContent = "Reservar " + intervalo;
   else if (tipo === "ocupado" || tipo === "fila") el.botaoPrincipal.textContent = "Ver alternativas";
   else if (tipo === "minha") el.botaoPrincipal.textContent = "Ver as minhas reservas";
+  else if (tipo === "fechado") el.botaoPrincipal.textContent = "Fechado";
   else el.botaoPrincipal.textContent = "Reservar";
 }
 
@@ -371,6 +416,16 @@ function mudarFim(delta) {
   estado.fim = novo;
   atualizar();
 }
+
+// Listas de horas: ao mudar o início, a duração mantém-se (como num calendário)
+el.inicioValor.addEventListener("change", () => {
+  posicionar(Number(el.inicioValor.value), estado.fim - estado.inicio);
+  atualizar();
+});
+el.fimValor.addEventListener("change", () => {
+  estado.fim = Number(el.fimValor.value);
+  atualizar();
+});
 
 // Botão principal
 el.botaoPrincipal.addEventListener("click", () => {
@@ -415,81 +470,121 @@ document.querySelectorAll("[data-fechar]").forEach((b) => b.addEventListener("cl
 // ---------------------------------------------------------------------
 // Reservar e janela "Reserva confirmada"
 // ---------------------------------------------------------------------
-function reservar() {
-  const horario = paraHora(estado.inicio) + "–" + paraHora(estado.fim);
-  dados.minhas.push({ start: paraHora(estado.inicio), end: paraHora(estado.fim) });
-  atualizar();
-  abrirConfirmacao(dados.recurso.name, horario);
+// Hora para a API: sem fuso ("2026-11-12T10:00") = hora local do complexo
+const paraApi = (min) => `${estado.dia}T${paraHora(min)}`;
+
+async function reservar() {
+  aEnviar = true;
+  desenharPainel();
+  try {
+    const reserva = await api.createReservation(dados.recurso.id, paraApi(estado.inicio), paraApi(estado.fim));
+    aEnviar = false;
+    await carregarMeus();   // a nova reserva passa a aparecer como "A sua reserva"
+    await carregarDia();
+    abrirConfirmacao(reserva);
+  } catch (err) {
+    aEnviar = false;
+    toast(err.message, true);   // ex.: 409 "Este horário já está reservado" (alguém foi mais rápido)
+    carregarDia();              // atualiza a grelha com o que está ocupado agora
+  }
 }
 
-function abrirConfirmacao(nomeRecurso, horario) {
-  const codigo = "SU-" + Math.floor(10000 + Math.random() * 90000); // código fictício
+function abrirConfirmacao(reserva) {
+  const inicio = new Date(reserva.start_at);
+  const fim = new Date(reserva.end_at);
+  const hhmm = (d) => String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
   $("conf-email").textContent = emailUtilizador;
-  $("conf-recurso").textContent = nomeRecurso;
+  $("conf-recurso").textContent = reserva.resource_name;
   $("conf-data").textContent = textoDia(estado.dia) + " " + deISO(estado.dia).getFullYear();
-  $("conf-horario").textContent = horario;
-  $("conf-codigo").textContent = codigo;
+  $("conf-horario").textContent = hhmm(inicio) + "–" + hhmm(fim);
+  // Código curto a partir do id da reserva (UUID): "SU-5E1F0D2A"
+  $("conf-codigo").textContent = "SU-" + reserva.id.slice(0, 8).toUpperCase();
   fecharModal();
   abrirModal(el.modalConfirmacao);
 }
 
 // ---------------------------------------------------------------------
 // Janela "Este horário já está ocupado"
+// As sugestões vêm do CSP (scheduling), na 3.ª entrega: por agora ficam escondidas.
 // ---------------------------------------------------------------------
-function desenharSugestoes() {
-  const lista = dados.sugestoes;
-  el.blocoSugestoes.hidden = lista.length === 0;
-  el.botaoSugestao.disabled = lista.length === 0;
-  el.listaSugestoes.innerHTML = lista
-    .map((s, i) => {
-      const ativa = i === estado.sugestao;
-      return (
-        `<button type="button" class="sugestao${ativa ? " ativa" : ""}" data-i="${i}" role="radio" aria-checked="${ativa}">` +
-        `<span><span class="sugestao-nome">${esc(s.name)} · <span class="sugestao-tag">${esc(s.tag)}</span></span>` +
-        `<span class="sugestao-sub">${esc(s.sub)}</span></span>` +
-        `<span class="sugestao-hora">${esc(s.time)}</span></button>`
-      );
-    })
-    .join("");
-}
-
-el.listaSugestoes.addEventListener("click", (e) => {
-  const botao = e.target.closest(".sugestao");
-  if (!botao) return;
-  estado.sugestao = Number(botao.dataset.i);
-  desenharSugestoes();
-});
+el.blocoSugestoes.hidden = true;
+el.botaoSugestao.hidden = true;
 
 function abrirConflito() {
   const intervalo = paraHora(estado.inicio) + "–" + paraHora(estado.fim);
   $("conflito-sub").textContent = dados.recurso.name + " · " + textoDia(estado.dia) + " · " + intervalo;
   el.caixaFila.hidden = calcularEstado() === "fila"; // já está na fila: não mostra outra vez
-  estado.sugestao = 0;
-  desenharSugestoes();
   abrirModal(el.modalConflito);
 }
 
-// "Entrar na fila": regista o pedido e pinta o bloco a laranja tracejado
-el.botaoFila.addEventListener("click", () => {
-  dados.naFila.push({ start: paraHora(estado.inicio), end: paraHora(estado.fim) });
-  fecharModal();
-  atualizar();
+// "Entrar na fila": POST /fila com o mesmo horário
+el.botaoFila.addEventListener("click", async () => {
+  el.botaoFila.disabled = true;
+  try {
+    const pedido = await api.joinWaitlist(dados.recurso.id, paraApi(estado.inicio), paraApi(estado.fim));
+    fecharModal();
+    toast(pedido.position
+      ? `Está na fila (${pedido.position}.º). Avisamos por email quando a vaga abrir.`
+      : "A vaga abriu entretanto: veja o aviso na página inicial.");   // raro: alguém cancelou no mesmo instante
+    await carregarMeus();
+    await carregarDia();
+  } catch (err) {
+    toast(err.message, true);   // ex.: 409 "O horário está livre: faça a reserva diretamente"
+  } finally {
+    el.botaoFila.disabled = false;
+  }
 });
 
-// "Reservar sugestão": confirma a sugestão escolhida (outro recurso, fictício)
-el.botaoSugestao.addEventListener("click", () => {
-  const s = dados.sugestoes[estado.sugestao];
-  if (s) abrirConfirmacao(s.name, s.time);
-});
+// ---------------------------------------------------------------------
+// Carregar da API
+// ---------------------------------------------------------------------
+// As minhas reservas e pedidos na fila deste recurso (todas as datas)
+async function carregarMeus() {
+  const [reservas, fila] = await Promise.all([
+    api.myReservations("futuras", 200, "CONFIRMED"),
+    api.myWaitlist(),
+  ]);
+  todasMinhas = reservas.filter((r) => r.resource_id === idRecurso);
+  todaFila = fila.filter((f) => f.resource_id === idRecurso && (f.status === "WAITING" || f.status === "OFFERED"));
+}
+
+// Disponibilidade do dia escolhido, convertida para minutos desse dia
+async function carregarDia() {
+  const meu = ++pedidoAtual;
+  try {
+    const disp = await api.availability(idRecurso, estado.dia);
+    if (meu !== pedidoAtual) return;   // entretanto escolheu outro dia: esta resposta já não interessa
+    dados.abertura = disp.opening.map((i) => emMinutos(i.start, i.end));
+    dados.ocupados = disp.busy.map((i) => emMinutos(i.start, i.end));
+    dados.minhas = todasMinhas.map((r) => emMinutos(r.start_at, r.end_at)).filter(doDia);
+    dados.naFila = todaFila.map((f) => emMinutos(f.desired_start, f.desired_end)).filter(doDia);
+  } catch (err) {
+    toast(err.message, true);
+  }
+  atualizar();
+}
 
 // ---------------------------------------------------------------------
 // Arranque
 // ---------------------------------------------------------------------
-el.emailUtilizador.textContent = emailUtilizador;
-desenharCaminho();
-desenharCabecalho();
-desenharDias();
-desenharHoras();
-posicionar(inicial.inicio, inicial.duracao);
-atualizar();
-setInterval(atualizar, 60000); // mantém a linha de "agora" e as regras do passado em dia
+async function iniciar() {
+  el.emailUtilizador.textContent = emailUtilizador;
+  desenharDias();
+  desenharHoras();
+  posicionar(inicial.inicio, inicial.duracao);
+  try {
+    // O recurso e as minhas reservas/fila ao mesmo tempo
+    const [recurso] = await Promise.all([api.resource(idRecurso), carregarMeus()]);
+    dados.recurso = recurso;
+    dados.cat = idCategoria(recurso.category_name);
+    desenharCaminho();
+    desenharCabecalho();
+    await carregarDia();
+  } catch (err) {
+    // Ex.: 404 (recurso desativado ou id errado)
+    el.cabecalho.innerHTML = `<p class="recurso-sub">${esc(err.message)} · <a href="index.html">Voltar ao início</a></p>`;
+    el.botaoPrincipal.disabled = true;
+  }
+}
+iniciar();
+setInterval(() => { if (dados.recurso) carregarDia(); }, 60000); // mantém a grelha, a linha de "agora" e as regras do passado em dia
