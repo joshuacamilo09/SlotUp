@@ -1,0 +1,26 @@
+{
+  "day": "2026-11-18",
+  "requests": [
+    { "id": "estacionamento", "resource_type": "vaga", "covers_day": true },
+    { "id": "trabalho", "resource_type": "mesa", "desired_start": "09:00", "duration_min": 240, "favorite_resource_id": "mesa-02" },
+    { "id": "reuniao", "resource_type": "sala", "desired_start": "14:00", "duration_min": 60, "people": 6 },
+    { "id": "padel", "resource_type": "padel", "desired_start": "18:00", "duration_min": 90 }
+  ],
+  "resources": [
+    { "id": "mesa-01", "name": "Mesa 01", "resource_type": "mesa", "capacity": 1, "schedule": [{ "open_time": "08:00", "close_time": "20:00" }] },
+    { "id": "mesa-02", "name": "Mesa 02", "resource_type": "mesa", "capacity": 1, "schedule": [{ "open_time": "08:00", "close_time": "20:00" }] },
+    { "id": "mesa-03", "name": "Mesa 03", "resource_type": "mesa", "capacity": 1, "schedule": [{ "open_time": "08:00", "close_time": "20:00" }] },
+    { "id": "sala-pequena", "name": "Sala Pequena", "resource_type": "sala", "capacity": 4, "schedule": [{ "open_time": "08:00", "close_time": "20:00" }] },
+    { "id": "sala-grande", "name": "Sala Grande", "resource_type": "sala", "capacity": 8, "schedule": [{ "open_time": "08:00", "close_time": "20:00" }] },
+    { "id": "vaga-01", "name": "Vaga 01", "resource_type": "vaga", "capacity": 1, "schedule": [{ "open_time": "00:00", "close_time": "23:59" }] },
+    { "id": "vaga-02", "name": "Vaga 02", "resource_type": "vaga", "capacity": 1, "schedule": [{ "open_time": "00:00", "close_time": "23:59" }] },
+    { "id": "padel-1", "name": "Quadra de Padel 1", "resource_type": "padel", "capacity": 4, "schedule": [{ "open_time": "07:00", "close_time": "22:00" }] },
+    { "id": "padel-2", "name": "Quadra de Padel 2", "resource_type": "padel", "capacity": 4, "schedule": [{ "open_time": "07:00", "close_time": "22:00" }] }
+  ],
+  "busy": [
+    { "resource_id": "mesa-02", "start": "09:00", "end": "11:00" },
+    { "resource_id": "sala-grande", "start": "14:00", "end": "15:00" },
+    { "resource_id": "padel-1", "start": "18:00", "end": "19:30" },
+    { "resource_id": "vaga-01", "start": "07:00", "end": "19:00" }
+  ]
+}
