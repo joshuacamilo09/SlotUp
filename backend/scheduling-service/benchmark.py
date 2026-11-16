@@ -25,11 +25,11 @@ SEMENTES = range(20)                  # 20 cenários por tamanho
 CONFIGS = [("BT", False, False), ("BT+FC", True, False), ("BT+MRV", False, True), ("BT+FC+MRV", True, True)]
 
 # tipo: (quantidade de recursos, abre às, fecha às, capacidade)
-TIPOS = {"mesa": (6, 8, 20, 1), "sala": (4, 8, 20, 8), "padel": (2, 7, 22, 4), "personal": (2, 7, 22, 1), "vaga": (3, 0, 24, 1)}
+TIPOS = {"mesa": (6, 8, 20, 1), "sala": (4, 8, 20, 8), "quadra": (2, 7, 22, 4), "personal": (2, 7, 22, 1), "vaga_carro": (3, 0, 24, 1)}
 
 # Os pedidos vão sendo tirados desta lista, por ordem: (tipo, duração em min)
-MODELOS_PEDIDO = [("mesa", 240), ("sala", 60), ("padel", 90), ("personal", 60),
-                  ("sala", 30), ("mesa", 120), ("sala", 45), ("padel", 60)]
+MODELOS_PEDIDO = [("mesa", 240), ("sala", 60), ("quadra", 90), ("personal", 60),
+                  ("sala", 30), ("mesa", 120), ("sala", 45), ("quadra", 60)]
 
 
 def hhmm(minutos: int) -> str:
@@ -51,10 +51,10 @@ def gerar_cenario(semente: int, n_pedidos: int, ocupacao: float, ocupacao_vagas:
             rid = f"{tipo}-{i}"
             recursos.append({
                 "id": rid, "name": rid, "resource_type": tipo, "capacity": capacidade,
-                "schedule": [{"open_time": hhmm(abre * 60), "close_time": hhmm(fecha * 60)}],
+                "opening": [{"open_time": hhmm(abre * 60), "close_time": hhmm(fecha * 60)}],
             })
             # Percorre o dia em blocos de 30 a 120 min e "reserva" alguns ao acaso
-            prob = ocupacao_vagas if tipo == "vaga" else ocupacao
+            prob = ocupacao_vagas if tipo == "vaga_carro" else ocupacao
             t = abre * 60
             while t < fecha * 60 - 60:
                 duracao = rng.choice([30, 60, 90, 120])
@@ -62,14 +62,15 @@ def gerar_cenario(semente: int, n_pedidos: int, ocupacao: float, ocupacao_vagas:
                     busy.append({"resource_id": rid, "start": hhmm(t), "end": hhmm(min(t + duracao, fecha * 60))})
                 t += duracao
 
-    pedidos = [{"id": "estacionamento", "resource_type": "vaga", "covers_day": True}]
+    pedidos = [{"id": "estacionamento", "resource_type": "vaga_carro", "covers_day": True, "people": 1}]
     for i in range(n_pedidos):
-        tipo, duracao = MODELOS_PEDIDO[i % len(MODELOS_PEDIDO)]  # % volta ao início da lista
-        inicio = rng.randrange(9 * 60, 18 * 60, 15)  # horário pedido entre 9h e 18h, de 15 em 15
+        tipo, duracao = MODELOS_PEDIDO[i % len(MODELOS_PEDIDO)]
+        inicio = rng.randrange(9 * 60, 18 * 60, 15)
         pedidos.append({"id": f"p{i + 1}-{tipo}", "resource_type": tipo,
-                        "duration_min": duracao, "desired_start": hhmm(inicio)})
+                        "duration_min": duracao, "preferred_start": hhmm(inicio), "people": 1})
 
-    return {"day": DIA, "requests": pedidos, "resources": recursos, "busy": busy}
+    return {"mode": "plan", "day": DIA, "now": AGORA.isoformat(),
+            "activities": pedidos, "resources": recursos, "busy": busy}
 
 
 def experimento(nome: str, tamanhos, ocupacao_vagas: float, otimizar: bool, escritor) -> None:

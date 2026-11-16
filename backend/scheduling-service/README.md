@@ -1,190 +1,152 @@
-# SlotUp · scheduling-service (protótipo de IA)
+# Contrato de dados · booking ⇄ scheduling
 
-Protótipo da componente de Inteligência Artificial do SlotUp: um **Problema de Satisfação de Restrições (CSP)** que resolve o "Planear o meu dia".
+Formato do JSON que o **booking-service** envia ao **scheduling-service** (CSP) e do que recebe de volta. Definido antes do código para os dois serviços serem desenvolvidos em paralelo.
 
-O usuário pede vários serviços de uma vez (por exemplo estacionamento, mesa de coworking, sala de reunião e padel). O CSP devolve a **melhor combinação de recursos e horários** que respeita todas as regras do complexo.
+- **Rota:** `POST /api/scheduling/plan` (só na rede interna; o Nginx não tem rota para ela)
+- **Quem chama:** só o booking, depois de validar o token do usuário
+- **Horas:** sempre `HH:MM` em **hora local do complexo**, no dia indicado em `day`. O booking converte de UTC antes de enviar.
 
-- **Algoritmo:** backtracking + forward checking + heurística MRV + branch and bound.
-- **Implementação:** Python puro, sem bibliotecas de CSP.
-- **Interface:** API FastAPI (`POST /api/scheduling/plan`) e demonstração no terminal.
+## 1. Entrada
 
-Milestone 2 da UC de Inteligência Artificial · Grupo 04.
-
-## Estrutura
-
+```json
+{
+  "mode": "plan",
+  "day": "2026-12-10",
+  "now": "2026-12-09T15:30",
+  "activities": [
+    { "id": "estacionamento", "resource_type": "vaga_carro", "covers_day": true, "people": 1 },
+    { "id": "trabalho", "resource_type": "mesa", "duration_min": 240, "preferred_start": "09:00", "people": 1, "favorite_resource_id": "4e2a..." },
+    { "id": "reuniao", "resource_type": "sala", "duration_min": 60, "preferred_start": "14:00", "people": 6 }
+  ],
+  "resources": [
+    {
+      "id": "9b1c...",
+      "name": "Sala Grande",
+      "resource_type": "sala",
+      "capacity": 8,
+      "opening": [ { "open_time": "08:00", "close_time": "20:00" } ],
+      "params": { "min_duration_min": 15, "max_duration_min": 240, "buffer_min": 10 }
+    }
+  ],
+  "busy": [
+    { "resource_id": "9b1c...", "start": "14:00", "end": "15:00" }
+  ]
+}
 ```
-scheduling-service/
-├── app/
-│   ├── csp/
-│   │   ├── modelo.py        # lê o cenário, monta variáveis e domínios (restrições unárias)
-│   │   ├── restricoes.py    # restrições binárias e globais (R6, R7, R8)
-│   │   ├── custo.py         # regras flexíveis (F1, F2, F3)
-│   │   └── solver.py        # backtracking + FC + MRV + branch and bound
-│   ├── routers/
-│   │   ├── health.py
-│   │   └── plan.py          # POST /api/scheduling/plan
-│   ├── schemas.py           # formatos de entrada e saída (Pydantic)
-│   ├── config.py
-│   └── main.py
-├── dados/
-│   └── cenario_basico.json  # cenário de exemplo
-├── tests/
-│   └── test_solver.py       # testes das regras, do solver e da API
-├── demo.py                  # demonstração no terminal
-├── benchmark.py             # comparação BT, BT+FC, BT+MRV e BT+FC+MRV
-├── requirements.txt
-└── requirements-dev.txt
-```
-
-## Instalação
-
-Requer **Python 3.10 ou superior** (testado com 3.14). Todos os comandos partem da raiz deste serviço.
-
-**macOS / Linux**
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
-```
-
-**Windows (PowerShell)**
-
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements-dev.txt
-```
-
-## Como executar
-
-### 1. Demonstração no terminal
-
-```bash
-python3 demo.py                           # usa dados/cenario_basico.json
-python3 demo.py dados/outro_cenario.json  # outro cenário no mesmo formato
-```
-
-A demonstração mostra, por ordem:
-1. os serviços pedidos;
-2. o tamanho de cada domínio depois das restrições unárias;
-3. a **primeira** solução válida (só regras rígidas);
-4. a **melhor** solução (com as regras flexíveis), com o custo detalhado e as estatísticas da busca.
-
-### 2. API
-
-```bash
-uvicorn app.main:app --reload --port 8013
-```
-
-Noutro terminal:
-
-```bash
-curl -s -X POST http://localhost:8013/api/scheduling/plan \
-  -H "Content-Type: application/json" \
-  -d @dados/cenario_basico.json | python3 -m json.tool
-```
-
-Também dá para testar pelo navegador em **http://localhost:8013/docs** (Swagger).
-
-> No projeto, este serviço corre na porta 8003 do Docker Compose. A porta 8013 é só para correr localmente sem conflito com os contentores.
-
-### 3. Testes
-
-```bash
-python3 -m pytest -v
-```
-
-Os testes cobrem cada regra, a melhor solução do cenário básico, a API e uma **comparação com força bruta** em 20 cenários aleatórios: o solver chega sempre ao mesmo custo que a busca exaustiva, nas 4 configurações.
-
-### 4. Benchmark
-
-```bash
-python3 benchmark.py
-```
-
-Gera cenários aleatórios **reproduzíveis** (sementes fixas), compara as 4 configurações do solver e grava os resultados em `resultados/benchmark.csv`. Demora cerca de 1 minuto, porque o backtracking puro é lento nos cenários maiores (é isso que o benchmark mostra).
-
-## Formato do cenário
-
-O mesmo JSON serve para a demonstração, para a API e para os testes:
-
-| Campo | O que é | Na integração, vem de |
-|---|---|---|
-| `day` | Dia a planear (`AAAA-MM-DD`) | Escolha do usuário |
-| `requests` | Serviços pedidos (as **variáveis** do CSP) | Tela "Planear o meu dia" |
-| `resources` | Recursos ativos, com o horário de abertura **daquele dia** | Tabelas `resources` e `availability_rules` |
-| `busy` | Intervalos já reservados (CONFIRMED ou HELD) | Tabela `reservations` |
-
-Campos de cada pedido em `requests`:
 
 | Campo | Obrigatório | Descrição |
 |---|---|---|
-| `id` | sim | Nome do pedido (único) |
-| `resource_type` | sim | `mesa`, `sala`, `vaga`, `padel` ou `personal` |
-| `duration_min` | sim, exceto vaga | Duração em minutos |
-| `desired_start` | não | Horário preferido (`HH:MM`) |
-| `people` | não | Número de pessoas (padrão 1) |
-| `favorite_resource_id` | não | Recurso preferido |
-| `covers_day` | só na vaga | `true`: a vaga cobre o dia todo |
+| `mode` | sim | `plan` (planear o dia) ou `suggest` (sugerir horários para uma atividade) |
+| `day` | sim | Dia a planear (`AAAA-MM-DD`) |
+| `now` | sim | Data e hora atuais do complexo. No dia de hoje, nada começa antes disto |
+| `max_alternatives` | não | Só no modo `suggest`: quantas sugestões devolver (1 a 10, padrão 3) |
+| `activities` | sim | Atividades pedidas (as variáveis do CSP), de 1 a 10 |
+| `resources` | sim | Recursos **ativos** dos tipos pedidos, com o horário de abertura **daquele dia** |
+| `busy` | sim | Intervalos ocupados por reservas **CONFIRMED e HELD**. A fila de espera (pessoas à espera) é ignorada |
 
-As horas são sempre **hora local do complexo**, sem fuso.
+### Atividade
 
-## Regras implementadas
-
-**Regras rígidas** (nunca podem ser violadas):
-
-| ID | Regra | Onde é verificada |
+| Campo | Obrigatório | Descrição |
 |---|---|---|
-| R1 | Horário de funcionamento | `modelo.py` (domínios) |
-| R2 | Duração mínima e máxima por tipo | `modelo.py` (domínios) |
-| R3 | Nada no passado, até 30 dias à frente | `modelo.py` (domínios) |
-| R4 | Capacidade do recurso | `modelo.py` (domínios) |
-| R5 | Recurso livre (sem CONFIRMED ou HELD) | `modelo.py` (domínios) |
-| R6 | Usuário sem sobreposição, com 10 min de deslocamento | `restricoes.py` (forward checking) |
-| R7 | A vaga cobre da 1ª à última atividade | `restricoes.py` (propagada no forward checking) |
-| R8 | No máximo 1 vaga por dia | `restricoes.py` (antes da busca) |
-| R9 | 10 min de folga entre reservas do mesmo recurso | `modelo.py` (domínios) |
+| `id` | sim | Nome único da atividade no pedido |
+| `resource_type` | sim | Tipo de recurso, igual ao do booking: `mesa`, `sala`, `quadra`, `personal`, `vaga_carro`, `vaga_mota` |
+| `people` | sim | Número de pessoas (≥ 1). O recurso precisa ter `capacity` maior ou igual |
+| `duration_min` | sim, exceto vaga | Duração em minutos, múltiplo de 15 |
+| `preferred_start` | sim, exceto vaga | Horário preferido (`HH:MM`) |
+| `covers_day` | só nas vagas | `true` em `vaga_carro` e `vaga_mota`: a vaga cobre da primeira à última atividade, mais 10 min de cada lado |
+| `favorite_resource_id` | não | Recurso preferido do usuário para esta atividade. Preenchido pelo booking a partir do histórico de reservas (o recurso deste tipo mais reservado). Não ficar com ele custa 30 pontos (F3) |
 
-**Regras flexíveis** (escolhem a melhor solução entre as válidas):
+### Recurso
 
-| ID | Regra | Custo |
+| Campo | Obrigatório | Descrição |
 |---|---|---|
-| F1 | Proximidade do horário pedido | 1 ponto por minuto de diferença |
-| F2 | Menos tempo ocioso entre atividades | 0,1 ponto por minuto ocioso |
-| F3 | Recurso favorito | 30 pontos se não ficar com ele |
+| `id`, `name`, `resource_type`, `capacity` | sim | Iguais ao recurso no booking |
+| `opening` | sim | Janelas de abertura do dia (pode ter mais de uma) |
+| `params` | não | Parâmetros do recurso. O que faltar usa o padrão do tipo no scheduling |
 
-Os parâmetros (passo de 15 min, folgas, antecedência, durações e pesos) estão no início de `modelo.py` e `custo.py`.
+| Parâmetro | Regra | Padrão |
+|---|---|---|
+| `min_duration_min` / `max_duration_min` | R2 | Sala 15–240; mesa 15–720; quadra 60–90; personal 60–60 |
+| `buffer_min` | R9 | 10 |
 
-## Resposta da API
+### Regras de validação (respondem 422)
+
+- `mode = suggest` exige **exatamente 1 atividade**, sem `covers_day`.
+- No máximo **1 atividade** com `covers_day` (R8).
+- `day` não pode ser anterior à data de `now`, nem estar a mais de 30 dias (R3).
+- Campos desconhecidos são recusados.
+
+## 2. Saída
+
+A resposta é sempre `200` quando o pedido é válido, mesmo sem solução. Os campos que não se aplicam vêm como `null`.
+
+### Plano encontrado (`mode = plan`)
 
 ```json
 {
   "status": "OK",
-  "cost": 127.0,
-  "items": [
-    { "request_id": "estacionamento", "resource_id": "vaga-02", "resource_name": "Vaga 02", "start": "08:50", "end": "19:40" },
-    { "request_id": "trabalho", "resource_id": "mesa-01", "resource_name": "Mesa 01", "start": "09:00", "end": "13:00" }
-  ],
-  "stats": { "nodes": 92, "solutions": 20, "prunes": 17, "time_ms": 0.9, "limit_reached": false }
+  "mode": "plan",
+  "plan": {
+    "cost": 105.0,
+    "items": [
+      { "activity_id": "estacionamento", "resource_id": "...", "resource_name": "Vaga 02", "start": "08:50", "end": "16:25" },
+      { "activity_id": "trabalho", "resource_id": "...", "resource_name": "Mesa 01", "start": "09:00", "end": "13:00" },
+      { "activity_id": "reuniao", "resource_id": "9b1c...", "resource_name": "Sala Grande", "start": "15:15", "end": "16:15" }
+    ]
+  },
+  "alternatives": null,
+  "failure": null,
+  "stats": { "nodes": 61, "solutions": 9, "prunes": 12, "time_ms": 0.6, "limit_reached": false }
 }
 ```
 
-| Situação | Resposta |
+### Sugestões (`mode = suggest`)
+
+```json
+{
+  "status": "OK",
+  "mode": "suggest",
+  "plan": null,
+  "alternatives": [
+    { "cost": 75.0, "items": [ { "activity_id": "reuniao", "resource_id": "9b1c...", "resource_name": "Sala Grande", "start": "15:15", "end": "16:15" } ] },
+    { "cost": 90.0, "items": [ { "activity_id": "reuniao", "resource_id": "9b1c...", "resource_name": "Sala Grande", "start": "12:30", "end": "13:30" } ] }
+  ],
+  "failure": null,
+  "stats": { "...": "..." }
+}
+```
+
+As sugestões vêm ordenadas do menor para o maior custo.
+
+### Sem solução
+
+```json
+{
+  "status": "NO_SOLUTION",
+  "mode": "plan",
+  "plan": null,
+  "alternatives": null,
+  "failure": { "code": "NO_CAPACITY", "activity_id": "reuniao", "message": "Nenhuma sala comporta 9 pessoas." },
+  "stats": { "...": "..." }
+}
+```
+
+| `failure.code` | Quando acontece |
 |---|---|
-| Há solução | `200`, `"status": "OK"` |
-| Nenhuma combinação respeita as regras | `200`, `"status": "NO_SOLUTION"` |
-| Pedido viola uma regra logo à partida (R2, R3, R8) | `422`, com a regra na mensagem |
-| Campo desconhecido ou formato inválido | `422` (validação do Pydantic) |
+| `NO_RESOURCE` | Não há nenhum recurso ativo do tipo pedido |
+| `NO_CAPACITY` | Há recursos do tipo, mas nenhum comporta as pessoas (R4) |
+| `NO_FREE_SLOT` | Há recursos com capacidade, mas nenhum horário livre que caiba (R1, R2, R5, R9) |
+| `CONFLICT` | Cada atividade tem opções, mas não cabem todas no mesmo dia (R6) |
+| `PARKING_NOT_COVERED` | Nenhuma vaga cobre o dia inteiro (R7) |
+| `LIMIT_REACHED` | A busca atingiu o limite de nós sem encontrar solução |
 
-A busca tem um limite de 200 mil nós, para a API nunca ficar presa. Se o limite for atingido, `limit_reached` vem `true` e a solução devolvida é a melhor encontrada até ali.
+`activity_id` indica a atividade que causou a falha, quando há uma só; é `null` em `CONFLICT`, `PARKING_NOT_COVERED` e `LIMIT_REACHED`.
 
-## Integração com o SlotUp
+## 3. Responsabilidades
 
-Nesta entrega o protótipo corre isolado. Na 3ª entrega, o fluxo previsto é:
-
-```
-frontend → booking-service → scheduling-service (este) → booking-service → frontend
-```
-
-O booking monta o corpo do pedido a partir do `booking_db` (recursos, horários e reservas). O scheduling devolve a proposta, sem acesso a base de dados. Quando o usuário confirma, o booking cria as reservas e verifica de novo a disponibilidade. O scheduling é interno: não é exposto pelo Nginx.
+| Booking | Scheduling |
+|---|---|
+| Validar o token e o usuário | Validar o formato do pedido |
+| Ler recursos, horários e reservas do booking_db | Montar domínios e aplicar as regras R1 a R9 |
+| Converter as horas de UTC para hora local | Devolver o plano, as sugestões ou o motivo da falha |
+| Ao confirmar: criar as reservas e verificar de novo a disponibilidade | Nunca grava nada: não tem base de dados |

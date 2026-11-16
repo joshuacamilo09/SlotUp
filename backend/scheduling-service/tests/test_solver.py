@@ -66,11 +66,31 @@ def test_r9_folga_depois_de_reserva_existente(dados):
     assert 15 * 60 + 15 in inicios
 
 
-def test_r2_duracao_invalida(dados):
-    dados["requests"][3]["duration_min"] = 75  # o padel só aceita 60 ou 90 min
-    # pytest.raises: o teste passa só se o bloco lançar este erro, com "R2" na mensagem
-    with pytest.raises(ValueError, match="R2"):
-        montar_problema(dados, agora=AGORA)
+def test_r2_duracao_fora_do_limite(dados):
+    # A quadra aceita 60 a 90 min por padrão: 120 tira todas as quadras do domínio
+    dados["activities"][3]["duration_min"] = 120
+    problema = montar_problema(dados, agora=AGORA)
+    assert problema.dominios["padel"] == []
+
+
+def test_r2_params_do_recurso_ganham_ao_padrao(dados):
+    # Com max_duration_min=120 nas quadras, os 120 min passam a ser aceitos
+    dados["activities"][3]["duration_min"] = 120
+    for recurso in dados["resources"]:
+        if recurso["resource_type"] == "quadra":
+            recurso["params"] = {"max_duration_min": 120}
+    problema = montar_problema(dados, agora=AGORA)
+    assert problema.dominios["padel"]  # lista não vazia conta como True
+
+
+def test_r9_buffer_do_recurso(dados):
+    # Sem folga na sala grande, a reunião já pode começar às 15h00 em ponto
+    for recurso in dados["resources"]:
+        if recurso["id"] == "sala-grande":
+            recurso["params"] = {"buffer_min": 0}
+    problema = montar_problema(dados, agora=AGORA)
+    inicios = {v.inicio for v in problema.dominios["reuniao"]}
+    assert 15 * 60 in inicios
 
 
 def test_r3_dia_no_passado(dados):
@@ -87,7 +107,7 @@ def test_r6_atividades_seguidas_precisam_de_folga():
 
 
 def test_r8_duas_vagas(dados):
-    dados["requests"].append({"id": "outra-vaga", "resource_type": "vaga", "covers_day": True})
+    dados["activities"].append({"id": "outra-vaga", "resource_type": "vaga_carro", "covers_day": True, "people":1})
     problema = montar_problema(dados, agora=AGORA)
     with pytest.raises(ValueError, match="R8"):
         resolver(problema)
@@ -184,8 +204,9 @@ def test_api_plan_ok(cliente, dados, agora_fixo):
     assert resposta.status_code == 200
     corpo = resposta.json()
     assert corpo["status"] == "OK"
-    assert corpo["cost"] == 127.0
-    assert corpo["items"][0]["resource_name"] == "Vaga 02"
+    assert corpo["plan"]["cost"] == 127.0
+    assert corpo["plan"]["items"][0]["resource_name"] == "Vaga 02"
+    assert corpo["failure"] is None
 
 
 def test_api_plan_sem_solucao(cliente, dados, agora_fixo):
@@ -193,16 +214,35 @@ def test_api_plan_sem_solucao(cliente, dados, agora_fixo):
     resposta = cliente.post("/api/scheduling/plan", json=dados)
     assert resposta.status_code == 200
     assert resposta.json()["status"] == "NO_SOLUTION"
+    assert resposta.json()["failure"]["code"] == "NO_FREE_SLOT"
 
 
 def test_api_plan_regra_violada_da_422(cliente, dados, agora_fixo):
-    dados["requests"].append({"id": "outra-vaga", "resource_type": "vaga", "covers_day": True})
+    dados["activities"].append({"id": "outra-vaga", "resource_type": "vaga_carro", "covers_day": True, "people":1})
     resposta = cliente.post("/api/scheduling/plan", json=dados)
     assert resposta.status_code == 422
-    assert "R8" in resposta.json()["detail"]
+    assert "R8" in str(resposta.json()["detail"])
 
 
 def test_api_plan_campo_desconhecido_da_422(cliente, dados):
-    dados["requests"][0]["is_admin"] = True  # extra="forbid" no schema
+    dados["activities"][0]["is_admin"] = True  # extra="forbid" no schema
     resposta = cliente.post("/api/scheduling/plan", json=dados)
     assert resposta.status_code == 422
+
+# Cada caso: (o que muda no cenário, o failure.code esperado)
+@pytest.mark.parametrize("mudar,codigo", [
+    (lambda d: d["activities"][2].update(people=9), "NO_CAPACITY"),
+    (lambda d: d["activities"][3].update(resource_type="piscina"), "NO_RESOURCE"),
+    (lambda d: d["busy"].append({"resource_id": "vaga-02", "start": "10:00", "end": "17:00"}), "PARKING_NOT_COVERED"),
+])
+def test_api_motivo_da_falha(cliente, dados, mudar, codigo):
+    mudar(dados)
+    resposta = cliente.post("/api/scheduling/plan", json=dados)
+    assert resposta.json()["failure"]["code"] == codigo
+
+
+def test_api_suggest_ainda_nao_implementado(cliente, dados):
+    dados["mode"] = "suggest"
+    dados["activities"] = [dados["activities"][1]]  # suggest exige 1 atividade só
+    resposta = cliente.post("/api/scheduling/plan", json=dados)
+    assert resposta.status_code == 501

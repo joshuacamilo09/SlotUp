@@ -6,7 +6,7 @@ Três microserviços em Python (FastAPI). Cada um tem a sua pasta, o seu `Docker
 |---|---|---|---|---|
 | `auth-service` | 8001 | `auth_db` | `/api/auth` | cadastro, login em dois passos (senha + código TOTP), papéis, emissão de JWT |
 | `booking-service` | 8002 | `booking_db` | `/api/reservas` | categorias e recursos (prontos); reservas, fila de espera, notificações e worker (Sprint 3) |
-| `scheduling-service` | 8003 | nenhum | — | algoritmo CSP (nesta fase só o esqueleto). Interno: só o booking fala com ele |
+| `scheduling-service` | 8003 | nenhum | `/api/scheduling` | algoritmo CSP ("Planear o meu dia"), contrato em [`documentacao/contrato-scheduling.md`](scheduling-service/README.md). Interno: só o booking fala com ele |
 
 > Para subir o ambiente, conectar ao banco e resolver erros do Docker, veja o [`infra/docker/README.md`](../infra/docker/README.md).
 
@@ -57,7 +57,7 @@ docker compose ps -a          # *-migrate "Exited (0)", os outros "healthy"
 
 As migrações rodam **sozinhas**: os contentores `auth-migrate` e `booking-migrate` executam `alembic upgrade head` antes de os serviços subirem.
 
-Documentação interativa de cada API (Swagger): `http://localhost:8001/docs`, `:8002/docs` e `:8003/docs`.
+Documentação interativa de cada API (Swagger): `http://localhost:8001/docs` e `:8002/docs`. O scheduling é interno e não tem porta no host: para ver o Swagger dele, rode-o fora do Docker (`uvicorn app.main:app --port 8013` dentro de `scheduling-service`, com o `.venv` ativo) e abra `http://localhost:8013/docs`.
 
 Teste de ponta a ponta:
 

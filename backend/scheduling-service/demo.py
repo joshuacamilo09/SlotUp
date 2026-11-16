@@ -45,7 +45,7 @@ def main() -> None:
     titulo(f"SlotUp · Planear o meu dia · {dia.strftime('%d/%m/%Y')}")
     for pid, p in problema.pedidos.items():
         if p.covers_day:
-            print(f"  • {pid:<15} {p.resource_type:<6} o dia todo (R7)")
+            print(f"  • {pid:<15} {p.resource_type:<10} o dia todo (R7)")
         else:
             hora = para_hhmm(p.desired_start) if p.desired_start is not None else "--:--"
             extra = f", {p.people} pessoas" if p.people > 1 else ""
