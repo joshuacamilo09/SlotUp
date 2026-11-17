@@ -22,7 +22,6 @@ Projeto de Desenvolvimento de Software (com integração de Sistemas Distribuíd
 - Sérgio Nunes
 - Samuel Gomes
 
-
 ## 7. Estudantes participantes
 - Gabriel Rezende (20240343)
 - Dário Bandanhe (20241751)
@@ -32,10 +31,12 @@ Projeto de Desenvolvimento de Software (com integração de Sistemas Distribuíd
 Grupo 4 (turma D02)
 
 ## 8. Palavras-chave
-reservas; sistemas distribuídos; microsserviços; Problema de Satisfação de Restrições (CSP); autenticação de dois fatores (2FA); tolerância a falhas; Docker; Kubernetes; Python
+reservas; sistemas distribuídos; microsserviços; Problema de Satisfação de Restrições (CSP); autenticação de dois fatores (2FA); tolerância a falhas; failover; Docker; Kubernetes; Python
 
 ## 9. Tecnologias utilizadas
-Python, FastAPI, SQLAlchemy, Alembic, PostgreSQL, CloudNativePG, HTML, CSS, JavaScript, Nginx, Docker, Docker Compose, Kubernetes, Ingress com HTTPS (TLS), JWT, TOTP (pyotp), Argon2, AES-GCM, SMTP, Prometheus, Grafana, Pytest, K6, GitHub, ClickUp
+**Em utilização (2.ª entrega):** Python, FastAPI, SQLAlchemy, Alembic, PostgreSQL, HTML, CSS, JavaScript, Nginx, Docker, Docker Compose, JWT, TOTP (pyotp), Argon2, AES-GCM, Pytest, GitHub, ClickUp
+
+**Previstas (3.ª entrega):** Kubernetes, CloudNativePG, Ingress com HTTPS (TLS), SMTP (envio de emails), Prometheus, Grafana, K6
 
 ## 10. Resumo curto
-O SlotUp é uma plataforma web distribuída de reservas para complexos empresariais, que reúne num único sistema a gestão de coworking, estacionamento e desporto (personal trainer e quadra de padel). Assenta num núcleo de reservas genérico e extensível, com fila de espera, notificações por email e dois perfis, administrador e utilizador, com acesso protegido por autenticação de dois fatores. Um componente de Inteligência Artificial, baseado num Problema de Satisfação de Restrições (CSP), planeia várias reservas interdependentes em simultâneo e, quando não há solução, explica o motivo e sugere alternativas. O sistema é composto por três microsserviços desenvolvidos em Python, empacotados em Docker e orquestrados com Kubernetes, com base de dados replicada e validação da tolerância a falhas através de testes de falha.
+O SlotUp é uma plataforma web distribuída de reservas para complexos empresariais, que reúne num único sistema a gestão de coworking, estacionamento e desporto (personal trainer e quadra de padel). Assenta num núcleo de reservas genérico e extensível, com fila de espera e dois perfis, administrador e utilizador, com acesso protegido por autenticação de dois fatores. Um componente de Inteligência Artificial, baseado num Problema de Satisfação de Restrições (CSP), planeia várias reservas interdependentes em simultâneo. Nesta fase existe um protótipo do CSP, ainda fora do fluxo de reservas. O sistema é composto por três microsserviços em Python, que correm em contentores Docker em dois servidores, com failover automático do Nginx. A migração para Kubernetes, a replicação da base de dados e o envio de notificações por email ficam para a fase seguinte.
