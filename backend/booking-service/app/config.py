@@ -43,6 +43,16 @@ class Settings(BaseSettings):
     # uma vaga por dia (ver app/parking.py)
     parking_category: str = "Estacionamento"
 
+    # ----- Worker (app/worker.py): envia os emails e faz expirar as ofertas da fila
+    worker_interval_seconds: int = 10   # de quanto em quanto tempo procura trabalho
+    smtp_host: str = "mailpit"          # em desenvolvimento, o Mailpit (servidor de email falso)
+    smtp_port: int = 1025
+    smtp_user: str = ""                 # vazio = sem login (o Mailpit não pede)
+    smtp_password: str = ""
+    smtp_starttls: bool = False         # True num servidor de email a sério (ex.: porta 587)
+    mail_from: str = "SlotUp <nao-responder@slotup.pt>"
+    email_max_attempts: int = 5         # depois disto o email fica FAILED
+
     @property
     def database_url(self) -> URL:
         return URL.create(
