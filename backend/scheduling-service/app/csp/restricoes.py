@@ -1,10 +1,8 @@
-"""Restrições que envolvem mais do que um pedido (as unárias já ficaram no modelo.py).
+"""Ligação entre o solver e as regras: o solver pergunta aqui, sem saber que regras existem.
 
-- R6 (binária): o usuário não está em dois sítios ao mesmo tempo.
-- R7 (global): a vaga cobre do início da 1ª atividade ao fim da última.
-- R8 (global): no máximo 1 vaga de estacionamento por dia.
+Assim ligar ou desligar uma regra (regras.py) não obriga a mexer no solver.
 """
-from app.csp.modelo import FOLGA_DESLOCAMENTO_MIN, Problema, Valor, recurso_livre, sobrepoe
+from app.csp.modelo import FOLGA_DESLOCAMENTO_MIN, Problema, Valor
 
 
 def tem_horario(valor: Valor) -> bool:
@@ -12,55 +10,28 @@ def tem_horario(valor: Valor) -> bool:
     return valor.inicio is not None
 
 
-def compativeis(a: Valor, b: Valor) -> bool:
-    """R6: duas atividades do usuário não se cruzam, com 10 min para se deslocar.
-
-    É uma restrição BINÁRIA (compara dois pedidos). O forward checking usa esta
-    função para cortar dos outros domínios os valores que deixam de ser possíveis.
-    Também cobre o caso de dois pedidos do usuário no mesmo recurso.
-    """
-    if not tem_horario(a) or not tem_horario(b):
-        return True  # a vaga não entra na R6: ela fica ocupada "por baixo" das atividades
-    # Alarga o intervalo de b em 10 min para cada lado e vê se a cai lá dentro
-    return not sobrepoe(a.inicio, a.fim, b.inicio - FOLGA_DESLOCAMENTO_MIN, b.fim + FOLGA_DESLOCAMENTO_MIN)
-
-
-def verificar_r8(problema: Problema) -> None:
-    """R8: no máximo 1 pedido de estacionamento por dia.
-
-    Não depende dos valores escolhidos, por isso basta verificar uma vez, antes
-    de procurar solução. Se falhar, nem vale a pena correr o solver.
-    """
-    # list comprehension: junta os ids de todos os pedidos de estacionamento
-    vagas = [p.id for p in problema.pedidos.values() if p.covers_day]
-    if len(vagas) > 1:
-        raise ValueError(f"No máximo 1 vaga de estacionamento por dia (R8): {vagas}")
-
-
 def intervalo_estacionamento(atribuicao: dict[str, Valor]) -> tuple[int, int] | None:
-    """R7: de quando a quando a vaga tem de estar reservada.
-
-    Vai do início da primeira atividade ao fim da última, com 10 min de folga
-    de cada lado (para estacionar e para chegar ao carro).
-    """
+    """De quando a quando a vaga tem de estar reservada: da 1ª à última atividade, mais a folga."""
     com_horario = [v for v in atribuicao.values() if tem_horario(v)]
     if not com_horario:
-        return None  # só pediu estacionamento: não há nada a cobrir
+        return None
     inicio = min(v.inicio for v in com_horario) - FOLGA_DESLOCAMENTO_MIN
     fim = max(v.fim for v in com_horario) + FOLGA_DESLOCAMENTO_MIN
     return inicio, fim
 
 
-def estacionamento_valido(problema: Problema, vaga: Valor, atribuicao: dict[str, Valor]) -> bool:
-    """R7: a vaga está aberta e livre (com a folga da R9) durante todo o intervalo.
+def verificar_pedido(problema: Problema) -> None:
+    """Regras do tipo "pedido": se uma falhar, o pedido está errado (a rota responde 422)."""
+    for regra in problema.regras_do_tipo("pedido"):
+        if not regra.verificar_pedido(problema):
+            raise ValueError(f"{regra.nome}: {regra.mensagem} ({regra.id})")
 
-    É uma restrição GLOBAL: só se pode verificar quando TODAS as atividades
-    com horário já foram escolhidas, porque o intervalo depende de todas.
-    """
-    intervalo = intervalo_estacionamento(atribuicao)
-    if intervalo is None:
-        return True
-    inicio, fim = intervalo
-    # any(): True se pelo menos uma janela de abertura contém o intervalo inteiro (R1)
-    dentro = any(abre <= inicio and fim <= fecha for abre, fecha in problema.aberturas.get(vaga.resource_id, []))
-    return dentro and recurso_livre(vaga.resource_id, inicio, fim, problema.busy)
+
+def compativeis(problema: Problema, a: Valor, b: Valor) -> bool:
+    """Regras binárias: dois valores escolhidos podem estar juntos no mesmo plano?"""
+    return all(regra.compativeis(problema, a, b) for regra in problema.regras_do_tipo("binaria"))
+
+
+def vaga_valida(problema: Problema, vaga: Valor, atribuicao: dict[str, Valor]) -> bool:
+    """Regras globais: a vaga serve para as atividades já escolhidas?"""
+    return all(regra.vaga_valida(problema, vaga, atribuicao) for regra in problema.regras_do_tipo("global"))

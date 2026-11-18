@@ -24,7 +24,7 @@ def mostrar(problema: Problema, solucao: dict, nomes: dict) -> None:
     """Imprime a solução, uma linha por serviço, por ordem de início."""
     for item in formatar_solucao(problema, solucao):
         # :<15 alinha o texto à esquerda numa coluna de 15 caracteres
-        print(f"  {item['start']}–{item['end']}  {item['request_id']:<15} {nomes[item['resource_id']]}")
+        print(f"  {item['start']}–{item['end']}  {item['activity_id']:<15} {nomes[item['resource_id']]}")
 
 
 def main() -> None:

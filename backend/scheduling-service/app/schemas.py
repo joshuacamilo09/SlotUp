@@ -167,6 +167,7 @@ class Failure(BaseModel):
 
     code: FailureCode
     activity_id: str | None
+    rule_id: str | None  # a regra que impediu o plano (ex.: "DURACAO"); None quando não há uma só
     message: str
 
 

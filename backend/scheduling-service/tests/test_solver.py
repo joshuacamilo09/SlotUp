@@ -12,7 +12,8 @@ from fastapi.testclient import TestClient  # simula pedidos HTTP sem subir o ser
 
 from app.csp.custo import custo_total
 from app.csp.modelo import Valor, montar_problema
-from app.csp.restricoes import compativeis, estacionamento_valido
+from app.csp.regras import ATIVAS_POR_MODO, POR_ID
+from app.csp.restricoes import compativeis, vaga_valida
 from app.csp.solver import formatar_solucao, resolver
 from app.main import app
 from benchmark import gerar_cenario  # reaproveita o gerador de cenários aleatórios
@@ -92,24 +93,25 @@ def test_r9_buffer_do_recurso(dados):
     inicios = {v.inicio for v in problema.dominios["reuniao"]}
     assert 15 * 60 in inicios
 
-
-def test_r3_dia_no_passado(dados):
+def test_sem_passado_dia_anterior(dados):
     dados["day"] = "2026-11-01"
-    with pytest.raises(ValueError, match="R3"):
-        montar_problema(dados, agora=AGORA)
+    problema = montar_problema(dados, agora=AGORA)
+    assert all(d == [] for d in problema.dominios.values())  # nenhuma atividade tem opções
+
 
 
 # ---------------------------------------------------------------- restrições binárias e globais
 def test_r6_atividades_seguidas_precisam_de_folga():
-    mesa = Valor("mesa-01", 540, 780)                           # 09:00-13:00
-    assert not compativeis(mesa, Valor("sala-grande", 780, 840))  # 13:00: sem tempo para ir
-    assert compativeis(mesa, Valor("sala-grande", 795, 855))      # 13:15: ok
+    regra = POR_ID["SEM_SOBREPOSICAO"]
+    mesa = Valor("mesa-01", 540, 780)                                         # 09:00-13:00
+    assert not regra.compativeis(None, mesa, Valor("sala-grande", 780, 840))  # 13:00: sem tempo para ir
+    assert regra.compativeis(None, mesa, Valor("sala-grande", 795, 855))      # 13:15: ok
 
 
 def test_r8_duas_vagas(dados):
     dados["activities"].append({"id": "outra-vaga", "resource_type": "vaga_carro", "covers_day": True, "people":1})
     problema = montar_problema(dados, agora=AGORA)
-    with pytest.raises(ValueError, match="R8"):
+    with pytest.raises(ValueError, match="UMA_VAGA_POR_DIA"):
         resolver(problema)
 
 
@@ -118,7 +120,7 @@ def test_melhor_solucao_do_cenario_basico(dados):
     problema = montar_problema(dados, agora=AGORA)
     solucao, custo, _ = resolver(problema)
     assert custo == 127.0
-    itens = {i["request_id"]: (i["resource_id"], i["start"], i["end"]) for i in formatar_solucao(problema, solucao)}
+    itens = {i["activity_id"]: (i["resource_id"], i["start"], i["end"]) for i in formatar_solucao(problema, solucao)}
     assert itens == {
         "estacionamento": ("vaga-02", "08:50", "19:40"),
         "trabalho": ("mesa-01", "09:00", "13:00"),
@@ -177,11 +179,11 @@ def _forca_bruta(problema) -> float:
     # O * "espalha" a lista de domínios como argumentos separados do product
     for combinacao in product(*(problema.dominios[pid] for pid in ids)):
         # R6 entre todos os pares da combinação
-        if not all(compativeis(a, b) for i, a in enumerate(combinacao) for b in combinacao[i + 1:]):
+        if not all(compativeis(problema, a, b) for i, a in enumerate(combinacao) for b in combinacao[i + 1:]):
             continue
         atribuicao = dict(zip(ids, combinacao))  # zip junta ids e valores em pares
         for vaga in problema.dominios["estacionamento"]:
-            if estacionamento_valido(problema, vaga, atribuicao):
+            if vaga_valida(problema, vaga, atribuicao):
                 # {**a, chave: valor} = cópia de a com mais uma chave
                 melhor = min(melhor, custo_total(problema, {**atribuicao, "estacionamento": vaga}))
     return melhor
@@ -246,3 +248,48 @@ def test_api_suggest_ainda_nao_implementado(cliente, dados):
     dados["activities"] = [dados["activities"][1]]  # suggest exige 1 atividade só
     resposta = cliente.post("/api/scheduling/plan", json=dados)
     assert resposta.status_code == 501
+
+# ---------------------------------------------------------------- regras ligáveis
+# Cada caso: (o que muda no cenário, a regra que deve aparecer no rule_id)
+@pytest.mark.parametrize("mudar,regra", [
+    (lambda d: d["activities"][2].update(people=9), "CAPACIDADE"),
+    (lambda d: d["activities"][3].update(duration_min=120), "DURACAO"),
+    (lambda d: [r.update(opening=[]) for r in d["resources"] if r["resource_type"] == "sala"], "HORARIO_ABERTURA"),
+    (lambda d: d.update(day="2026-11-01"), "SEM_PASSADO"),
+    (lambda d: d.update(day="2027-02-01"), "ANTECEDENCIA"),
+    (lambda d: d["busy"].append({"resource_id": "sala-grande", "start": "08:00", "end": "20:00"}), "RECURSO_LIVRE"),
+    (lambda d: d["busy"].append({"resource_id": "vaga-02", "start": "10:00", "end": "17:00"}), "VAGA_COBRE_O_DIA"),
+])
+def test_cada_regra_aparece_no_failure(cliente, dados, mudar, regra):
+    mudar(dados)
+    resposta = cliente.post("/api/scheduling/plan", json=dados)
+    assert resposta.json()["failure"]["rule_id"] == regra
+
+
+def test_intervalo_recurso_e_a_regra_decisiva(cliente, dados):
+    # A sala grande fica livre só das 10:00 às 11:00, entre duas reservas:
+    # cabe a reunião de 60 min SEM folga, mas não com os 10 min de intervalo
+    dados["busy"] += [
+        {"resource_id": "sala-grande", "start": "08:00", "end": "10:00"},
+        {"resource_id": "sala-grande", "start": "11:00", "end": "20:00"},
+    ]
+    resposta = cliente.post("/api/scheduling/plan", json=dados)
+    assert resposta.json()["failure"]["rule_id"] == "INTERVALO_RECURSO"
+
+
+def test_desligar_uma_regra_muda_o_resultado(dados):
+    # Com o INTERVALO_RECURSO desligado, a reunião pode começar logo às 15:00
+    problema = montar_problema(dados, agora=AGORA, desligar={"INTERVALO_RECURSO"})
+    inicios = {v.inicio for v in problema.dominios["reuniao"]}
+    assert 15 * 60 in inicios
+
+
+def test_sem_sobreposicao_so_no_modo_plano():
+    assert "SEM_SOBREPOSICAO" in ATIVAS_POR_MODO["plan"]
+    assert "SEM_SOBREPOSICAO" not in ATIVAS_POR_MODO["suggest"]
+
+
+def test_todas_as_regras_tem_id_nome_e_mensagem():
+    for regra in POR_ID.values():
+        assert regra.id and regra.nome and regra.mensagem
+        assert regra.tipo in {"pedido", "unaria", "binaria", "global"}

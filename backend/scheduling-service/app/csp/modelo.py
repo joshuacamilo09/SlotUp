@@ -2,37 +2,37 @@
 
 As horas são guardadas como MINUTOS desde a meia-noite (09:30 -> 570).
 Assim comparar e somar horas é só aritmética de inteiros.
+
+As regras rígidas ficam no regras.py. Aqui só se monta o problema e se aplicam
+as regras unárias (as de uma atividade só) para gerar os domínios.
 """
 import json
-import math
-from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from dataclasses import dataclass, field
+from datetime import date, datetime
 from pathlib import Path
 
-# ---------------------------------------------------------------- parâmetros das regras
+# ---------------------------------------------------------------- parâmetros
 PASSO_MIN = 15               # discretização: os horários andam de 15 em 15 min
-FOLGA_RECURSO_MIN = 10       # R9: padrão, quando o recurso não traz buffer_min
-FOLGA_DESLOCAMENTO_MIN = 10  # R6/R7: tempo para o usuário ir de uma atividade para outra
-ANTECEDENCIA_MAX_DIAS = 30   # R3: igual ao booking
+MINUTOS_NO_DIA = 24 * 60
+FOLGA_RECURSO_MIN = 10       # INTERVALO_RECURSO: padrão, quando o recurso não traz buffer_min
+FOLGA_DESLOCAMENTO_MIN = 10  # SEM_SOBREPOSICAO / VAGA_COBRE_O_DIA: tempo de deslocamento
 
-# NOVO (R2): duração (mínima, máxima) por tipo, usada quando o recurso não traz params.
-# Os tipos são os do booking (seed.py). As vagas não estão aqui: cobrem o dia, não têm duração.
+# DURACAO: (mínima, máxima) por tipo, usada quando o recurso não traz params
 DURACAO_PADRAO = {
     "mesa": (15, 12 * 60),
     "sala": (15, 4 * 60),
     "quadra": (60, 90),
     "personal": (60, 60),
 }
-# Um tipo novo criado pelo admin (ex.: "cabine") e sem params: de 15 min a 12 h
-DURACAO_GENERICA = (PASSO_MIN, 12 * 60)
+DURACAO_GENERICA = (PASSO_MIN, 12 * 60)  # tipo novo criado pelo admin e sem params
 
 
 # ---------------------------------------------------------------- estruturas de dados
 @dataclass(frozen=True)
 class Valor:
-    """Um valor do domínio: um recurso num horário."""
+    """Um valor do domínio: um recurso num horário de início (e o fim que daí resulta)."""
     resource_id: str
-    inicio: int | None  # None no estacionamento: o horário é calculado depois (R7)
+    inicio: int | None  # None no estacionamento: o horário vem da VAGA_COBRE_O_DIA
     fim: int | None
 
 
@@ -45,18 +45,39 @@ class Pedido:
     desired_start: int | None = None   # em minutos (no JSON chama-se preferred_start)
     people: int = 1
     favorite_resource_id: str | None = None
-    covers_day: bool = False           # True = estacionamento (cobre o dia todo, R7)
+    covers_day: bool = False
 
 
 @dataclass
 class Problema:
-    """Tudo o que o solver precisa."""
+    """Tudo o que o solver e as regras precisam."""
     day: date
+    agora: datetime
+    modo: str                                    # "plan" ou "suggest"
     pedidos: dict[str, Pedido]                   # id da atividade -> Pedido
-    dominios: dict[str, list[Valor]]             # id da atividade -> valores possíveis
-    busy: dict[str, list[tuple[int, int]]]       # id do recurso -> intervalos ocupados, JÁ com a folga R9
-    aberturas: dict[str, list[tuple[int, int]]]  # id do recurso -> janelas de abertura (em minutos)
-    recursos: list[dict]                         # NOVO: os recursos recebidos (o diagnóstico de falhas precisa deles)
+    recursos: list[dict]                         # os recursos recebidos
+    busy: dict[str, list[tuple[int, int]]]       # id do recurso -> ocupado, SEM folga (RECURSO_LIVRE)
+    folgas: dict[str, int]                       # id do recurso -> minutos de folga (INTERVALO_RECURSO)
+    aberturas: dict[str, list[tuple[int, int]]]  # id do recurso -> janelas de abertura
+    regras: list                                 # as regras ligadas neste modo (regras.py)
+    # field(default_factory=dict): cada Problema recebe o SEU dict vazio
+    dominios: dict[str, list[Valor]] = field(default_factory=dict)
+    # id da atividade -> {id da regra: quantas opções ela eliminou} (para o diagnóstico)
+    eliminados: dict[str, dict[str, int]] = field(default_factory=dict)
+    # init=False: não se passa ao criar; é calculado no __post_init__
+    por_tipo: dict[str, list] = field(init=False, repr=False)
+
+    def __post_init__(self):
+        """Corre logo depois do __init__ automático do dataclass.
+
+        Separa as regras por tipo UMA vez: o solver pergunta por elas milhares
+        de vezes, e filtrar a lista em cada pergunta deixava a busca 2x mais lenta.
+        """
+        self.por_tipo = {t: [r for r in self.regras if r.tipo == t] for t in ("pedido", "unaria", "binaria", "global")}
+
+    def regras_do_tipo(self, tipo: str) -> list:
+        """As regras ligadas de um tipo ("pedido", "unaria", "binaria" ou "global")."""
+        return self.por_tipo[tipo]
 
 
 # ---------------------------------------------------------------- funções de apoio
@@ -71,28 +92,24 @@ def para_hhmm(minutos: int) -> str:
     return f"{minutos // 60:02d}:{minutos % 60:02d}"
 
 
-def arredondar_para_cima(minutos: int) -> int:
-    """Leva ao próximo múltiplo de 15 min: 610 (10:10) -> 615 (10:15)"""
-    return math.ceil(minutos / PASSO_MIN) * PASSO_MIN
-
-
 def sobrepoe(a_inicio: int, a_fim: int, b_inicio: int, b_fim: int) -> bool:
     """Dois intervalos se cruzam? (encostar, como 10:00-11:00 e 11:00-12:00, não conta)"""
     return a_inicio < b_fim and b_inicio < a_fim
 
 
-def recurso_livre(resource_id: str, inicio: int, fim: int, busy: dict) -> bool:
-    """R5 + R9: o recurso está livre? (NOVO: a folga já vem somada nos intervalos do busy)"""
-    for b_inicio, b_fim in busy.get(resource_id, []):
-        if sobrepoe(inicio, fim, b_inicio, b_fim):
-            return False
-    return True
+def livre_com_folga(problema: Problema, resource_id: str, inicio: int, fim: int) -> bool:
+    """O recurso está livre, contando a folga dele antes e depois de cada reserva?"""
+    folga = problema.folgas.get(resource_id, FOLGA_RECURSO_MIN)
+    return not any(
+        sobrepoe(inicio, fim, b_inicio - folga, b_fim + folga)
+        for b_inicio, b_fim in problema.busy.get(resource_id, [])
+    )
 
 
 def duracao_permitida(recurso: dict) -> tuple[int, int]:
-    """NOVO (R2): (mínima, máxima) do recurso. O que vier em params ganha ao padrão do tipo."""
+    """(mínima, máxima) do recurso. O que vier em params ganha ao padrão do tipo."""
     padrao = DURACAO_PADRAO.get(recurso["resource_type"], DURACAO_GENERICA)
-    params = recurso.get("params") or {}  # `or {}`: se params não vier, usa um dict vazio
+    params = recurso.get("params") or {}
     minimo = params.get("min_duration_min") or padrao[0]
     maximo = params.get("max_duration_min") or padrao[1]
     return minimo, maximo
@@ -100,106 +117,108 @@ def duracao_permitida(recurso: dict) -> tuple[int, int]:
 
 # ---------------------------------------------------------------- leitura do pedido
 def ler_pedido(dados: dict) -> Pedido:
-    """Converte uma atividade do JSON num Pedido.
-
-    NOVO: não valida mais a duração aqui. Como cada recurso pode ter a sua
-    duração mínima e máxima, a R2 passou para o gerar_dominio, recurso a recurso.
-    """
+    """Converte uma atividade do JSON num Pedido."""
     return Pedido(
         id=dados["id"],
         resource_type=dados["resource_type"],
         duration_min=dados.get("duration_min"),
         desired_start=para_minutos(dados["preferred_start"]) if "preferred_start" in dados else None,
-        people=dados["people"],  # obrigatório no contrato
+        people=dados["people"],
         favorite_resource_id=dados.get("favorite_resource_id"),
         covers_day=dados.get("covers_day", False),
     )
 
 
-def gerar_dominio(pedido: Pedido, recursos: list[dict], busy: dict, inicio_minimo: int) -> list[Valor]:
-    """Todos os (recurso, horário) que passam nas regras de UMA só atividade.
+def candidatos(pedido: Pedido, recurso: dict):
+    """Todos os (início, fim) a experimentar num recurso, de 15 em 15 min.
 
-    Consistência de nó: as restrições unárias (R1, R2, R4, R5, R9) são aplicadas
-    aqui, uma vez, e o solver já começa com domínios menores.
+    É um GERADOR (usa yield): vai entregando um par de cada vez, sem montar a lista
+    inteira na memória. Quem decide se cada par serve são as regras unárias.
     """
+    if pedido.covers_day:
+        yield None, None  # a vaga: só se escolhe o recurso
+        return
+    for inicio in range(0, MINUTOS_NO_DIA - pedido.duration_min + 1, PASSO_MIN):
+        yield inicio, inicio + pedido.duration_min
+
+
+def gerar_dominio(problema: Problema, pedido: Pedido) -> list[Valor]:
+    """Todos os (recurso, início) de UMA atividade que passam em todas as regras unárias.
+
+    É a consistência de nó. Para cada opção eliminada, conta QUAL regra a eliminou
+    (a primeira que falhou): o diagnóstico usa essa contagem para explicar a falha.
+    """
+    unarias = problema.regras_do_tipo("unaria")
+    eliminados: dict[str, int] = {}
     valores = []
-    for recurso in recursos:
+    for recurso in problema.recursos:
         if recurso["resource_type"] != pedido.resource_type:
-            continue
-        if recurso["capacity"] < pedido.people:
-            continue  # R4: não cabe toda a gente
-        if pedido.covers_day:
-            valores.append(Valor(recurso["id"], None, None))
-            continue
-        minimo, maximo = duracao_permitida(recurso)
-        # NOVO (R2): comparação encadeada, igual a "minimo <= duração and duração <= maximo"
-        if not minimo <= pedido.duration_min <= maximo:
-            continue  # este recurso não aceita esta duração: passa ao próximo
-        for janela in recurso["opening"]:  # NOVO: no contrato chama-se opening
-            abre = para_minutos(janela["open_time"])
-            fecha = para_minutos(janela["close_time"])
-            inicio = arredondar_para_cima(max(abre, inicio_minimo))
-            while inicio + pedido.duration_min <= fecha:
-                fim = inicio + pedido.duration_min
-                if recurso_livre(recurso["id"], inicio, fim, busy):
-                    valores.append(Valor(recurso["id"], inicio, fim))
-                inicio += PASSO_MIN
+            continue  # o tipo define a variável: não é uma regra
+        for inicio, fim in candidatos(pedido, recurso):
+            # next(): a primeira regra que NÃO permite; None se todas permitirem
+            falhou = next((r for r in unarias if not r.permite(problema, pedido, recurso, inicio, fim)), None)
+            if falhou is None:
+                valores.append(Valor(recurso["id"], inicio, fim))
+            else:
+                # dict.get(chave, 0) + 1: soma 1 ao contador dessa regra
+                eliminados[falhou.id] = eliminados.get(falhou.id, 0) + 1
+    problema.eliminados[pedido.id] = eliminados
     return valores
 
 
-def carregar_cenario(caminho: str, agora: datetime | None = None) -> Problema:
+def carregar_cenario(caminho: str, agora: datetime | None = None, desligar: set[str] | None = None) -> Problema:
     """Lê um arquivo JSON de cenário (mesmo formato do contrato) e devolve o Problema."""
     dados = json.loads(Path(caminho).read_text(encoding="utf-8"))
-    return montar_problema(dados, agora)
+    return montar_problema(dados, agora, desligar)
 
 
-def montar_problema(dados: dict, agora: datetime | None = None) -> Problema:
+def montar_problema(dados: dict, agora: datetime | None = None, desligar: set[str] | None = None) -> Problema:
     """Monta o Problema a partir do pedido (formato do contrato).
 
-    NOVO: "agora" vem do campo now do pedido. O parâmetro `agora` continua
-    a existir para a demo e os testes poderem fixar a hora.
+    agora:    fixa a hora (demo e testes); sem ele, vem do campo now do pedido.
+    desligar: ids de regras a desligar (testes e benchmark; a API nunca usa).
     """
-    day = date.fromisoformat(dados["day"])
+    # Import aqui dentro: o regras.py importa este arquivo, e um import no topo
+    # dos dois lados seria uma importação circular
+    from app.csp.regras import regras_ativas
+
     if agora is None:
-        # fromisoformat: "2026-12-09T15:30" -> datetime(2026, 12, 9, 15, 30)
         agora = datetime.fromisoformat(dados["now"]) if "now" in dados else datetime.now()
-    hoje = agora.date()
-
-    # R3: nada no passado e nada além do limite
-    if day < hoje or day > hoje + timedelta(days=ANTECEDENCIA_MAX_DIAS):
-        raise ValueError(f"O dia {day} tem de estar entre hoje e daqui a {ANTECEDENCIA_MAX_DIAS} dias (R3)")
-    inicio_minimo = agora.hour * 60 + agora.minute if day == hoje else 0
-
+    modo = dados.get("mode", "plan")
     recursos = dados["resources"]
 
-    # NOVO (R9): folga de cada recurso. `is not None` porque buffer_min = 0 é um valor válido
-    # (e 0 contaria como "falso" num `or`)
+    # Folga de cada recurso. `is not None` porque buffer_min = 0 é válido (e 0 é "falso" num `or`)
     folgas = {}
     for r in recursos:
         buffer = (r.get("params") or {}).get("buffer_min")
         folgas[r["id"]] = buffer if buffer is not None else FOLGA_RECURSO_MIN
 
-    # Agrupa os intervalos ocupados por recurso, já alargados pela folga dele.
-    # Assim o recurso_livre (e a R7, no restricoes.py) não precisa saber da folga.
+    # Ocupação crua, sem folga: a folga é a regra INTERVALO_RECURSO que soma
     busy: dict[str, list[tuple[int, int]]] = {}
     for item in dados.get("busy", []):
-        folga = folgas.get(item["resource_id"], FOLGA_RECURSO_MIN)
-        busy.setdefault(item["resource_id"], []).append(
-            (para_minutos(item["start"]) - folga, para_minutos(item["end"]) + folga)
-        )
+        busy.setdefault(item["resource_id"], []).append((para_minutos(item["start"]), para_minutos(item["end"])))
 
     pedidos: dict[str, Pedido] = {}
-    for item in dados["activities"]:  # NOVO: no contrato chama-se activities
+    for item in dados["activities"]:
         pedido = ler_pedido(item)
         if pedido.id in pedidos:
             raise ValueError(f"Atividade repetida: '{pedido.id}'")
         pedidos[pedido.id] = pedido
 
-    dominios = {pid: gerar_dominio(p, recursos, busy, inicio_minimo) for pid, p in pedidos.items()}
-
-    # Janelas de abertura de cada recurso (a R7 precisa delas para a vaga)
-    aberturas = {
-        r["id"]: [(para_minutos(j["open_time"]), para_minutos(j["close_time"])) for j in r["opening"]]
-        for r in recursos
-    }
-    return Problema(day=day, pedidos=pedidos, dominios=dominios, busy=busy, aberturas=aberturas, recursos=recursos)
+    problema = Problema(
+        day=date.fromisoformat(dados["day"]),
+        agora=agora,
+        modo=modo,
+        pedidos=pedidos,
+        recursos=recursos,
+        busy=busy,
+        folgas=folgas,
+        aberturas={
+            r["id"]: [(para_minutos(j["open_time"]), para_minutos(j["close_time"])) for j in r["opening"]]
+            for r in recursos
+        },
+        regras=regras_ativas(modo, desligar),
+    )
+    # Os domínios vêm depois: as regras unárias precisam do Problema já montado
+    problema.dominios = {pid: gerar_dominio(problema, p) for pid, p in pedidos.items()}
+    return problema

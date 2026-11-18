@@ -73,7 +73,6 @@ Formato do JSON que o **booking-service** envia ao **scheduling-service** (CSP) 
 
 - `mode = suggest` exige **exatamente 1 atividade**, sem `covers_day`.
 - No máximo **1 atividade** com `covers_day` (R8).
-- `day` não pode ser anterior à data de `now`, nem estar a mais de 30 dias (R3).
 - Campos desconhecidos são recusados.
 
 ## 2. Saída
@@ -121,14 +120,15 @@ As sugestões vêm ordenadas do menor para o maior custo.
 ### Sem solução
 
 ```json
-{
-  "status": "NO_SOLUTION",
-  "mode": "plan",
-  "plan": null,
-  "alternatives": null,
-  "failure": { "code": "NO_CAPACITY", "activity_id": "reuniao", "message": "Nenhuma sala comporta 9 pessoas." },
-  "stats": { "...": "..." }
+
+"failure": 
+{ 
+  "code": "NO_CAPACITY", 
+  "activity_id": "reuniao", 
+  "rule_id": "CAPACIDADE", 
+  "message": "Capacidade: nenhum recurso do tipo 'sala' comporta 9 pessoas." 
 }
+
 ```
 
 | `failure.code` | Quando acontece |
@@ -141,6 +141,24 @@ As sugestões vêm ordenadas do menor para o maior custo.
 | `LIMIT_REACHED` | A busca atingiu o limite de nós sem encontrar solução |
 
 `activity_id` indica a atividade que causou a falha, quando há uma só; é `null` em `CONFLICT`, `PARKING_NOT_COVERED` e `LIMIT_REACHED`.
+
+`rule_id` é o id da regra que impediu o plano (`null` em `NO_RESOURCE` e `LIMIT_REACHED`). Um dia no passado ou a mais de 30 dias responde `NO_FREE_SLOT` com `rule_id` `SEM_PASSADO` ou `ANTECEDENCIA`.
+
+### Regras
+
+| `rule_id` | Regra | Tipo | Modos |
+|---|---|---|---|
+| `CAPACIDADE` | O recurso comporta as pessoas | unária | plan, suggest |
+| `DURACAO` | Duração mínima e máxima do recurso | unária | plan, suggest |
+| `MULTIPLO_15` | Início e duração múltiplos de 15 min | unária | plan, suggest |
+| `HORARIO_ABERTURA` | Dentro de uma janela de abertura | unária | plan, suggest |
+| `SEM_PASSADO` | Nada no passado | unária | plan, suggest |
+| `ANTECEDENCIA` | Até 30 dias à frente | unária | plan, suggest |
+| `RECURSO_LIVRE` | Sem reservas CONFIRMED ou HELD no horário | unária | plan, suggest |
+| `INTERVALO_RECURSO` | Folga entre reservas seguidas do recurso | unária | plan, suggest |
+| `UMA_VAGA_POR_DIA` | No máximo 1 vaga por dia | pedido | plan |
+| `SEM_SOBREPOSICAO` | Atividades sem sobreposição, com 10 min de deslocamento | binária | plan |
+| `VAGA_COBRE_O_DIA` | A vaga cobre da 1.ª à última atividade | global | plan |
 
 ## 3. Responsabilidades
 

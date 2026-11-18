@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from app.csp.custo import custo_total, custo_valor
 from app.csp.modelo import Problema, Valor, para_hhmm
-from app.csp.restricoes import compativeis, estacionamento_valido, intervalo_estacionamento, tem_horario, verificar_r8
+from app.csp.restricoes import compativeis, intervalo_estacionamento, tem_horario, vaga_valida, verificar_pedido
 
 # Proteção da API: um pedido enorme não pode deixar o serviço preso numa busca sem fim
 LIMITE_NOS_PADRAO = 200_000  # o _ é só para ler melhor: 200000
@@ -52,7 +52,7 @@ def resolver(problema: Problema, usar_fc: bool = True, usar_mrv: bool = True,
     Devolve (solução, custo, estatísticas). A solução é um dict {id_do_pedido: Valor},
     ou None se não houver nenhuma combinação possível.
     """
-    verificar_r8(problema)  # R8: se houver 2 pedidos de vaga, nem começamos
+    verificar_pedido(problema)  # regras do pedido inteiro (ex.: UMA_VAGA_POR_DIA): se falhar, nem começamos
     stats = Estatisticas()
 
     # Se um domínio já começa vazio, é impossível: não vale a pena procurar
@@ -101,9 +101,9 @@ def _consistente(problema, valor, atribuicao) -> bool:
     """O valor respeita as regras em relação ao que já foi escolhido?"""
     if tem_horario(valor):
         # R6: all() é True só se for compatível com TODOS os já escolhidos
-        return all(compativeis(valor, outro) for outro in atribuicao.values())
+        return all(compativeis(problema, valor, outro) for outro in atribuicao.values())
     # É a vaga: aqui todas as atividades já têm horário, então verifica a R7
-    return estacionamento_valido(problema, valor, atribuicao)
+    return vaga_valida(problema, valor, atribuicao)
 
 
 def _forward_check(problema, valor, atribuicao, dominios):
@@ -122,11 +122,11 @@ def _forward_check(problema, valor, atribuicao, dominios):
             # Propagação da R7: o intervalo que a vaga tem de cobrir só pode CRESCER
             # à medida que entram atividades. Se nenhuma vaga cobre o intervalo de
             # agora, nenhuma vai cobrir o final: corta já, em vez de descobrir no fim.
-            if not any(estacionamento_valido(problema, vaga, atribuicao) for vaga in dominios[pid]):
+            if not any(vaga_valida(problema, vaga, atribuicao) for vaga in dominios[pid]):
                 return None
             continue
         # R6: a filtragem mantém a ordem, então o domínio continua do mais barato ao mais caro
-        filtrado = [v for v in dominios[pid] if compativeis(valor, v)]
+        filtrado = [v for v in dominios[pid] if compativeis(problema, valor, v)]
         if not filtrado:
             return None
         novos[pid] = filtrado
@@ -217,7 +217,7 @@ def formatar_solucao(problema: Problema, solucao: dict[str, Valor]) -> list[dict
         else:
             inicio, fim = intervalo or (None, None)  # a vaga usa o intervalo da R7
         itens.append({
-            "request_id": pid,
+            "activity_id": pid,
             "resource_id": valor.resource_id,
             "start": para_hhmm(inicio) if inicio is not None else None,
             "end": para_hhmm(fim) if fim is not None else None,

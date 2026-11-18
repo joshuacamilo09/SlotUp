@@ -45,9 +45,8 @@ def planear(body: PlanIn) -> PlanOut:
 
     nomes = {r.id: r.name for r in body.resources}  # id -> nome legível
     itens = [
-        # O formatar_solucao (solver.py) ainda chama "request_id"; no contrato é "activity_id"
         PlanItem(
-            activity_id=item["request_id"],
+            activity_id=item["activity_id"],
             resource_id=item["resource_id"],
             resource_name=nomes[item["resource_id"]],
             start=item["start"],
