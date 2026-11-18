@@ -56,6 +56,19 @@ kubectl create secret generic smtp-secrets -n "$NS" --dry-run=client -o yaml \
   --from-literal=SMTP_USER="$(valor SMTP_USER)" \
   --from-literal=SMTP_PASSWORD="$(valor SMTP_PASSWORD)" | aplicar
 
+# Utilizadores do PostgreSQL (postgres.yaml): o CloudNativePG cria-os com estas senhas,
+# as mesmas que os serviços usam. O formato (basic-auth: username e password) é o
+# que o CloudNativePG pede. A etiqueta cnpg.io/reload faz o operador mudar a senha
+# no banco se o Secret mudar.
+for u in auth booking; do
+  var=$(echo "$u" | tr '[:lower:]' '[:upper:]')_DB_PASSWORD
+  kubectl create secret generic "$u-db-credentials" -n "$NS" --dry-run=client -o yaml \
+    --type=kubernetes.io/basic-auth \
+    --from-literal=username="${u}_user" \
+    --from-literal=password="$(valor "$var")" |
+    kubectl label --local -f - cnpg.io/reload=true -o yaml | aplicar
+done
+
 # Chaves em Secrets separados, para cada serviço montar SÓ o que precisa:
 #   jwt-private-key      só o auth (é quem assina os tokens)
 #   jwt-public-key       auth e booking (validam os tokens). Um único Secret para todas as

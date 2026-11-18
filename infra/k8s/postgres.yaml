@@ -1,0 +1,86 @@
+# PostgreSQL no Kubernetes com o CloudNativePG: um primário e uma réplica, com failover.
+# O operador do CloudNativePG (instalado pelo deploy.sh) lê isto e cria os pods, os
+# discos, a replicação e os Services:
+#   slotup-db-rw   aponta sempre para o primário (é o que os serviços usam: DB_HOST)
+#   slotup-db-ro   aponta para a réplica (só leitura)
+# Se o primário cair, o operador promove a réplica a primário e muda o slotup-db-rw
+# para ela. Os serviços voltam a ligar-se sozinhos (pool_pre_ping no database.py).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: slotup-db
+  namespace: slotup
+spec:
+  instances: 2 # primário + réplica
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.12-system-trixie # PostgreSQL 17, como no Compose
+  storage:
+    size: 1Gi
+
+  postgresql:
+    # Replicação síncrona, como no diagrama: um COMMIT só termina quando a réplica
+    # também tem os dados. Se a réplica cair, o primário continua sozinho
+    # (dataDurability: preferred) em vez de ficar parado à espera dela.
+    synchronous:
+      method: any
+      number: 1
+      dataDurability: preferred
+    # Isolamento, como no Compose: cada utilizador só entra no seu banco.
+    # Estas regras vêm antes da regra geral do CloudNativePG.
+    pg_hba:
+      - host auth_db auth_user all scram-sha-256
+      - host booking_db booking_user all scram-sha-256
+      - host auth_db all all reject
+      - host booking_db all all reject
+
+  # Utilizadores do auth e do booking. As senhas vêm dos Secrets auth-db-credentials e
+  # booking-db-credentials (create-secrets.sh), as mesmas do .env.
+  managed:
+    roles:
+      - name: auth_user
+        ensure: present
+        login: true
+        passwordSecret:
+          name: auth-db-credentials
+      - name: booking_user
+        ensure: present
+        login: true
+        passwordSecret:
+          name: booking-db-credentials
+
+  # O primário e a réplica nunca ficam no mesmo nó: um no Servidor 1, o outro no
+  # Servidor 2. Assim, desligar um servidor é um teste de failover a sério.
+  affinity:
+    enablePodAntiAffinity: true
+    podAntiAffinityType: required
+    topologyKey: kubernetes.io/hostname
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+---
+# Os dois bancos, cada um com o seu dono (como o db/init/01-roles-and-databases.sql do Compose).
+# O CloudNativePG cria também um banco "app" ao arrancar; esse não é usado.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: auth-db
+  namespace: slotup
+spec:
+  cluster:
+    name: slotup-db
+  name: auth_db
+  owner: auth_user
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: booking-db
+  namespace: slotup
+spec:
+  cluster:
+    name: slotup-db
+  name: booking_db
+  owner: booking_user
