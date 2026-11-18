@@ -36,7 +36,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
-                  app: auth
+                  app: booking
               topologyKey: kubernetes.io/hostname
       containers:
         - name: booking
@@ -151,7 +151,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
-                  app: auth
+                  app: booking-worker
               topologyKey: kubernetes.io/hostname
       containers:
         - name: worker
