@@ -36,7 +36,7 @@ estado() {
 
 case "${1:-}" in
   criar)
-    kind create cluster --config kind-cluster.yaml
+    kind create cluster --config kind-cluster.yaml --wait 2m
     estado
     ;;
   estado)
@@ -53,7 +53,9 @@ case "${1:-}" in
     # Com o nó em baixo ainda se lê o nome dele no Kubernetes (a API está no nó de controlo)
     no=$(no_do_servidor "$servidor")
     docker start "$no" >/dev/null
-    echo "O Servidor $servidor ($no) voltou. Fica Ready em poucos segundos."
+    echo "O Servidor $servidor ($no) voltou. À espera que fique Ready..."
+    kubectl --context "$CONTEXTO" wait --for=condition=Ready "node/$no" --timeout=120s
+    estado
     ;;
   desligar)
     # shellcheck disable=SC2046  # a lista de contentores tem de ser separada em palavras
@@ -63,8 +65,9 @@ case "${1:-}" in
   ligar)
     # shellcheck disable=SC2046
     docker start $(contentores) >/dev/null
-    echo "A arrancar... (os nós ficam Ready em menos de 1 min)"
-    sleep 20
+    echo "A arrancar... à espera que os 3 nós fiquem Ready"
+    sleep 5   # dá tempo à API do Kubernetes de voltar antes de lhe perguntar
+    kubectl --context "$CONTEXTO" wait --for=condition=Ready nodes --all --timeout=180s
     estado
     ;;
   apagar)
