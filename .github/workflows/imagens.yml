@@ -1,5 +1,9 @@
 # Registo de imagens: constrói as imagens Docker dos serviços e publica-as no
-# GitHub Container Registry (ghcr.io). O cluster AKS vai buscá-las lá para subir.
+# GitHub Container Registry (ghcr.io). O cluster Kubernetes (kind) vai buscá-las lá para subir.
+#
+# Cada imagem sai para as duas arquiteturas: amd64 (Windows e Macs Intel) e arm64
+# (Macs M1 a M4). No kind, os nós são contentores no próprio computador, por isso a
+# imagem tem de ser da arquitetura dele.
 #
 # Corre sozinho a cada push para a main ou para uma dev-sprint* que mexa no backend,
 # e também à mão: GitHub > Actions > Imagens > Run workflow.
@@ -47,12 +51,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+        # QEMU: deixa construir a versão arm64 numa máquina amd64 do GitHub
+      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
       - name: Construir e publicar
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.pasta }}
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.IMAGEM }}:${{ github.sha }}
