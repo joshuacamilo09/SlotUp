@@ -2,6 +2,112 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint6`
+
+Seis tarefas da Sprint 6 (backend): o SlotUp inteiro a correr no cluster kind, com HTTPS e com cada serviço nos 2 servidores. Tudo está em `infra/k8s/`.
+
+### 1. Manifests do sistema atual
+
+- Um ficheiro por serviço, cada um com o seu **Deployment** (os pods) e o seu **Service** (o nome na rede do cluster):
+  - `auth.yaml`: 2 réplicas do auth.
+  - `booking.yaml`: 2 réplicas do booking e 2 do `booking-worker`.
+  - `scheduling.yaml`: 2 réplicas do scheduling.
+  - `frontend.yaml`: 2 réplicas do Nginx com o site (nova imagem `ghcr.io/joshuacamilo09/slotup-frontend`, de `frontend/Dockerfile`).
+  - `mailpit.yaml`: o servidor de email falso.
+- **ConfigMaps** (`configmaps.yaml` e o `frontend-nginx` no `frontend.yaml`) e **Secrets** (`create-secrets.sh`, a partir do mesmo `.env` e da mesma pasta `secrets/` do Docker). Nenhuma senha fica num YAML.
+- **A mesma chave do JWT em todas as réplicas**: as do auth e do booking montam o mesmo Secret `jwt-public-key` (e o auth o `jwt-private-key`), na mesma pasta `/run/secrets` do Docker. Um token criado numa réplica vale em todas.
+- O Service do auth e o do booking são **headless**: o nome devolve o IP de cada réplica pronta. Assim o Nginx do frontend faz o mesmo failover do Docker Compose: se uma réplica não responder, repete o pedido na outra.
+- As imagens vêm do ghcr.io com a etiqueta `dev-sprint6`. Ao juntar na `main`, troca-se `dev-sprint6` por `main` nos YAML.
+
+### 2. PostgreSQL com réplica (CloudNativePG)
+
+- `postgres.yaml`: um cluster PostgreSQL 17 com **primário e réplica**, gerido pelo operador **CloudNativePG** (o `deploy.sh` instala-o).
+- **Replicação síncrona**: um COMMIT só termina quando a réplica também tem os dados. Se a réplica cair, o primário continua sozinho (`dataDurability: preferred`) em vez de ficar parado.
+- **Failover**: se o primário cair, o operador promove a réplica. Os serviços usam sempre `slotup-db-rw`, que passa a apontar para o novo primário, e voltam a ligar-se sozinhos.
+- Os bancos `auth_db` e `booking_db`, cada um com o seu utilizador, como no Compose. Cada utilizador só entra no seu banco (`pg_hba`).
+- O primário e a réplica ficam sempre em servidores diferentes.
+
+### 3. Migrações e probes no cluster
+
+- `migrations.yaml`: um **Job** para cada serviço (`auth-migrate` e `booking-migrate`) corre o `alembic upgrade head` **uma vez**, antes dos serviços. O `deploy.sh` espera que acabe.
+- O `alembic/env.py` do auth e do booking passa a aceitar as mesmas variáveis do serviço (`DB_HOST`, `DB_PASSWORD`...), além da URL inteira que o Compose usa.
+- **Probes** em todos os serviços:
+  - `startup` e `liveness` em `/health/live`: se o processo encravar, o Kubernetes reinicia o pod.
+  - `readiness` em `/health/ready`: se o banco não responder, o pod sai do Service e deixa de receber pedidos, mas não é reiniciado.
+  - O Nginx do frontend responde em `/health`.
+
+### 4. Entrada única, frontend e HTTPS
+
+- O Nginx do frontend é a **única porta de entrada**: serve o site e encaminha `/api/auth` para o auth e `/api/reservas` para o booking.
+- **HTTPS em https://localhost:8443**. O `http://localhost:8081` redireciona para o HTTPS.
+- O certificado é gerado pelo `gen-cert.sh`. Com o **mkcert** instalado (`brew install mkcert`), o navegador confia nele e mostra o cadeado. Sem o mkcert, é autoassinado e o navegador avisa.
+- Em vez de um domínio público, usamos `localhost`, porque o cluster corre no próprio computador. Com um domínio a sério, o certificado viria do Let's Encrypt.
+- O `kind-cluster.yaml` liga as portas 8443 e 8081 do computador ao nó de controlo, que nunca é desligado nos testes. **Por isso é preciso recriar o cluster** (`apagar` e `criar`).
+
+### 5. Pods nos 2 nós
+
+- Cada serviço tem uma regra de **anti-affinity**: as 2 réplicas nunca ficam no mesmo nó. Uma fica no Servidor 1 e a outra no Servidor 2.
+- `bash infra/k8s/kind.sh pods` mostra em que nó está cada pod (coluna `NODE`: `slotup-worker` é o Servidor 1, `slotup-worker2` o Servidor 2) e qual é o primário do PostgreSQL (coluna `INSTANCEROLE`).
+- As réplicas são trocadas uma de cada vez nas atualizações (`maxSurge: 0`): com uma por nó, não há lugar para uma terceira ao mesmo tempo.
+
+### 6. Fluxo completo no kind
+
+- `deploy.sh` sobe tudo pela ordem certa: operador do PostgreSQL, configuração e segredos, PostgreSQL, migrações e serviços. Pode correr-se outra vez para atualizar.
+
+#### Como subir (passo a passo)
+
+```bash
+# Só na primeira vez
+brew install mkcert                    # opcional: cadeado sem avisos no navegador
+cp infra/docker/.env.example infra/docker/.env   # e trocar as senhas
+bash infra/docker/gen-secrets.sh
+bash infra/k8s/gen-cert.sh
+
+# Cluster novo, com as portas 8443 e 8081 (se já existia: apagar primeiro)
+bash infra/k8s/kind.sh apagar
+bash infra/k8s/kind.sh criar
+
+# Subir o SlotUp (da primeira vez, 5 a 10 min: descarrega as imagens)
+bash infra/k8s/deploy.sh
+```
+
+No fim, todos os pods ficam `Running`, com as réplicas de cada serviço em nós diferentes, e aparece `SlotUp no ar: https://localhost:8443`.
+
+Dados de exemplo (opcional, com `SEED_ENABLED=true` no `.env`):
+
+```bash
+kubectl -n slotup exec deploy/auth -- python -m app.seed
+kubectl -n slotup exec deploy/booking -- python -m app.seed
+```
+
+#### Testar o fluxo completo
+
+1. Abrir **https://localhost:8443** e criar uma conta.
+2. Entrar com a conta e configurar o 2FA na app de autenticação.
+3. Fazer uma reserva e depois cancelá-la.
+4. Ver os emails da reserva e do cancelamento: `kubectl -n slotup port-forward svc/mailpit 8025:8025` e abrir http://localhost:8025.
+
+#### Teste de falha
+
+```bash
+bash infra/k8s/kind.sh pods          # onde está cada pod e qual é o primário do PostgreSQL
+bash infra/k8s/kind.sh falha 1       # o Servidor 1 cai
+bash infra/k8s/kind.sh pods
+bash infra/k8s/kind.sh recuperar 1
+```
+
+- Com o Servidor 1 em baixo, o site continua a funcionar pelo Servidor 2. Se o primário do PostgreSQL estava no Servidor 1, a réplica passa a primário.
+- Durante cerca de 1 minuto (até o Kubernetes dar o nó como caído), alguns pedidos podem demorar mais. Depois, tudo segue pelo Servidor 2.
+- `for i in 1 2 3 4; do curl -sk https://localhost:8443/api/auth/whoami; echo; done` mostra que réplica respondeu: antes da falha alternam as duas, durante a falha responde só a do Servidor 2.
+
+#### Se der erro
+
+- Pods em `ImagePullBackOff`: as imagens no ghcr.io ainda não existem ou são privadas. Ver se o workflow "Imagens" da `dev-sprint6` passou e se os 4 pacotes estão públicos (GitHub → Packages → pacote → Package settings → Change visibility → Public).
+- `Falta o certificado HTTPS`: correr `bash infra/k8s/gen-cert.sh`.
+- `port is already allocated` no `criar`: outra coisa usa a porta 8443 ou 8081 no computador.
+- Uma migração falhou: o `deploy.sh` mostra o log. Para ver de novo: `kubectl -n slotup logs job/auth-migrate`.
+
+
 ## O que mudou na branch `dev-sprint5`
 
 Cinco tarefas da Sprint 5 (backend).
@@ -13,6 +119,7 @@ Cinco tarefas da Sprint 5 (backend).
 - **Cancelar liberta a vaga**: uma reserva cancelada deixa de contar.
 - **Na mesma transação**, com um *advisory lock* do PostgreSQL por utilizador e por dia. Se chegarem dois pedidos ao mesmo tempo (até em réplicas diferentes), o segundo espera pelo primeiro e é recusado. Testado com 5 pedidos simultâneos: passa só 1.
 - Código: `app/parking.py`. Testes: `tests/test_parking.py` (8).
+
 
 ### 2. Worker de emails
 
