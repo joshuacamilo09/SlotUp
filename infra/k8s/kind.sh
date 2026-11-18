@@ -45,8 +45,10 @@ case "${1:-}" in
   falha)
     no=$(no_do_servidor "${2:?Diga o servidor: falha 1 ou falha 2}")
     docker stop "$no" >/dev/null
-    echo "O Servidor $2 ($no) caiu. Daqui a uns 40 s o Kubernetes marca-o NotReady:"
-    echo "  kubectl get nodes -w"
+    echo "O Servidor $2 ($no) caiu. À espera que o Kubernetes dê pela falha (cerca de 1 min)..."
+    # Quando o nó deixa de dar sinais de vida, o Kubernetes põe o estado Ready como "Unknown"
+    kubectl --context "$CONTEXTO" wait --for=condition=Ready=Unknown "node/$no" --timeout=120s
+    estado
     ;;
   recuperar)
     servidor="${2:?Diga o servidor: recuperar 1 ou recuperar 2}"

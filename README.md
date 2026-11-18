@@ -52,7 +52,7 @@ kubectl get nodes -w
 bash infra/k8s/kind.sh recuperar 1
 ```
 
-Com o `falha 1`, o nó do Servidor 1 passa a `NotReady` ao fim de uns 40 s. Com o `recuperar 1`, volta a `Ready`.
+Com o `falha 1`, o nó do Servidor 1 passa a `NotReady` ao fim de cerca de 1 minuto: é o tempo que o Kubernetes espera sem notícias do nó antes de o dar como caído. O script espera por isso e mostra o estado.
 
 ### Como atualizar
 
