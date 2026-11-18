@@ -29,6 +29,15 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
+              # Uma réplica em cada nó (Servidor 1 e Servidor 2), nunca as duas no mesmo.
+      # Se um servidor cair, a réplica do outro continua a responder.
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: auth
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: scheduling
           image: ghcr.io/joshuacamilo09/slotup-scheduling:dev-sprint6

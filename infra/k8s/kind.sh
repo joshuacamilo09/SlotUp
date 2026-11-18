@@ -6,6 +6,7 @@
 #
 #   bash infra/k8s/kind.sh criar        cria o cluster (1 a 2 min) e mostra os nós
 #   bash infra/k8s/kind.sh estado       os 3 nós e em que servidor está cada um
+#   bash infra/k8s/kind.sh pods         os pods do SlotUp e em que nó está cada um
 #   bash infra/k8s/kind.sh falha 1      o Servidor 1 cai (desliga o contentor desse nó)
 #   bash infra/k8s/kind.sh recuperar 1  o Servidor 1 volta
 #   bash infra/k8s/kind.sh desligar     desliga o cluster todo (liberta memória do computador)
@@ -42,6 +43,11 @@ case "${1:-}" in
   estado)
     estado
     ;;
+  pods)
+    # Coluna NODE: slotup-worker é o Servidor 1, slotup-worker2 o Servidor 2.
+    # Coluna INSTANCEROLE: nos pods do PostgreSQL, qual é o primário e qual é a réplica.
+    kubectl --context "$CONTEXTO" get pods -n slotup -o wide -L cnpg.io/instanceRole
+    ;;
   falha)
     no=$(no_do_servidor "${2:?Diga o servidor: falha 1 ou falha 2}")
     docker stop "$no" >/dev/null
@@ -76,7 +82,7 @@ case "${1:-}" in
     kind delete cluster --name "$CLUSTER"
     ;;
   *)
-    sed -n '2,13p' "$0"
+    sed -n '2,14p' "$0"
     exit 1
     ;;
 esac
