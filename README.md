@@ -45,14 +45,84 @@ Cinco tarefas da Sprint 5 (backend).
 - Precisa do Docker Desktop com **pelo menos 6 GB de memória** (Settings → Resources) e do kind (`brew install kind`; no Windows, `winget install Kubernetes.kind`).
 - **Desligar quando não estiver em uso:** `bash infra/k8s/kind.sh desligar`, para libertar a memória do computador.
 
+#### Como rodar o kind (passo a passo)
+
+Todos os comandos correm na raiz do repositório, com o Docker Desktop aberto.
+
+**1. Instalar (só na primeira vez)**
+
+```bash
+brew install kind          # Windows: winget install Kubernetes.kind
+kind version               # confirma que ficou instalado
+kubectl version --client   # o kubectl já vem com o Docker Desktop
+```
+
+No Docker Desktop, em Settings → Resources, a memória tem de ficar em **6 GB ou mais**.
+
+**2. Criar o cluster (só na primeira vez, 1 a 2 min)**
+
 ```bash
 bash infra/k8s/kind.sh criar
+```
+
+No fim aparecem os 3 nós, todos `Ready`:
+
+```
+NAME                   STATUS   ROLES           AGE   VERSION   SERVIDOR
+slotup-control-plane   Ready    control-plane   1m    v1.x      
+slotup-worker          Ready    <none>          1m    v1.x      1
+slotup-worker2         Ready    <none>          1m    v1.x      2
+```
+
+- `slotup-control-plane`: o nó de controlo, onde corre a API do Kubernetes.
+- `slotup-worker`: o Servidor 1.
+- `slotup-worker2`: o Servidor 2.
+
+**3. Ver o estado a qualquer momento**
+
+```bash
+bash infra/k8s/kind.sh estado
+```
+
+**4. Teste de falha: o Servidor 1 cai**
+
+```bash
 bash infra/k8s/kind.sh falha 1
-kubectl get nodes -w
+```
+
+O script desliga o contentor do Servidor 1 e espera que o Kubernetes dê pela falha, o que demora cerca de 1 minuto (é o tempo que o Kubernetes espera sem notícias de um nó antes de o dar como caído). No fim, o `slotup-worker` aparece `NotReady` e os outros dois continuam `Ready`.
+
+**5. O Servidor 1 volta**
+
+```bash
 bash infra/k8s/kind.sh recuperar 1
 ```
 
-Com o `falha 1`, o nó do Servidor 1 passa a `NotReady` ao fim de cerca de 1 minuto: é o tempo que o Kubernetes espera sem notícias do nó antes de o dar como caído. O script espera por isso e mostra o estado.
+Os 3 nós voltam a ficar `Ready`. O mesmo teste dá para fazer com o Servidor 2: `falha 2` e `recuperar 2`.
+
+**6. Desligar quando não estiver em uso**
+
+```bash
+bash infra/k8s/kind.sh desligar   # liberta a memória do computador
+bash infra/k8s/kind.sh ligar      # da próxima vez, em vez de "criar"
+```
+
+O `ligar` espera que os 3 nós fiquem `Ready` e mostra o estado.
+
+**7. Apagar o cluster (só se quiser começar do zero)**
+
+```bash
+bash infra/k8s/kind.sh apagar
+```
+
+**Se der erro**
+
+- `node(s) already exist for a cluster with the name "slotup"`: o cluster já existe. Use `ligar` em vez de `criar`, ou faça `apagar` e depois `criar`.
+- `Cannot connect to the Docker daemon`: o Docker Desktop não está aberto.
+- Um nó fica `NotReady` ou o `criar` demora muito: falta memória ao Docker. Suba para 6 GB ou mais, faça `apagar` e depois `criar`.
+- `context "kind-slotup" does not exist`: o cluster ainda não foi criado neste computador. Corra o `criar`.
+
+Por agora, o cluster só tem os nós. A aplicação continua a correr com o Docker Compose (`infra/docker`). Os pods do SlotUp entram no cluster no próximo passo.
 
 ### Como atualizar
 
