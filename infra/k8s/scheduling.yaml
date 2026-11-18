@@ -1,0 +1,58 @@
+# scheduling-service no Kubernetes: 2 réplicas. Não tem banco nem segredos.
+# O booking chama-o em http://scheduling:8003 (SCHEDULING_URL no ConfigMap booking-config).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduling
+  namespace: slotup
+  labels:
+    app: scheduling
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: scheduling
+  template:
+    metadata:
+      labels:
+        app: scheduling
+    spec:
+      automountServiceAccountToken: false
+      # Sem as variáveis automáticas dos Services (ex.: SCHEDULING_PORT=tcp://...), que
+      # podiam ter o nome de uma variável da nossa configuração
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: scheduling
+          image: ghcr.io/joshuacamilo09/slotup-scheduling:dev-sprint6
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8003
+          resources:
+            requests:
+              cpu: 20m
+              memory: 96Mi
+            limits:
+              memory: 256Mi
+---
+# Service normal (um IP só): o Kubernetes reparte os pedidos do booking pelas 2 réplicas
+apiVersion: v1
+kind: Service
+metadata:
+  name: scheduling
+  namespace: slotup
+spec:
+  selector:
+    app: scheduling
+  ports:
+    - name: http
+      port: 8003
+      targetPort: http

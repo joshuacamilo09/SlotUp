@@ -1,0 +1,93 @@
+# auth-service no Kubernetes: 2 réplicas (Servidor 1 e Servidor 2), a mesma imagem e o
+# mesmo banco. É o equivalente ao auth-1 e auth-2 do Docker Compose.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: slotup
+  labels:
+    app: auth
+spec:
+  replicas: 2
+  # Troca as réplicas uma de cada vez: desliga uma, sobe a nova, e só depois a outra.
+  # Com uma réplica por nó (passo dos 2 nós), não há lugar para uma 3.ª ao mesmo tempo.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      # Os serviços não falam com a API do Kubernetes: sem token montado. Também evita
+      # o conflito com a pasta /run/secrets, onde montamos as chaves (como no Docker).
+      automountServiceAccountToken: false
+      # Sem as variáveis automáticas dos Services (ex.: SCHEDULING_PORT=tcp://...), que
+      # podiam ter o nome de uma variável da nossa configuração
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001 # o utilizador "app" do Dockerfile
+      containers:
+        - name: auth
+          image: ghcr.io/joshuacamilo09/slotup-auth:dev-sprint6
+          imagePullPolicy: Always # vai sempre buscar a versão mais recente da tag
+          ports:
+            - name: http
+              containerPort: 8001
+          # Configuração do ConfigMap e senhas do Secret, com os mesmos nomes do Docker
+          envFrom:
+            - configMapRef:
+                name: auth-config
+            - secretRef:
+                name: auth-secrets
+          env:
+            # Nome do pod (ex.: auth-7c9f-abcde): o /whoami mostra que réplica respondeu
+            - name: INSTANCE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: chaves
+              mountPath: /run/secrets
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi # o argon2 usa memória a cada login
+      volumes:
+        # As 3 chaves na mesma pasta, com os mesmos nomes do Docker (/run/secrets/<nome>).
+        # As duas réplicas montam os MESMOS Secrets: a mesma chave do JWT nos dois servidores.
+        - name: chaves
+          projected:
+            sources:
+              - secret:
+                  name: jwt-private-key
+              - secret:
+                  name: jwt-public-key
+              - secret:
+                  name: totp-encryption-key
+---
+# Headless (clusterIP: None): o nome "auth" devolve o IP de cada réplica pronta, e não um
+# IP único. Assim o Nginx do frontend conhece as duas e faz o failover entre elas,
+# como no Docker Compose (se uma não responder, repete o pedido na outra).
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth
+  namespace: slotup
+spec:
+  clusterIP: None
+  selector:
+    app: auth
+  ports:
+    - name: http
+      port: 8001
+      targetPort: http

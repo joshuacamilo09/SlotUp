@@ -5,8 +5,8 @@
 # (Macs M1 a M4). No kind, os nós são contentores no próprio computador, por isso a
 # imagem tem de ser da arquitetura dele.
 #
-# Corre sozinho a cada push para a main ou para uma dev-sprint* que mexa no backend,
-# e também à mão: GitHub > Actions > Imagens > Run workflow.
+# Corre sozinho a cada push para a main ou para uma dev-sprint* que mexa no backend
+# ou no frontend, e também à mão: GitHub > Actions > Imagens > Run workflow.
 #
 # Cada imagem fica com duas etiquetas (tags):
 #   ghcr.io/joshuacamilo09/slotup-auth:<commit>       versão exata, para o Kubernetes
@@ -16,7 +16,7 @@ name: Imagens
 on:
   push:
     branches: [main, "dev-sprint*"]
-    paths: ["backend/**", ".github/workflows/imagens.yml"]
+    paths: ["backend/**", "frontend/**", ".github/workflows/imagens.yml"]
   workflow_dispatch:
 
 # O GITHUB_TOKEN só pode ler o código e publicar pacotes (imagens). Nada mais.
@@ -38,6 +38,8 @@ jobs:
             pasta: backend/booking-service
           - imagem: slotup-scheduling
             pasta: backend/scheduling-service
+          - imagem: slotup-frontend
+            pasta: frontend
     env:
       # Os nomes no ghcr.io têm de estar em minúsculas
       IMAGEM: ghcr.io/joshuacamilo09/${{ matrix.imagem }}

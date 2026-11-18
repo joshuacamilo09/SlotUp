@@ -1,0 +1,138 @@
+# booking-service no Kubernetes: 2 réplicas da API e o worker (emails e fila de espera).
+# É o equivalente ao booking-1, booking-2 e booking-worker do Docker Compose.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booking
+  namespace: slotup
+  labels:
+    app: booking
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: booking
+  template:
+    metadata:
+      labels:
+        app: booking
+    spec:
+      automountServiceAccountToken: false
+      # Sem as variáveis automáticas dos Services (ex.: SCHEDULING_PORT=tcp://...), que
+      # podiam ter o nome de uma variável da nossa configuração
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: booking
+          image: ghcr.io/joshuacamilo09/slotup-booking:dev-sprint6
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8002
+          envFrom:
+            - configMapRef:
+                name: booking-config
+            - secretRef:
+                name: booking-secrets
+          env:
+            - name: INSTANCE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: chaves
+              mountPath: /run/secrets
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+      volumes:
+        # Só a chave PÚBLICA do JWT: o booking valida tokens, mas não os consegue criar
+        - name: chaves
+          projected:
+            sources:
+              - secret:
+                  name: jwt-public-key
+---
+# Headless, pela mesma razão do auth: o Nginx faz o failover entre as duas réplicas
+apiVersion: v1
+kind: Service
+metadata:
+  name: booking
+  namespace: slotup
+spec:
+  clusterIP: None
+  selector:
+    app: booking
+  ports:
+    - name: http
+      port: 8002
+      targetPort: http
+---
+# Worker: mesma imagem do booking, outro comando. Não recebe pedidos HTTP, por isso
+# não tem Service. 2 réplicas, uma em cada nó: se um servidor cair, os emails continuam
+# a sair. Não há emails repetidos: cada worker reserva as linhas que vai tratar
+# (FOR UPDATE SKIP LOCKED) e o outro salta-as.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booking-worker
+  namespace: slotup
+  labels:
+    app: booking-worker
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: booking-worker
+  template:
+    metadata:
+      labels:
+        app: booking-worker
+    spec:
+      automountServiceAccountToken: false
+      # Sem as variáveis automáticas dos Services (ex.: SCHEDULING_PORT=tcp://...), que
+      # podiam ter o nome de uma variável da nossa configuração
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: worker
+          image: ghcr.io/joshuacamilo09/slotup-booking:dev-sprint6
+          imagePullPolicy: Always
+          command: ["python", "-m", "app.worker"]
+          envFrom:
+            - configMapRef:
+                name: booking-config
+            - secretRef:
+                name: booking-secrets
+            # Login no servidor de email: só o worker é que envia emails
+            - secretRef:
+                name: smtp-secrets
+          env:
+            - name: INSTANCE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              cpu: 20m
+              memory: 96Mi
+            limits:
+              memory: 256Mi

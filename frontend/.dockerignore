@@ -1,0 +1,5 @@
+# Fica fora da imagem: só os ficheiros do site é que são servidos
+Dockerfile
+.dockerignore
+README.md
+.DS_Store

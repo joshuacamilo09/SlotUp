@@ -37,14 +37,24 @@ if [ "${DRY_RUN:-}" != "1" ]; then
   kubectl apply -f namespace.yaml
 fi
 
-# Senha da base de dados de cada serviço, já com o nome que o serviço espera (DB_PASSWORD)
+# Os SEED_* são para os dados de exemplo (python -m app.seed), como no Docker Compose
 kubectl create secret generic auth-secrets -n "$NS" --dry-run=client -o yaml \
   --from-literal=DB_PASSWORD="$(valor AUTH_DB_PASSWORD)" \
+  --from-literal=ADMIN_NAME="$(valor ADMIN_NAME)" \
   --from-literal=ADMIN_EMAIL="$(valor ADMIN_EMAIL)" \
-  --from-literal=ADMIN_PASSWORD="$(valor ADMIN_PASSWORD)" | aplicar
+  --from-literal=ADMIN_PASSWORD="$(valor ADMIN_PASSWORD)" \
+  --from-literal=SEED_ENABLED="$(valor SEED_ENABLED)" \
+  --from-literal=SEED_TOTP_SECRET="$(valor SEED_TOTP_SECRET)" \
+  --from-literal=SEED_USER_PASSWORD="$(valor SEED_USER_PASSWORD)" | aplicar
 
 kubectl create secret generic booking-secrets -n "$NS" --dry-run=client -o yaml \
-  --from-literal=DB_PASSWORD="$(valor BOOKING_DB_PASSWORD)" | aplicar
+  --from-literal=DB_PASSWORD="$(valor BOOKING_DB_PASSWORD)" \
+  --from-literal=SEED_ENABLED="$(valor SEED_ENABLED)" | aplicar
+
+# Login no servidor de email, só para o worker. Vazio com o Mailpit.
+kubectl create secret generic smtp-secrets -n "$NS" --dry-run=client -o yaml \
+  --from-literal=SMTP_USER="$(valor SMTP_USER)" \
+  --from-literal=SMTP_PASSWORD="$(valor SMTP_PASSWORD)" | aplicar
 
 # Chaves em Secrets separados, para cada serviço montar SÓ o que precisa:
 #   jwt-private-key      só o auth (é quem assina os tokens)

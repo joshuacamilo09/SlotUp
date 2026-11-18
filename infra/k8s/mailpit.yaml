@@ -1,0 +1,52 @@
+# Mailpit: servidor de email FALSO, só para desenvolvimento (como no Docker Compose).
+# Recebe os emails do worker (SMTP na porta 1025) e mostra-os numa página web (8025).
+# Para ver os emails:  kubectl -n slotup port-forward svc/mailpit 8025:8025
+#                      e abrir http://localhost:8025
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailpit
+  namespace: slotup
+  labels:
+    app: mailpit
+spec:
+  replicas: 1 # só guarda os emails em memória: com 2, cada um teria metade dos emails
+  selector:
+    matchLabels:
+      app: mailpit
+  template:
+    metadata:
+      labels:
+        app: mailpit
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: mailpit
+          image: axllent/mailpit:v1.27.11
+          ports:
+            - name: smtp
+              containerPort: 1025
+            - name: web
+              containerPort: 8025
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailpit # o worker liga-se a mailpit:1025 (SMTP_HOST no ConfigMap booking-config)
+  namespace: slotup
+spec:
+  selector:
+    app: mailpit
+  ports:
+    - name: smtp
+      port: 1025
+      targetPort: smtp
+    - name: web
+      port: 8025
+      targetPort: web
