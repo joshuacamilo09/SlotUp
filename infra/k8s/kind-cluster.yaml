@@ -1,0 +1,19 @@
+# Cluster Kubernetes local com o kind (Kubernetes dentro do Docker).
+# 1 nó de controlo + 2 nós de trabalho: o Servidor 1 e o Servidor 2.
+# Cada nó é um contentor Docker: desligar o contentor de um nó = esse servidor cai.
+#
+# Criar:  bash infra/k8s/kind.sh criar   (ou: kind create cluster --config infra/k8s/kind-cluster.yaml)
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: slotup
+nodes:
+  # Plano de controlo (API do Kubernetes). Não corre os serviços do SlotUp.
+  - role: control-plane
+  # Servidor 1
+  - role: worker
+    labels:
+      slotup/servidor: "1"
+  # Servidor 2
+  - role: worker
+    labels:
+      slotup/servidor: "2"
