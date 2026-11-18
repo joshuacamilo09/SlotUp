@@ -36,6 +36,29 @@ spec:
           ports:
             - name: http
               containerPort: 8002
+                    # O Kubernetes testa o pod pelo /health:
+          #   startup: dá até 60 s para arrancar antes dos outros testes
+          #   liveness: o processo está vivo? Se falhar 3 vezes, o pod é reiniciado
+          #   readiness: consegue servir pedidos (no auth e no booking: o banco responde)?
+          #              Se não, sai do Service e deixa de receber pedidos, mas não é reiniciado
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 5
+            failureThreshold: 2
           envFrom:
             - configMapRef:
                 name: booking-config

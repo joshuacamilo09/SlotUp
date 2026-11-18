@@ -3,7 +3,7 @@ from logging.config import fileConfig
 
 from alembic import context
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, pool
+from sqlalchemy import URL, create_engine, pool
 
 load_dotenv()
 
@@ -13,11 +13,18 @@ if config.config_file_name is not None:
 
 target_metadata = None
 
-def get_url() -> str:
+def get_url() -> str | URL:
+    # Docker Compose: o contentor de migração recebe a URL inteira
     url = os.environ.get("BOOKING_DATABASE_URL")
-    if not url:
-        raise RuntimeError("Defina BOOKING_DATABASE_URL (veja o .env).")
-    return url
+    if url:
+        return url
+    # Kubernetes: o Job de migração tem as mesmas variáveis do serviço (DB_HOST,
+    # DB_PASSWORD...), e a URL é montada pelo app/config.py, que trata dos
+    # caracteres especiais na senha
+    if os.environ.get("DB_PASSWORD"):
+        from app.config import get_settings
+        return get_settings().database_url
+    raise RuntimeError("Defina BOOKING_DATABASE_URL ou DB_HOST e DB_PASSWORD (veja o .env).")
 
 def run_migrations_offline() -> None:
     context.configure(

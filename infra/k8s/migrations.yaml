@@ -1,0 +1,56 @@
+# Migrações do banco (Alembic) no Kubernetes: um Job para cada serviço, como o
+# auth-migrate e o booking-migrate do Docker Compose. Corre UMA vez, antes dos serviços
+# (o deploy.sh espera que acabe), em vez de cada réplica migrar o banco ao arrancar.
+# Usa a mesma imagem e as mesmas variáveis do serviço: o alembic/env.py monta a URL
+# do banco a partir delas.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auth-migrate
+  namespace: slotup
+spec:
+  backoffLimit: 6 # se o banco ainda não estiver pronto, tenta outra vez (até 6 vezes)
+  template:
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: migrate
+          image: ghcr.io/joshuacamilo09/slotup-auth:dev-sprint6
+          imagePullPolicy: Always
+          command: ["alembic", "upgrade", "head"] # roda as migrações e sai
+          envFrom:
+            - configMapRef:
+                name: auth-config
+            - secretRef:
+                name: auth-secrets
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: booking-migrate
+  namespace: slotup
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: migrate
+          image: ghcr.io/joshuacamilo09/slotup-booking:dev-sprint6
+          imagePullPolicy: Always
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: booking-config
+            - secretRef:
+                name: booking-secrets

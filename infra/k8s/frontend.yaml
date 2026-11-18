@@ -71,6 +71,13 @@ data:
             default_type application/json;
             return 503 '{"detail":"Serviço temporariamente indisponível. Tente daqui a pouco."}';
         }
+        
+        # Teste do Kubernetes: o Nginx está vivo e a servir
+        location = /health {
+            access_log off;
+            default_type text/plain;
+            return 200 "ok\n";
+        }
 
         location / {
             try_files $uri $uri/ =404;
@@ -131,6 +138,19 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+                    # O Kubernetes testa o Nginx pelo /health (ver o ConfigMap acima)
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 2
           volumeMounts:
             - name: config
               mountPath: /etc/nginx/templates
