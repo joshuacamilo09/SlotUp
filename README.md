@@ -34,13 +34,25 @@ Cinco tarefas da Sprint 5 (backend).
   - `ghcr.io/joshuacamilo09/slotup-booking`
   - `ghcr.io/joshuacamilo09/slotup-scheduling`
 - Cada imagem tem duas etiquetas: o commit (versão exata, para o Kubernetes) e o nome da branch (a mais recente).
+- Cada imagem sai para **amd64 e arm64**: funciona no kind tanto em Windows como em Macs M1 a M4.
 - Também corre à mão: GitHub → Actions → Imagens → Run workflow.
 
-### 5. Cluster no Azure (AKS)
+### 5. Cluster Kubernetes com 2 nós (kind)
 
-- Script `infra/azure/aks.sh`: `verificar` (regiões permitidas, quota de vCPU e tamanho de VM), `criar`, `estado`, `desligar`, `ligar` e `apagar`.
-- 2 nós `Standard_B2s`, etiquetados `slotup/servidor=1` e `slotup/servidor=2` (Servidor 1 e Servidor 2). Plano de controlo gratuito (`--tier free`).
-- **Desligar quando não estiver em uso:** `bash infra/azure/aks.sh desligar`. Com os nós desligados, as VMs deixam de gastar crédito.
+- **Trocámos o Azure (AKS) pelo kind**: o Kubernetes a correr dentro do Docker, no próprio computador. É grátis e não precisa de conta. O enunciado pede "múltiplas instâncias e/ou máquinas" e testes de falha "desligando um container ou servidor", e o kind cumpre os dois.
+- `infra/k8s/kind-cluster.yaml`: 1 nó de controlo e 2 nós de trabalho, etiquetados `slotup/servidor=1` e `slotup/servidor=2` (Servidor 1 e Servidor 2). Cada nó é um contentor Docker.
+- `infra/k8s/kind.sh`: `criar`, `estado`, `falha 1` (o Servidor 1 cai), `recuperar 1`, `desligar`, `ligar` e `apagar`.
+- Precisa do Docker Desktop com **pelo menos 6 GB de memória** (Settings → Resources) e do kind (`brew install kind`; no Windows, `winget install Kubernetes.kind`).
+- **Desligar quando não estiver em uso:** `bash infra/k8s/kind.sh desligar`, para libertar a memória do computador.
+
+```bash
+bash infra/k8s/kind.sh criar
+bash infra/k8s/kind.sh falha 1
+kubectl get nodes -w
+bash infra/k8s/kind.sh recuperar 1
+```
+
+Com o `falha 1`, o nó do Servidor 1 passa a `NotReady` ao fim de uns 40 s. Com o `recuperar 1`, volta a `Ready`.
 
 ### Como atualizar
 
