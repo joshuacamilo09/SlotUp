@@ -181,6 +181,13 @@ docker compose start auth-1
 
 Com o `auth-1` parado, responde o `auth-2`. O log do Nginx mostra o caminho de cada pedido. Num failover aparecem os dois servidores: `upstream=172.18.0.5:8001, 172.18.0.6:8001 upstream_status=502, 200` (ou `504, 200`, se o servidor 1 não respondeu a tempo). Uns segundos depois do `stop`, o nome `auth-1` sai do DNS do Docker e o log já só mostra o servidor 2. Depois do `start`, o `auth-1` volta a responder em cerca de 10 s.
 
+## Worker e emails
+
+- **`booking-worker`**: mesma imagem do booking, mas corre `python -m app.worker` em vez da API. A cada `WORKER_INTERVAL_SECONDS` (10 s) faz expirar as ofertas da fila com mais de 15 min e envia os emails pendentes da tabela `notifications`.
+- **`mailpit`**: servidor de email falso. Recebe os emails do worker e mostra-os em **http://localhost:8025**. Nenhum email sai para a Internet.
+- Ver o que o worker anda a fazer: `docker compose logs -f booking-worker`.
+- Para usar um servidor de email a sério, troque `SMTP_HOST`, `SMTP_PORT` e `SMTP_STARTTLS` em `config/booking.env`, e ponha `SMTP_USER` e `SMTP_PASSWORD` no `.env`.
+
 ## Bancos, usuários e serviços
 
 | Microserviço | Banco | Usuário | Conteúdo |

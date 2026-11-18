@@ -2,6 +2,59 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint5`
+
+Cinco tarefas da Sprint 5 (backend).
+
+### 1. Limite de 1 vaga de estacionamento por dia
+
+- Ao **criar uma reserva**, ao **entrar na fila** e ao **aceitar uma oferta da fila**, o booking recusa uma segunda vaga no mesmo dia: `409 "Já tem uma vaga de estacionamento reservada neste dia..."`.
+- "Dia" é o **dia local do complexo** (`LOCAL_TIMEZONE`). Contam as reservas `HELD` e `CONFIRMED` em recursos da categoria `PARKING_CATEGORY` (por omissão, `Estacionamento`).
+- **Cancelar liberta a vaga**: uma reserva cancelada deixa de contar.
+- **Na mesma transação**, com um *advisory lock* do PostgreSQL por utilizador e por dia. Se chegarem dois pedidos ao mesmo tempo (até em réplicas diferentes), o segundo espera pelo primeiro e é recusado. Testado com 5 pedidos simultâneos: passa só 1.
+- Código: `app/parking.py`. Testes: `tests/test_parking.py` (8).
+
+### 2. Worker de emails
+
+- Novo contentor **`booking-worker`** (mesma imagem do booking, comando `python -m app.worker`). A cada 10 s lê a tabela `notifications` e envia por SMTP os emails dos 4 eventos: reserva confirmada, reserva cancelada, entrada na fila e vaga oferecida.
+- **Nova tentativa se falhar**: o email fica `PENDING` e é tentado outra vez daí a 30 s, 1 min, 2 min, 4 min... Ao fim de 5 tentativas passa a `FAILED`.
+- **Mailpit**: um servidor de email falso, só para desenvolvimento. Os emails aparecem em **http://localhost:8025**.
+- Pode haver mais do que um worker: com `FOR UPDATE SKIP LOCKED`, cada email é enviado por um só.
+- Código: `app/emails.py` e `app/worker.py`. Testes: `tests/test_worker.py` (7).
+
+### 3. Vagas seguradas na fila
+
+- Já funcionava desde a Sprint 3: quando uma vaga abre, o próximo da fila recebe-a como reserva `HELD` durante 15 min, e ninguém mais a consegue reservar.
+- **O que faltava:** quem fazia expirar as ofertas era um comando manual (`python -m app.expire_holds`). Agora é o `booking-worker`, a cada 10 s: se a pessoa não confirmar em 15 min, a oferta é cancelada e o horário passa ao seguinte da fila. Testado em `tests/test_worker.py`.
+
+### 4. Registo de imagens
+
+- Novo workflow do GitHub Actions: `.github/workflows/imagens.yml`. A cada push para a `main` ou para uma `dev-sprint*` que mexa no backend, constrói as imagens e publica-as no **GitHub Container Registry**:
+  - `ghcr.io/joshuacamilo09/slotup-auth`
+  - `ghcr.io/joshuacamilo09/slotup-booking`
+  - `ghcr.io/joshuacamilo09/slotup-scheduling`
+- Cada imagem tem duas etiquetas: o commit (versão exata, para o Kubernetes) e o nome da branch (a mais recente).
+- Também corre à mão: GitHub → Actions → Imagens → Run workflow.
+
+### 5. Cluster no Azure (AKS)
+
+- Script `infra/azure/aks.sh`: `verificar` (regiões permitidas, quota de vCPU e tamanho de VM), `criar`, `estado`, `desligar`, `ligar` e `apagar`.
+- 2 nós `Standard_B2s`, etiquetados `slotup/servidor=1` e `slotup/servidor=2` (Servidor 1 e Servidor 2). Plano de controlo gratuito (`--tier free`).
+- **Desligar quando não estiver em uso:** `bash infra/azure/aks.sh desligar`. Com os nós desligados, as VMs deixam de gastar crédito.
+
+### Como atualizar
+
+Em `infra/docker`:
+
+```bash
+docker compose up -d --build --remove-orphans
+docker compose logs -f booking-worker
+```
+
+O `.env` não precisa de mudanças. As linhas `SMTP_USER` e `SMTP_PASSWORD` do `.env.example` só são precisas com um servidor de email a sério.
+
+# O QUE ESTA EM BAIXO É ANTIGO
+
 ## O que mudou na branch `dev-sprint4` (migrações, saúde e identificação do servidor)
 
 Três tarefas da Sprint 4. Duas já estavam quase feitas pelas tarefas anteriores; aqui ficaram completas e com prova.
