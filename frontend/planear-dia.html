@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Planear o meu dia – SlotUp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/planear-dia.css">
+</head>
+<body>
+
+  <!-- ===== Cabeçalho ===== -->
+  <header class="topbar">
+    <a class="logo" href="index.html">
+      <svg width="22" height="32" viewBox="0 0 26 38" aria-hidden="true">
+        <rect x="2" y="2" width="22" height="34" rx="11" fill="none" stroke="currentColor" stroke-width="3.5"/>
+        <circle cx="13" cy="13" r="4" fill="currentColor"/>
+      </svg>
+      SlotUp
+    </a>
+    <nav class="nav" aria-label="Principal">
+      <a class="nav-link ativo" href="index.html" aria-current="page">Início</a>
+      <a class="nav-link" href="../minhas-reservas.html">Minhas reservas <span class="badge" id="nav-count" hidden>0</span></a>
+    </nav>
+    <div class="topbar-direita">
+      <div class="vista" role="group" aria-label="Vista">
+        <button class="vista__btn ativo" type="button">Utilizador</button>
+        <button class="vista__btn" type="button">Admin</button>
+      </div>
+      <div class="perfil">
+        <button class="avatar" type="button" aria-label="Menu da conta">
+          <span class="avatar-circulo">MS</span>
+          <span class="icone" aria-hidden="true">expand_more</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="conteudo">
+
+    <div class="plano-topo">
+      <nav class="migalhas" aria-label="Caminho">
+        <a href="index.html">Início</a><span aria-hidden="true">/</span><span aria-current="page">Planear o meu dia</span>
+      </nav>
+      <div class="plano-titulo">
+        <span class="plano-icone" aria-hidden="true"><span class="icone">auto_awesome</span></span>
+        <div>
+          <h1>Planear o meu dia</h1>
+          <p>Diga o que quer fazer. Montamos um plano só com recursos livres e horários que não se sobrepõem.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="plano-grelha">
+
+      <!-- ===== 1 · Pedido ===== -->
+      <section class="plano-cartao" id="pedido" aria-labelledby="titulo-pedido">
+        <div class="plano-cab">
+          <h2 class="plano-cab__titulo" id="titulo-pedido"><span class="plano-num" aria-hidden="true">1</span>Pedido</h2>
+        </div>
+
+        <!-- Data (os 7 dias são criados pelo JS) -->
+        <fieldset class="plano-campo">
+          <legend class="plano-rotulo">Data</legend>
+          <div class="datas" id="datas"></div>
+        </fieldset>
+
+        <!-- Atividades (criadas pelo JS a partir do modelo em baixo) -->
+        <div class="atv-bloco">
+          <div class="atv-bloco__cab">
+            <h3>Atividades</h3>
+            <span id="atv-total">0 atividades · 0h no total</span>
+          </div>
+          <ol class="atv-lista" id="atv-lista"></ol>
+          <button class="atv-add" type="button" id="atv-add"><span class="icone" aria-hidden="true">add</span>Adicionar atividade</button>
+        </div>
+
+        <button class="gerar" type="button" id="gerar-plano"><span class="icone" aria-hidden="true">auto_awesome</span><span class="gerar__txt">Gerar plano</span></button>
+      </section>
+
+      <!-- ===== 2 · Plano sugerido ===== -->
+      <section class="plano-cartao" aria-labelledby="titulo-plano">
+        <div class="plano-cab">
+          <h2 class="plano-cab__titulo" id="titulo-plano"><span class="plano-num" aria-hidden="true">2</span>Plano sugerido</h2>
+          <span class="plano-cab__data"><span class="icone" aria-hidden="true">calendar_today</span><span id="plano-data"></span></span>
+        </div>
+
+        <div class="plano-vazio" id="plano-resultado" aria-live="polite">
+          <span class="icone" aria-hidden="true">article</span>
+          <p class="plano-vazio__titulo">O plano aparece aqui</p>
+          <p class="plano-vazio__texto">Adicione as atividades e carregue em “Gerar plano”.</p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ===== Modelo de uma atividade (o JS copia isto; {n} vira o número) ===== -->
+  <template id="tpl-atv">
+    <li class="atv">
+      <div class="atv__cab">
+        <h4 class="atv__titulo">Atividade</h4>
+        <button class="atv__lixo" type="button" data-acao="remover" aria-label="Remover atividade"><span class="icone" aria-hidden="true">delete</span></button>
+      </div>
+
+      <div class="atv__cats" role="radiogroup" aria-label="Categoria">
+        <label class="cat cat--coworking"><input type="radio" name="cat-{n}" value="coworking"><span class="icone" aria-hidden="true">desk</span>Coworking</label>
+        <label class="cat cat--estacionamento"><input type="radio" name="cat-{n}" value="estacionamento"><span class="icone" aria-hidden="true">local_parking</span>Estacionamento</label>
+        <label class="cat cat--desporto"><input type="radio" name="cat-{n}" value="desporto"><span class="icone" aria-hidden="true">sports_tennis</span>Desporto</label>
+      </div>
+
+      <div class="atv__linha">
+        <div class="atv__campo">
+          <span class="atv__rotulo" id="duracao-{n}">Duração</span>
+          <div class="passo" role="group" aria-labelledby="duracao-{n}">
+            <button class="passo__btn" type="button" data-acao="dur-" aria-label="Menos tempo"><span class="icone" aria-hidden="true">remove</span></button>
+            <output class="passo__valor" data-mostra="dur"></output>
+            <button class="passo__btn" type="button" data-acao="dur+" aria-label="Mais tempo"><span class="icone" aria-hidden="true">add</span></button>
+          </div>
+        </div>
+        <div class="atv__campo">
+          <span class="atv__rotulo" id="turno-{n}">Horário preferido</span>
+          <div class="turnos" role="radiogroup" aria-labelledby="turno-{n}">
+            <label class="turno"><input type="radio" name="turno-{n}" value="manha">Manhã</label>
+            <label class="turno"><input type="radio" name="turno-{n}" value="tarde">Tarde</label>
+            <label class="turno"><input type="radio" name="turno-{n}" value="hora">Hora específica</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="atv__hora">
+        <span class="atv__rotulo">Começa às</span>
+        <div class="passo" role="group" aria-label="Hora de início">
+          <button class="passo__btn" type="button" data-acao="ini-" aria-label="Começar mais cedo"><span class="icone" aria-hidden="true">remove</span></button>
+          <output class="passo__valor" data-mostra="ini"></output>
+          <button class="passo__btn" type="button" data-acao="ini+" aria-label="Começar mais tarde"><span class="icone" aria-hidden="true">add</span></button>
+        </div>
+        <span class="atv__fim">termina às <b data-mostra="fim"></b></span>
+      </div>
+    </li>
+  </template>
+
+  <script src="js/planear-dia.js"></script>
+</body>
+</html>
