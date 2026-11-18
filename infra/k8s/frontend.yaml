@@ -1,5 +1,9 @@
-# Frontend no Kubernetes: o Nginx serve o site e encaminha /api para o auth e o booking,
-# como o slotup-nginx do Docker Compose. 2 réplicas.
+# Frontend no Kubernetes: a ENTRADA ÚNICA do SlotUp. O Nginx serve o site e encaminha
+# /api/auth para o auth e /api/reservas para o booking, como o slotup-nginx do Docker
+# Compose, mas agora com HTTPS. 2 réplicas.
+#
+#   https://localhost:8443   o SlotUp (HTTPS, com o certificado do Secret slotup-tls)
+#   http://localhost:8081    redireciona para o HTTPS
 #
 # A configuração do Nginx está neste ConfigMap, e não na imagem. É um "template": ao
 # arrancar, a imagem oficial do Nginx troca ${NGINX_LOCAL_RESOLVERS} pelo DNS do cluster
@@ -35,9 +39,34 @@ data:
         server booking.slotup.svc.cluster.local:8002 resolve max_fails=1 fail_timeout=10s;
     }
 
+    # ---- HTTP: só redireciona para o HTTPS ----
     server {
         listen 8080;
         server_name _;
+
+        # Teste do Kubernetes: o Nginx está vivo e a servir
+        location = /health {
+            access_log off;
+            default_type text/plain;
+            return 200 "ok\n";
+        }
+
+        # 8443 é a porta do HTTPS no computador (kind-cluster.yaml)
+        location / {
+            return 301 https://$host:8443$request_uri;
+        }
+    }
+
+    # ---- HTTPS: o site e a API ----
+    server {
+        listen 8443 ssl;
+        http2 on;
+        server_name _;
+
+        # Certificado e chave do Secret slotup-tls (gen-cert.sh + create-secrets.sh)
+        ssl_certificate     /etc/nginx/tls/tls.crt;
+        ssl_certificate_key /etc/nginx/tls/tls.key;
+        ssl_protocols       TLSv1.2 TLSv1.3;
 
         root /usr/share/nginx/html;
         index index.html;
@@ -70,13 +99,6 @@ data:
         location @api_indisponivel {
             default_type application/json;
             return 503 '{"detail":"Serviço temporariamente indisponível. Tente daqui a pouco."}';
-        }
-        
-        # Teste do Kubernetes: o Nginx está vivo e a servir
-        location = /health {
-            access_log off;
-            default_type text/plain;
-            return 200 "ok\n";
         }
 
         location / {
@@ -138,7 +160,9 @@ spec:
           ports:
             - name: http
               containerPort: 8080
-                    # O Kubernetes testa o Nginx pelo /health (ver o ConfigMap acima)
+            - name: https
+              containerPort: 8443
+          # O Kubernetes testa o Nginx pelo /health (ver o ConfigMap acima)
           livenessProbe:
             httpGet:
               path: /health
@@ -155,6 +179,9 @@ spec:
             - name: config
               mountPath: /etc/nginx/templates
               readOnly: true
+            - name: tls
+              mountPath: /etc/nginx/tls
+              readOnly: true
           resources:
             requests:
               cpu: 20m
@@ -165,16 +192,27 @@ spec:
         - name: config
           configMap:
             name: frontend-nginx
+        - name: tls
+          secret:
+            secretName: slotup-tls
 ---
+# NodePort: abre as portas 30443 e 30080 em todos os nós. O kind liga o 8443 e o 8081
+# do computador a essas portas no nó de controlo (kind-cluster.yaml).
 apiVersion: v1
 kind: Service
 metadata:
   name: frontend
   namespace: slotup
 spec:
+  type: NodePort
   selector:
     app: frontend
   ports:
+    - name: https
+      port: 8443
+      targetPort: https
+      nodePort: 30443
     - name: http
       port: 8080
       targetPort: http
+      nodePort: 30080

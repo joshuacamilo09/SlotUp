@@ -7,13 +7,22 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: slotup
 nodes:
-  # Plano de controlo (API do Kubernetes). Não corre os serviços do SlotUp.
-  - role: control-plane
-  # Servidor 1
-  - role: worker
-    labels:
+    - role: control-plane
+    # Entrada única do SlotUp: as portas do computador que levam ao Nginx do frontend
+    # (Service NodePort em frontend.yaml). Ficam neste nó, que nunca é desligado nos
+    # testes de falha; daqui o Kubernetes manda o pedido para um frontend vivo.
+      extraPortMappings:
+      - containerPort: 30443 # HTTPS:  https://localhost:8443
+        hostPort: 8443
+        listenAddress: "127.0.0.1"
+      - containerPort: 30080 # HTTP:   http://localhost:8081 (redireciona para o HTTPS)
+        hostPort: 8081
+        listenAddress: "127.0.0.1"
+    # Servidor 1
+    - role: worker
+      labels:
       slotup/servidor: "1"
-  # Servidor 2
-  - role: worker
-    labels:
+    # Servidor 2
+    - role: worker
+      labels:
       slotup/servidor: "2"

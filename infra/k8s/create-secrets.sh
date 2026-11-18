@@ -4,7 +4,7 @@
 #   infra/docker/.env       senhas da base de dados e do administrador
 #   infra/docker/secrets/   chaves do JWT e chave de cifra do 2FA (bash gen-secrets.sh)
 # Assim os segredos nunca são escritos num YAML e nunca vão para o Git.
-#
+
 # Uso (com o kubectl ligado ao cluster):  bash infra/k8s/create-secrets.sh
 # Ver o que seria criado, sem mexer no cluster:  DRY_RUN=1 bash infra/k8s/create-secrets.sh
 set -euo pipefail
@@ -16,6 +16,7 @@ NS=slotup
 
 [ -f "$ENV_FILE" ] || { echo "Falta $ENV_FILE (cp ../docker/.env.example ../docker/.env)"; exit 1; }
 [ -f "$SECRETS/jwt_private.pem" ] || { echo "Faltam as chaves: bash ../docker/gen-secrets.sh"; exit 1; }
+[ -f "$SECRETS/tls.crt" ] || { echo "Falta o certificado HTTPS: bash gen-cert.sh"; exit 1; }
 
 # Lê uma variável do .env sem executar o ficheiro (tira aspas e o \r do Windows)
 valor() {
@@ -82,6 +83,9 @@ kubectl create secret generic jwt-public-key -n "$NS" --dry-run=client -o yaml \
 kubectl create secret generic totp-encryption-key -n "$NS" --dry-run=client -o yaml \
   --from-file=totp_encryption_key="$SECRETS/totp_encryption_key" | aplicar
 
+# Certificado HTTPS do Nginx do frontend (gen-cert.sh)
+kubectl create secret tls slotup-tls -n "$NS" --dry-run=client -o yaml \
+  --cert="$SECRETS/tls.crt" --key="$SECRETS/tls.key" | aplicar
 if [ "${DRY_RUN:-}" != "1" ]; then
   echo "Secrets criados no namespace $NS."
 fi
