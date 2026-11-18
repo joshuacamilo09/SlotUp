@@ -144,7 +144,35 @@ services:
       INSTANCE_NAME: booking-2
     ports:
       - "127.0.0.1:8012:8002"
+      
+  # ----- Worker do booking: envia os emails e faz expirar as vagas seguradas na fila -----
+  # Mesma imagem do booking, outro comando. Não recebe pedidos HTTP: não precisa de porta.
+  booking-worker:
+    <<: *booking-image
+    restart: unless-stopped
+    env_file: config/booking.env
+    environment:
+      <<: *booking-env
+      INSTANCE_NAME: booking-worker
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      booking-migrate:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
 
+  # ----- Mailpit: servidor de email FALSO, só para desenvolvimento -----
+  # Recebe os emails do worker (SMTP na porta 1025) e mostra-os numa página web.
+  mailpit:
+    image: axllent/mailpit:v1.27.11
+    container_name: slotup-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"   # http://localhost:8025
   scheduling:
     build: ../../backend/scheduling-service
     container_name: slotup-scheduling
