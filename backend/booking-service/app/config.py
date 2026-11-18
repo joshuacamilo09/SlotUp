@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     # em hora local, enquanto o banco guarda as reservas em UTC (timestamptz).
     local_timezone: str = "Europe/Lisbon"
 
+    # Nome da categoria das vagas de estacionamento: cada utilizador só pode ter
+    # uma vaga por dia (ver app/parking.py)
+    parking_category: str = "Estacionamento"
+
     @property
     def database_url(self) -> URL:
         return URL.create(
