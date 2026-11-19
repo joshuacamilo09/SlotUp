@@ -309,3 +309,26 @@ def test_aceita_horas_no_formato_do_booking(cliente, dados):
             regra["close_time"] += ":00"
     resposta = cliente.post("/api/scheduling/plan", json=dados)
     assert resposta.json()["plan"]["cost"] == 127.0
+
+# ---------------------------------------------------------------- horários preferidos
+def test_dominio_ordenado_por_proximidade(dados):
+    from app.csp.custo import melhores_opcoes
+    problema = montar_problema(dados, agora=AGORA)
+    # Reunião pedida às 14:00 (sala grande ocupada 14-15h): 12:45 e 15:15 estão as duas a
+    # 75 min; no empate vem primeiro a mais cedo. Depois, 12:30 e 15:30, a 90 min
+    inicios = [v.inicio for v in melhores_opcoes(problema, "reuniao", 4)]
+    assert inicios == [12 * 60 + 45, 15 * 60 + 15, 12 * 60 + 30, 15 * 60 + 30]
+
+
+def test_padel_no_horario_pedido_vem_primeiro(dados):
+    from app.csp.custo import melhores_opcoes
+    problema = montar_problema(dados, agora=AGORA)
+    primeira = melhores_opcoes(problema, "padel", 1)[0]
+    assert (primeira.resource_id, primeira.inicio) == ("padel-2", 18 * 60)  # padel-1 está ocupado às 18h
+
+
+def test_primeira_solucao_ja_fica_perto_do_pedido(dados):
+    # Mesmo sem otimizar, a busca experimenta primeiro os horários mais próximos
+    problema = montar_problema(dados, agora=AGORA)
+    _, custo, _ = resolver(problema, otimizar=False)
+    assert custo <= 200

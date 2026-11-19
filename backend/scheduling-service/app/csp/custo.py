@@ -63,3 +63,25 @@ def detalhar_custo(problema: Problema, atribuicao: dict[str, Valor]) -> dict:
             f3 = PESO_F3
         linhas.append((pid, f1, f3))  # uma tupla por pedido
     return {"pedidos": linhas, "f2": custo_buracos(atribuicao), "total": custo_total(problema, atribuicao)}
+
+def ordenar(problema: Problema, pid: str, valores: list[Valor]) -> list[Valor]:
+    """Opções da atividade da mais perto para a mais longe do que o usuário pediu.
+
+    O critério é o custo da própria opção (F1 + F3): a distância em minutos do
+    horário preferido, mais 30 se não for o recurso favorito. Sem favorito, é pura
+    proximidade. Ordenar pelo custo também é o que o branch and bound precisa: o
+    primeiro valor de cada domínio tem de ser o mais barato.
+
+    Empates (ex.: 15 min antes ou 15 min depois): vem primeiro o mais cedo, e depois
+    o recurso por id, para o resultado ser sempre o mesmo para o mesmo pedido.
+    """
+    # A chave é uma tupla: o Python compara o 1.º elemento e, se empatar, o 2.º, e assim por diante.
+    # A vaga não tem início (None): -1 só serve para a tupla poder ser comparada.
+    chave = lambda v: (custo_valor(problema, pid, v), v.inicio if v.inicio is not None else -1, v.resource_id)
+    return sorted(valores, key=chave)
+
+
+def melhores_opcoes(problema: Problema, pid: str, quantas: int) -> list[Valor]:
+    """As `quantas` opções mais próximas do pedido (a base das sugestões de conflito)."""
+    # [:quantas]: fatia com os primeiros `quantas` elementos da lista
+    return ordenar(problema, pid, problema.dominios[pid])[:quantas]

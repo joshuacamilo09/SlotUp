@@ -10,9 +10,10 @@ import math  # math.inf = infinito, o "melhor custo" antes de haver qualquer sol
 import time
 from dataclasses import dataclass
 
-from app.csp.custo import custo_total, custo_valor
+from app.csp.custo import custo_total, custo_valor, ordenar
 from app.csp.modelo import Problema, Valor, para_hhmm
 from app.csp.restricoes import compativeis, intervalo_estacionamento, tem_horario, vaga_valida, verificar_pedido
+
 
 # Proteção da API: um pedido enorme não pode deixar o serviço preso numa busca sem fim
 LIMITE_NOS_PADRAO = 200_000  # o _ é só para ler melhor: 200000
@@ -60,15 +61,10 @@ def resolver(problema: Problema, usar_fc: bool = True, usar_mrv: bool = True,
         if not dominio:
             return None, math.inf, stats
 
-    dominios = problema.dominios
-    if otimizar:
-        # Ordena cada domínio do valor mais barato para o mais caro (F1 + F3).
-        # Assim as boas soluções aparecem cedo e o branch and bound corta mais.
-        # O pid=pid "congela" o pid de cada volta dentro da lambda.
-        dominios = {
-            pid: sorted(valores, key=lambda v, pid=pid: custo_valor(problema, pid, v))
-            for pid, valores in dominios.items()
-        }
+    # Horários preferidos: cada domínio fica ordenado do mais perto para o mais longe do pedido.
+    # Vale nos dois modos: sem otimizar, a primeira solução encontrada já fica perto do que o usuário quis;
+    # a otimizar, as boas soluções aparecem cedo e o branch and bound corta mais.
+    dominios = {pid: ordenar(problema, pid, valores) for pid, valores in problema.dominios.items()}
 
     busca = _Busca(problema, usar_fc, usar_mrv, otimizar, limite_nos, stats)
     inicio = time.perf_counter()  # relógio de alta precisão
