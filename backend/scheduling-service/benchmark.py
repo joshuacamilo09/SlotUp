@@ -27,6 +27,9 @@ CONFIGS = [("BT", False, False), ("BT+FC", True, False), ("BT+MRV", False, True)
 # tipo: (quantidade de recursos, abre às, fecha às, capacidade)
 TIPOS = {"mesa": (6, 8, 20, 1), "sala": (4, 8, 20, 8), "quadra": (2, 7, 22, 4), "personal": (2, 7, 22, 1), "vaga_carro": (3, 0, 24, 1)}
 
+# (mínima, máxima) de cada tipo, como no seed do booking
+LIMITES = {"mesa": (15, 720), "sala": (15, 240), "quadra": (60, 90), "personal": (60, 60), "vaga_carro": (15, 1440)}
+
 # Os pedidos vão sendo tirados desta lista, por ordem: (tipo, duração em min)
 MODELOS_PEDIDO = [("mesa", 240), ("sala", 60), ("quadra", 90), ("personal", 60),
                   ("sala", 30), ("mesa", 120), ("sala", 45), ("quadra", 60)]
@@ -49,10 +52,11 @@ def gerar_cenario(semente: int, n_pedidos: int, ocupacao: float, ocupacao_vagas:
     for tipo, (quantidade, abre, fecha, capacidade) in TIPOS.items():
         for i in range(1, quantidade + 1):
             rid = f"{tipo}-{i}"
-            recursos.append({
-                "id": rid, "name": rid, "resource_type": tipo, "capacity": capacidade,
-                "opening": [{"open_time": hhmm(abre * 60), "close_time": hhmm(fecha * 60)}],
-            })
+            minimo, maximo = LIMITES[tipo]
+            recursos.append({"id": rid, "name": rid, "resource_type": tipo, "capacity": capacidade,
+                             "schedule": [{"weekday": w, "open_time": hhmm(abre * 60), "close_time": hhmm(fecha * 60)}
+                                          for w in range(7)],
+                             "min_duration_min": minimo, "max_duration_min": maximo, "buffer_min": 10})
             # Percorre o dia em blocos de 30 a 120 min e "reserva" alguns ao acaso
             prob = ocupacao_vagas if tipo == "vaga_carro" else ocupacao
             t = abre * 60

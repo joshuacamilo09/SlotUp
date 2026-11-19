@@ -14,18 +14,7 @@ from pathlib import Path
 # ---------------------------------------------------------------- parâmetros
 PASSO_MIN = 15               # discretização: os horários andam de 15 em 15 min
 MINUTOS_NO_DIA = 24 * 60
-FOLGA_RECURSO_MIN = 10       # INTERVALO_RECURSO: padrão, quando o recurso não traz buffer_min
 FOLGA_DESLOCAMENTO_MIN = 10  # SEM_SOBREPOSICAO / VAGA_COBRE_O_DIA: tempo de deslocamento
-
-# DURACAO: (mínima, máxima) por tipo, usada quando o recurso não traz params
-DURACAO_PADRAO = {
-    "mesa": (15, 12 * 60),
-    "sala": (15, 4 * 60),
-    "quadra": (60, 90),
-    "personal": (60, 60),
-}
-DURACAO_GENERICA = (PASSO_MIN, 12 * 60)  # tipo novo criado pelo admin e sem params
-
 
 # ---------------------------------------------------------------- estruturas de dados
 @dataclass(frozen=True)
@@ -82,10 +71,9 @@ class Problema:
 
 # ---------------------------------------------------------------- funções de apoio
 def para_minutos(hhmm: str) -> int:
-    """'09:30' -> 570"""
-    horas, minutos = hhmm.split(":")
+    """'09:30' -> 570 (aceita também '09:30:00', o formato de hora do booking)"""
+    horas, minutos = hhmm.split(":")[:2]  # [:2]: fica só com as horas e os minutos
     return int(horas) * 60 + int(minutos)
-
 
 def para_hhmm(minutos: int) -> str:
     """570 -> '09:30'"""
@@ -99,21 +87,15 @@ def sobrepoe(a_inicio: int, a_fim: int, b_inicio: int, b_fim: int) -> bool:
 
 def livre_com_folga(problema: Problema, resource_id: str, inicio: int, fim: int) -> bool:
     """O recurso está livre, contando a folga dele antes e depois de cada reserva?"""
-    folga = problema.folgas.get(resource_id, FOLGA_RECURSO_MIN)
+    folga = problema.folgas[resource_id]
     return not any(
         sobrepoe(inicio, fim, b_inicio - folga, b_fim + folga)
         for b_inicio, b_fim in problema.busy.get(resource_id, [])
     )
 
-
 def duracao_permitida(recurso: dict) -> tuple[int, int]:
-    """(mínima, máxima) do recurso. O que vier em params ganha ao padrão do tipo."""
-    padrao = DURACAO_PADRAO.get(recurso["resource_type"], DURACAO_GENERICA)
-    params = recurso.get("params") or {}
-    minimo = params.get("min_duration_min") or padrao[0]
-    maximo = params.get("max_duration_min") or padrao[1]
-    return minimo, maximo
-
+    """(mínima, máxima) do recurso, como o admin as gravou no booking."""
+    return recurso["min_duration_min"], recurso["max_duration_min"]
 
 # ---------------------------------------------------------------- leitura do pedido
 def ler_pedido(dados: dict) -> Pedido:
@@ -141,6 +123,17 @@ def candidatos(pedido: Pedido, recurso: dict):
     for inicio in range(0, MINUTOS_NO_DIA - pedido.duration_min + 1, PASSO_MIN):
         yield inicio, inicio + pedido.duration_min
 
+def janelas_do_dia(recurso: dict, day: date) -> list[tuple[int, int]]:
+    """As janelas de abertura do recurso NAQUELE dia, a partir do horário semanal.
+
+    weekday() do Python: 0 = segunda ... 6 = domingo, a mesma convenção do booking.
+    Um dia sem nenhum intervalo = o recurso está fechado nesse dia.
+    """
+    return [
+        (para_minutos(regra["open_time"]), para_minutos(regra["close_time"]))
+        for regra in recurso["schedule"]
+        if regra["weekday"] == day.weekday()
+    ]
 
 def gerar_dominio(problema: Problema, pedido: Pedido) -> list[Valor]:
     """Todos os (recurso, início) de UMA atividade que passam em todas as regras unárias.
@@ -188,10 +181,8 @@ def montar_problema(dados: dict, agora: datetime | None = None, desligar: set[st
     recursos = dados["resources"]
 
     # Folga de cada recurso. `is not None` porque buffer_min = 0 é válido (e 0 é "falso" num `or`)
-    folgas = {}
-    for r in recursos:
-        buffer = (r.get("params") or {}).get("buffer_min")
-        folgas[r["id"]] = buffer if buffer is not None else FOLGA_RECURSO_MIN
+    day = date.fromisoformat(dados["day"])
+    folgas = {r["id"]: r["buffer_min"] for r in recursos}  # intervalo entre reservas de cada recurso
 
     # Ocupação crua, sem folga: a folga é a regra INTERVALO_RECURSO que soma
     busy: dict[str, list[tuple[int, int]]] = {}
@@ -206,17 +197,14 @@ def montar_problema(dados: dict, agora: datetime | None = None, desligar: set[st
         pedidos[pedido.id] = pedido
 
     problema = Problema(
-        day=date.fromisoformat(dados["day"]),
+        day=day,
         agora=agora,
         modo=modo,
         pedidos=pedidos,
         recursos=recursos,
         busy=busy,
         folgas=folgas,
-        aberturas={
-            r["id"]: [(para_minutos(j["open_time"]), para_minutos(j["close_time"])) for j in r["opening"]]
-            for r in recursos
-        },
+        aberturas={r["id"]: janelas_do_dia(r, day) for r in recursos},
         regras=regras_ativas(modo, desligar),
     )
     # Os domínios vêm depois: as regras unárias precisam do Problema já montado

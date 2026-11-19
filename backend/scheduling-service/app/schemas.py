@@ -8,8 +8,8 @@ from typing import Annotated, Literal  # Literal: o campo só aceita os valores 
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
-# Hora "HH:MM" de 00:00 a 23:59 (expressão regular: [01]\d = 00-19, 2[0-3] = 20-23)
-Hora = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
+# Hora "HH:MM" ou "HH:MM:00" (o booking manda com segundos). (:00)? = os segundos são opcionais
+Hora = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d(:00)?$")]
 Id = Annotated[str, StringConstraints(min_length=1, max_length=64)]
 # Igual ao booking: "Mesa" e "mesa" ficam iguais (to_lower) e os espaços à volta saem
 ResourceType = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, min_length=2, max_length=30)]
@@ -45,50 +45,42 @@ class Activity(Strict):
             raise ValueError(f"'{self.id}': duration_min e preferred_start são obrigatórios")
         return self
 
+class ScheduleRule(Strict):
+    """Um intervalo do horário SEMANAL do recurso (igual ao availability_rules do booking)."""
 
-class OpeningWindow(Strict):
-    """Uma janela de abertura do recurso NAQUELE dia."""
-
+    weekday: int = Field(ge=0, le=6)  # 0 = segunda ... 6 = domingo (convenção do Python)
     open_time: Hora
     close_time: Hora
 
     @model_validator(mode="after")
-    def _fecha_depois_de_abrir(self) -> "OpeningWindow":
-        # "HH:MM" com zero à esquerda: comparar como texto dá a mesma ordem que comparar horas
+    def _fecha_depois_de_abrir(self) -> "ScheduleRule":
         if self.close_time <= self.open_time:
             raise ValueError("close_time tem de ser depois de open_time")
         return self
 
 
-class ResourceParams(Strict):
-    """Parâmetros do recurso. O que vier None usa o padrão do tipo no scheduling."""
-
-    min_duration_min: int | None = Field(default=None, ge=15, multiple_of=15)  # R2
-    max_duration_min: int | None = Field(default=None, ge=15, multiple_of=15)  # R2
-    buffer_min: int | None = Field(default=None, ge=0, le=60)                  # R9
-
-    @model_validator(mode="after")
-    def _minimo_ate_maximo(self) -> "ResourceParams":
-        if (
-            self.min_duration_min is not None
-            and self.max_duration_min is not None
-            and self.min_duration_min > self.max_duration_min
-        ):
-            raise ValueError("min_duration_min não pode ser maior que max_duration_min")
-        return self
+# Os mesmos limites da migração 0007 do booking
+DurationMin = Annotated[int, Field(ge=15, le=1440, multiple_of=15)]
+BufferMin = Annotated[int, Field(ge=0, le=60)]
 
 
 class ResourceIn(Strict):
-    """Um recurso ativo candidato (os campos têm os mesmos nomes do recurso no booking)."""
+    """Um recurso ativo candidato, com as SUAS regras (os nomes são os do ResourceOut do booking)."""
 
     id: Id
     name: Annotated[str, StringConstraints(min_length=1, max_length=150)]
     resource_type: ResourceType
     capacity: int = Field(ge=1)
-    opening: list[OpeningWindow]  # lista vazia = fechado neste dia
-    # default_factory: cada recurso recebe o SEU objeto de parâmetros vazio
-    params: ResourceParams = Field(default_factory=ResourceParams)
+    schedule: Annotated[list[ScheduleRule], Field(max_length=35)]  # 7 dias x 5 intervalos, como no booking
+    min_duration_min: DurationMin
+    max_duration_min: DurationMin
+    buffer_min: BufferMin
 
+    @model_validator(mode="after")
+    def _minimo_ate_maximo(self) -> "ResourceIn":
+        if self.min_duration_min > self.max_duration_min:
+            raise ValueError(f"'{self.id}': min_duration_min não pode ser maior que max_duration_min")
+        return self
 
 class BusyInterval(Strict):
     """Um intervalo ocupado por uma reserva CONFIRMED ou HELD."""

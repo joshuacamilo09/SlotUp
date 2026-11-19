@@ -5,7 +5,7 @@ POST /api/reservas/reservas   {resource_id, start_at, end_at}
 
 * Qualquer usuário autenticado (inclusive o ADMIN) reserva em nome próprio: o id e o
   email vêm do token (JWT), nunca do corpo do pedido.
-* A reserva tem de caber inteira num intervalo de abertura do recurso, não pode começar
+* A reserva tem de caber inteira num intervalo de abertura do recurso, respeitar a duração mínima e máxima dele, não pode começar
   no passado nem a mais de 30 dias, e usa horas múltiplas de 15 min (mínimo 15 min).
 * Horas sem fuso valem como hora local do complexo (LOCAL_TIMEZONE).
 * Quem garante que dois pedidos não ficam com o mesmo horário é o PostgreSQL
@@ -84,6 +84,12 @@ def check_slot(db: Session, body: ReservationCreate, settings: Settings) -> tupl
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Recurso não encontrado")
     if not _fits_opening(resource, start, end):
         raise _unprocessable("O horário está fora do horário de funcionamento do recurso")
+    # Duração mínima e máxima do recurso (migração 0007): as mesmas que o CSP usa
+    duracao = int((end - start).total_seconds() // 60)  # total_seconds(): o intervalo em segundos
+    if not resource.min_duration_min <= duracao <= resource.max_duration_min:
+        raise _unprocessable(
+            f"Este recurso aceita reservas de {resource.min_duration_min} a {resource.max_duration_min} minutos"
+        )
     return resource, start, end
 
 

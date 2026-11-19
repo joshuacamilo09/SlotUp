@@ -11,7 +11,7 @@ implementa só o "gancho" (hook) do seu tipo:
 Ligar ou desligar uma regra é tirá-la ou pô-la na lista do modo, em ATIVAS_POR_MODO.
 O booking NÃO escolhe regras no pedido: a lista fica no código.
 """
-from app.csp.modelo import FOLGA_DESLOCAMENTO_MIN, PASSO_MIN, duracao_permitida, livre_com_folga, para_minutos, sobrepoe
+from app.csp.modelo import FOLGA_DESLOCAMENTO_MIN, PASSO_MIN, duracao_permitida, livre_com_folga, sobrepoe
 from app.csp.restricoes import intervalo_estacionamento
 
 ANTECEDENCIA_MAX_DIAS = 30  # igual ao booking
@@ -79,17 +79,14 @@ class Multiplo15(Regra):
 class HorarioAbertura(Regra):
     id = "HORARIO_ABERTURA"
     nome = "Horário de abertura"
-    mensagem = "a atividade não cabe em nenhuma janela de abertura do recurso."
+    mensagem = "o recurso está fechado nesse dia ou a atividade não cabe no horário de abertura."
     tipo = "unaria"
 
     def permite(self, problema, pedido, recurso, inicio, fim) -> bool:
         if inicio is None:
             return True  # a vaga é verificada na VAGA_COBRE_O_DIA
-        # any(): basta UMA janela que contenha o intervalo inteiro
-        return any(
-            para_minutos(j["open_time"]) <= inicio and fim <= para_minutos(j["close_time"])
-            for j in recurso["opening"]
-        )
+        # As janelas DAQUELE dia (o modelo já as tirou do horário semanal)
+        return any(abre <= inicio and fim <= fecha for abre, fecha in problema.aberturas[recurso["id"]])
 
 
 class SemPassado(Regra):

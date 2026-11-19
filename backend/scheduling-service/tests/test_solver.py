@@ -74,12 +74,12 @@ def test_r2_duracao_fora_do_limite(dados):
     assert problema.dominios["padel"] == []
 
 
-def test_r2_params_do_recurso_ganham_ao_padrao(dados):
+def test_r2_duracao_vem_do_recurso(dados):
     # Com max_duration_min=120 nas quadras, os 120 min passam a ser aceitos
     dados["activities"][3]["duration_min"] = 120
     for recurso in dados["resources"]:
         if recurso["resource_type"] == "quadra":
-            recurso["params"] = {"max_duration_min": 120}
+            recurso["max_duration_min"] = 120
     problema = montar_problema(dados, agora=AGORA)
     assert problema.dominios["padel"]  # lista não vazia conta como True
 
@@ -88,7 +88,7 @@ def test_r9_buffer_do_recurso(dados):
     # Sem folga na sala grande, a reunião já pode começar às 15h00 em ponto
     for recurso in dados["resources"]:
         if recurso["id"] == "sala-grande":
-            recurso["params"] = {"buffer_min": 0}
+            recurso["buffer_min"] = 0
     problema = montar_problema(dados, agora=AGORA)
     inicios = {v.inicio for v in problema.dominios["reuniao"]}
     assert 15 * 60 in inicios
@@ -254,7 +254,7 @@ def test_api_suggest_ainda_nao_implementado(cliente, dados):
 @pytest.mark.parametrize("mudar,regra", [
     (lambda d: d["activities"][2].update(people=9), "CAPACIDADE"),
     (lambda d: d["activities"][3].update(duration_min=120), "DURACAO"),
-    (lambda d: [r.update(opening=[]) for r in d["resources"] if r["resource_type"] == "sala"], "HORARIO_ABERTURA"),
+    (lambda d: [r.update(schedule=[]) for r in d["resources"] if r["resource_type"] == "sala"], "HORARIO_ABERTURA"),
     (lambda d: d.update(day="2026-11-01"), "SEM_PASSADO"),
     (lambda d: d.update(day="2027-02-01"), "ANTECEDENCIA"),
     (lambda d: d["busy"].append({"resource_id": "sala-grande", "start": "08:00", "end": "20:00"}), "RECURSO_LIVRE"),
@@ -288,8 +288,24 @@ def test_sem_sobreposicao_so_no_modo_plano():
     assert "SEM_SOBREPOSICAO" in ATIVAS_POR_MODO["plan"]
     assert "SEM_SOBREPOSICAO" not in ATIVAS_POR_MODO["suggest"]
 
-
 def test_todas_as_regras_tem_id_nome_e_mensagem():
     for regra in POR_ID.values():
         assert regra.id and regra.nome and regra.mensagem
         assert regra.tipo in {"pedido", "unaria", "binaria", "global"}
+
+def test_recurso_fechado_no_dia_da_semana(cliente, dados):
+    # 12/12/2026 é um sábado: as mesas e as salas só abrem de segunda a sexta
+    dados["day"] = "2026-12-12"
+    resposta = cliente.post("/api/scheduling/plan", json=dados)
+    falha = resposta.json()["failure"]
+    assert falha["code"] == "NO_FREE_SLOT"
+    assert falha["rule_id"] == "HORARIO_ABERTURA"
+
+def test_aceita_horas_no_formato_do_booking(cliente, dados):
+    # O booking serializa as horas como "08:00:00": o contrato aceita os dois formatos
+    for recurso in dados["resources"]:
+        for regra in recurso["schedule"]:
+            regra["open_time"] += ":00"
+            regra["close_time"] += ":00"
+    resposta = cliente.post("/api/scheduling/plan", json=dados)
+    assert resposta.json()["plan"]["cost"] == 127.0

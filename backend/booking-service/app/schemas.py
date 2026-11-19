@@ -58,6 +58,10 @@ ResourceName = Annotated[str, StringConstraints(strip_whitespace=True, min_lengt
 ResourceType = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, min_length=2, max_length=30)]
 ResourceDescription = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 
+# Migração 0007: múltiplos de 15 min, até 24 h (o PostgreSQL verifica o mesmo)
+DurationMin = Annotated[int, Field(ge=15, le=1440, multiple_of=15)]
+BufferMin = Annotated[int, Field(ge=0, le=60)]
+
 DEFAULT_OPEN = time(8, 0)
 DEFAULT_CLOSE = time(20, 0)
 
@@ -125,9 +129,18 @@ class ResourceCreate(BaseModel):
     resource_type: ResourceType
     description: ResourceDescription | None = None
     capacity: int = Field(default=1, ge=1, le=1000)
+    min_duration_min: DurationMin = 15
+    max_duration_min: DurationMin = 240
+    buffer_min: BufferMin = 10
     attributes: Attributes = Field(default_factory=dict)
     # None (não enviado) = horário por defeito; [] = recurso sem horário (nunca abre)
     schedule: Schedule | None = None
+
+    @model_validator(mode="after")
+    def _min_ate_max(self) -> "ResourceCreate":
+        if self.min_duration_min > self.max_duration_min:
+            raise ValueError("min_duration_min não pode ser maior que max_duration_min")
+        return self
 
 
 class ResourceUpdate(BaseModel):
@@ -140,6 +153,9 @@ class ResourceUpdate(BaseModel):
     resource_type: ResourceType | None = None
     description: ResourceDescription | None = None  # enviar null apaga a descrição
     capacity: int | None = Field(default=None, ge=1, le=1000)
+    min_duration_min: DurationMin | None = None
+    max_duration_min: DurationMin | None = None
+    buffer_min: BufferMin | None = None
     attributes: Attributes | None = None
     is_active: bool | None = None
 
@@ -148,7 +164,7 @@ class ResourceUpdate(BaseModel):
         sent = self.model_fields_set
         if not sent:
             raise ValueError("Envie pelo menos um campo para alterar")
-        for field in ("category_id", "name", "resource_type", "capacity", "attributes", "is_active"):
+        for field in ("category_id", "name", "resource_type", "capacity", "attributes", "is_active", "min_duration_min", "max_duration_min", "buffer_min"):
             if field in sent and getattr(self, field) is None:
                 raise ValueError(f"{field} não pode ser null")
         return self
@@ -180,6 +196,9 @@ class ResourceOut(BaseModel):
     resource_type: str
     description: str | None
     capacity: int
+    min_duration_min: int
+    max_duration_min: int
+    buffer_min: int
     attributes: dict[str, Any]
     is_active: bool
     schedule: list[AvailabilityRuleOut]

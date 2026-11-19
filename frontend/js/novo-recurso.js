@@ -21,6 +21,20 @@ const DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];   // índice = 
 const PASSO_HORARIO = 30;      // abre/fecha andam de 30 em 30 minutos
 const FIM_DO_DIA = 24 * 60;    // 24:00
 
+// Valores iniciais de cada tipo: [duração mínima, duração máxima, intervalo], em minutos.
+// São só sugestões: o admin muda-os nesta tela, e é o valor gravado que vale.
+const LIMITES_INICIAIS = {
+  mesa:       [15, 720, 10],
+  sala:       [15, 240, 10],
+  quadra:     [60, 90, 10],
+  personal:   [60, 60, 10],
+  vaga_carro: [15, 1440, 0],
+  vaga_mota:  [15, 1440, 0],
+};
+const LIMITES_PADRAO = [15, 240, 10];   // um tipo que não está na lista acima
+const PASSO_DURACAO = 15;               // a duração anda de 15 em 15 min (regra do backend)
+const PASSO_INTERVALO = 5;
+
 // ===== AJUDANTES =====
 // 570 → "09:30"
 function paraHora(minutos) {
@@ -31,6 +45,21 @@ function horaParaApi(minutos) {
   return minutos >= FIM_DO_DIA ? "23:59" : paraHora(minutos);
 }
 
+// Os três limites de um tipo, já com os nomes do estado
+function limitesDoTipo(tipo) {
+  // Desestruturação: tira os 3 valores do array para 3 variáveis de uma vez
+  const [minDur, maxDur, intervalo] = LIMITES_INICIAIS[tipo] || LIMITES_PADRAO;
+  return { minDur, maxDur, intervalo };
+}
+
+// 45 → "45 min", 60 → "1h", 90 → "1h30"
+function paraDuracao(minutos) {
+  if (minutos < 60) return `${minutos} min`;
+  const h = Math.floor(minutos / 60);
+  const m = minutos % 60;
+  return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+}
+
 // ===== ESTADO =====
 // Categorias vindas da API, já com o id curto: [{ id: "coworking", uuid: "…", name: "Coworking" }, …]
 let categorias = [];
@@ -38,8 +67,12 @@ let estado = null;
 
 // Valores iniciais de uma categoria. Ao trocar de categoria, o nome e a localização ficam.
 function estadoInicial(categoria, anterior = {}) {
+  const tipo = Object.keys(TIPOS_UI[categoria])[0];
   return {
     categoria,
+    tipo,
+    ...limitesDoTipo(tipo),                     // espalha minDur, maxDur e intervalo no estado
+    nome: anterior.nome ?? "",
     tipo: Object.keys(TIPOS_UI[categoria])[0],   // primeiro código do dicionário (ex.: "sala")
     nome: anterior.nome ?? "",
     local: anterior.local ?? "",
@@ -109,6 +142,18 @@ function render() {
   document.getElementById("fecha-menos").disabled = estado.fecha - PASSO_HORARIO < estado.abre + 60;
   document.getElementById("fecha-mais").disabled = estado.fecha + PASSO_HORARIO > FIM_DO_DIA;
 
+  // ----- 4. Regras de reserva -----
+  document.getElementById("dmin-valor").textContent = paraDuracao(estado.minDur);
+  document.getElementById("dmax-valor").textContent = paraDuracao(estado.maxDur);
+  document.getElementById("intervalo-valor").textContent = `${estado.intervalo} min`;
+  // Os mesmos limites que o backend valida: mínimo ≥ 15, mínimo ≤ máximo ≤ 24 h, intervalo 0 a 60
+  document.getElementById("dmin-menos").disabled = estado.minDur - PASSO_DURACAO < 15;
+  document.getElementById("dmin-mais").disabled = estado.minDur + PASSO_DURACAO > estado.maxDur;
+  document.getElementById("dmax-menos").disabled = estado.maxDur - PASSO_DURACAO < estado.minDur;
+  document.getElementById("dmax-mais").disabled = estado.maxDur + PASSO_DURACAO > FIM_DO_DIA;
+  document.getElementById("intervalo-menos").disabled = estado.intervalo - PASSO_INTERVALO < 0;
+  document.getElementById("intervalo-mais").disabled = estado.intervalo + PASSO_INTERVALO > 60;
+
   // Botão de enviar: desativado enquanto espera a resposta
   const enviar = document.getElementById("criar-btn");
   enviar.disabled = estado.aEnviar;
@@ -157,7 +202,7 @@ function renderPreview() {
       </div>
       <div class="botao botao-primario">Reservar</div>
     </article>
-    <p class="preview-regras">${dias} · ${paraHora(estado.abre)}–${paraHora(estado.fecha)} · reservas de 15 em 15 min</p>`;
+    <p class="preview-regras">${dias} · ${paraHora(estado.abre)}–${paraHora(estado.fecha)} · ${paraDuracao(estado.minDur)} a ${paraDuracao(estado.maxDur)} por reserva</p>`;
 }
 
 // ===== EVENTOS =====
@@ -168,7 +213,10 @@ document.getElementById("form-recurso").addEventListener("click", (e) => {
   const d = b.dataset;   // atributos data-*: data-tipo → d.tipo, data-dia → d.dia...
 
   if (d.categoria) estado = estadoInicial(d.categoria, estado);   // nova categoria: valores iniciais dela
-  else if (d.tipo) estado.tipo = d.tipo;
+  else if (d.tipo) {
+    estado.tipo = d.tipo;
+    Object.assign(estado, limitesDoTipo(d.tipo));   // novo tipo: os limites iniciais dele
+  }
   else if (d.atributo) {
     // Liga/desliga o atributo
     estado.atributos = estado.atributos.includes(d.atributo)
@@ -185,6 +233,12 @@ document.getElementById("form-recurso").addEventListener("click", (e) => {
   else if (b.id === "abre-mais") estado.abre += PASSO_HORARIO;
   else if (b.id === "fecha-menos") estado.fecha -= PASSO_HORARIO;
   else if (b.id === "fecha-mais") estado.fecha += PASSO_HORARIO;
+  else if (b.id === "dmin-menos") estado.minDur -= PASSO_DURACAO;
+  else if (b.id === "dmin-mais") estado.minDur += PASSO_DURACAO;
+  else if (b.id === "dmax-menos") estado.maxDur -= PASSO_DURACAO;
+  else if (b.id === "dmax-mais") estado.maxDur += PASSO_DURACAO;
+  else if (b.id === "intervalo-menos") estado.intervalo -= PASSO_INTERVALO;
+  else if (b.id === "intervalo-mais") estado.intervalo += PASSO_INTERVALO;
   else return;
 
   render();
@@ -229,6 +283,9 @@ document.getElementById("form-recurso").addEventListener("submit", async (e) => 
     resource_type: estado.tipo,
     description: estado.local.trim() || null,                                  // a localização vai na description
     capacity: estado.capacidade,
+    min_duration_min: estado.minDur,
+    max_duration_min: estado.maxDur,
+    buffer_min: estado.intervalo,
     attributes: Object.fromEntries(estado.atributos.map((chave) => [chave, true])),   // ["monitor"] → {monitor: true}
     // Um intervalo por dia escolhido (weekday: 0 = segunda ... 6 = domingo)
     schedule: DIAS.map((_, i) => i).filter((i) => estado.dias[i]).map((i) => ({

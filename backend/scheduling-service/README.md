@@ -4,33 +4,20 @@ Formato do JSON que o **booking-service** envia ao **scheduling-service** (CSP) 
 
 - **Rota:** `POST /api/scheduling/plan` (só na rede interna; o Nginx não tem rota para ela)
 - **Quem chama:** só o booking, depois de validar o token do usuário
-- **Horas:** sempre `HH:MM` em **hora local do complexo**, no dia indicado em `day`. O booking converte de UTC antes de enviar.
+- **Horas:** sempre `HH:MM:SS` em **hora local do complexo**, no dia indicado em `day`. O booking converte de UTC antes de enviar.
 
 ## 1. Entrada
 
 ```json
 {
-  "mode": "plan",
-  "day": "2026-12-10",
-  "now": "2026-12-09T15:30",
-  "activities": [
-    { "id": "estacionamento", "resource_type": "vaga_carro", "covers_day": true, "people": 1 },
-    { "id": "trabalho", "resource_type": "mesa", "duration_min": 240, "preferred_start": "09:00", "people": 1, "favorite_resource_id": "4e2a..." },
-    { "id": "reuniao", "resource_type": "sala", "duration_min": 60, "preferred_start": "14:00", "people": 6 }
-  ],
-  "resources": [
-    {
-      "id": "9b1c...",
-      "name": "Sala Grande",
-      "resource_type": "sala",
-      "capacity": 8,
-      "opening": [ { "open_time": "08:00", "close_time": "20:00" } ],
-      "params": { "min_duration_min": 15, "max_duration_min": 240, "buffer_min": 10 }
-    }
-  ],
-  "busy": [
-    { "resource_id": "9b1c...", "start": "14:00", "end": "15:00" }
-  ]
+  "id": "9b1c...",
+  "name": "Sala de Reunião B",
+  "resource_type": "sala",
+  "capacity": 8,
+  "schedule": [ { "weekday": 3, "open_time": "08:00:00", "close_time": "20:00:00" } ],
+  "min_duration_min": 15,
+  "max_duration_min": 240,
+  "buffer_min": 10
 }
 ```
 
@@ -61,13 +48,9 @@ Formato do JSON que o **booking-service** envia ao **scheduling-service** (CSP) 
 | Campo | Obrigatório | Descrição |
 |---|---|---|
 | `id`, `name`, `resource_type`, `capacity` | sim | Iguais ao recurso no booking |
-| `opening` | sim | Janelas de abertura do dia (pode ter mais de uma) |
-| `params` | não | Parâmetros do recurso. O que faltar usa o padrão do tipo no scheduling |
-
-| Parâmetro | Regra | Padrão |
-|---|---|---|
-| `min_duration_min` / `max_duration_min` | R2 | Sala 15–240; mesa 15–720; quadra 60–90; personal 60–60 |
-| `buffer_min` | R9 | 10 |
+| `schedule` | sim | Horário **semanal**, igual ao do booking: `weekday` (0 = segunda ... 6 = domingo), `open_time`, `close_time`. O scheduling escolhe as janelas do dia pedido |
+| `min_duration_min`, `max_duration_min` | sim | Duração mínima e máxima de uma reserva, em minutos (múltiplos de 15) |
+| `buffer_min` | sim | Intervalo obrigatório entre reservas seguidas do recurso (0 a 60 min) |
 
 ### Regras de validação (respondem 422)
 
