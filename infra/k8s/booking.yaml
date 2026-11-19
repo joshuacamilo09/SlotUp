@@ -40,7 +40,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
         - name: booking
-          image: ghcr.io/joshuacamilo09/slotup-booking:dev-sprint6
+          image: ghcr.io/joshuacamilo09/slotup-booking:dev-sprint7
           imagePullPolicy: Always
           ports:
             - name: http
@@ -155,7 +155,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
         - name: worker
-          image: ghcr.io/joshuacamilo09/slotup-booking:dev-sprint6
+          image: ghcr.io/joshuacamilo09/slotup-booking:dev-sprint7
           imagePullPolicy: Always
           command: ["python", "-m", "app.worker"]
           envFrom:

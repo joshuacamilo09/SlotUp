@@ -40,7 +40,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
         - name: scheduling
-          image: ghcr.io/joshuacamilo09/slotup-scheduling:dev-sprint6
+          image: ghcr.io/joshuacamilo09/slotup-scheduling:dev-sprint7
           imagePullPolicy: Always
           ports:
             - name: http
