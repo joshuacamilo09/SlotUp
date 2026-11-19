@@ -13,32 +13,8 @@
 </head>
 <body>
 
-  <!-- ===== Cabeçalho ===== -->
-  <header class="topbar">
-    <a class="logo" href="index.html">
-      <svg width="22" height="32" viewBox="0 0 26 38" aria-hidden="true">
-        <rect x="2" y="2" width="22" height="34" rx="11" fill="none" stroke="currentColor" stroke-width="3.5"/>
-        <circle cx="13" cy="13" r="4" fill="currentColor"/>
-      </svg>
-      SlotUp
-    </a>
-    <nav class="nav" aria-label="Principal">
-      <a class="nav-link ativo" href="index.html" aria-current="page">Início</a>
-      <a class="nav-link" href="../minhas-reservas.html">Minhas reservas <span class="badge" id="nav-count" hidden>0</span></a>
-    </nav>
-    <div class="topbar-direita">
-      <div class="vista" role="group" aria-label="Vista">
-        <button class="vista__btn ativo" type="button">Utilizador</button>
-        <button class="vista__btn" type="button">Admin</button>
-      </div>
-      <div class="perfil">
-        <button class="avatar" type="button" aria-label="Menu da conta">
-          <span class="avatar-circulo">MS</span>
-          <span class="icone" aria-hidden="true">expand_more</span>
-        </button>
-      </div>
-    </div>
-  </header>
+  <!-- Cabeçalho: o layout.js desenha-o aqui -->
+  <div id="cabecalho"></div>
 
   <main class="conteudo">
 
@@ -76,7 +52,8 @@
             <span id="atv-total">0 atividades · 0h no total</span>
           </div>
           <ol class="atv-lista" id="atv-lista"></ol>
-          <button class="atv-add" type="button" id="atv-add"><span class="icone" aria-hidden="true">add</span>Adicionar atividade</button>
+          <button class="atv-add" type="button" id="atv-add" data-acao="adicionar"><span class="icone" aria-hidden="true">add</span>Adicionar atividade</button>
+          <p class="atv-max" id="atv-max" hidden>Máximo de 5 atividades por plano.</p>
         </div>
 
         <button class="gerar" type="button" id="gerar-plano"><span class="icone" aria-hidden="true">auto_awesome</span><span class="gerar__txt">Gerar plano</span></button>
@@ -99,51 +76,9 @@
     </div>
   </main>
 
-  <!-- ===== Modelo de uma atividade (o JS copia isto; {n} vira o número) ===== -->
-  <template id="tpl-atv">
-    <li class="atv">
-      <div class="atv__cab">
-        <h4 class="atv__titulo">Atividade</h4>
-        <button class="atv__lixo" type="button" data-acao="remover" aria-label="Remover atividade"><span class="icone" aria-hidden="true">delete</span></button>
-      </div>
-
-      <div class="atv__cats" role="radiogroup" aria-label="Categoria">
-        <label class="cat cat--coworking"><input type="radio" name="cat-{n}" value="coworking"><span class="icone" aria-hidden="true">desk</span>Coworking</label>
-        <label class="cat cat--estacionamento"><input type="radio" name="cat-{n}" value="estacionamento"><span class="icone" aria-hidden="true">local_parking</span>Estacionamento</label>
-        <label class="cat cat--desporto"><input type="radio" name="cat-{n}" value="desporto"><span class="icone" aria-hidden="true">sports_tennis</span>Desporto</label>
-      </div>
-
-      <div class="atv__linha">
-        <div class="atv__campo">
-          <span class="atv__rotulo" id="duracao-{n}">Duração</span>
-          <div class="passo" role="group" aria-labelledby="duracao-{n}">
-            <button class="passo__btn" type="button" data-acao="dur-" aria-label="Menos tempo"><span class="icone" aria-hidden="true">remove</span></button>
-            <output class="passo__valor" data-mostra="dur"></output>
-            <button class="passo__btn" type="button" data-acao="dur+" aria-label="Mais tempo"><span class="icone" aria-hidden="true">add</span></button>
-          </div>
-        </div>
-        <div class="atv__campo">
-          <span class="atv__rotulo" id="turno-{n}">Horário preferido</span>
-          <div class="turnos" role="radiogroup" aria-labelledby="turno-{n}">
-            <label class="turno"><input type="radio" name="turno-{n}" value="manha">Manhã</label>
-            <label class="turno"><input type="radio" name="turno-{n}" value="tarde">Tarde</label>
-            <label class="turno"><input type="radio" name="turno-{n}" value="hora">Hora específica</label>
-          </div>
-        </div>
-      </div>
-
-      <div class="atv__hora">
-        <span class="atv__rotulo">Começa às</span>
-        <div class="passo" role="group" aria-label="Hora de início">
-          <button class="passo__btn" type="button" data-acao="ini-" aria-label="Começar mais cedo"><span class="icone" aria-hidden="true">remove</span></button>
-          <output class="passo__valor" data-mostra="ini"></output>
-          <button class="passo__btn" type="button" data-acao="ini+" aria-label="Começar mais tarde"><span class="icone" aria-hidden="true">add</span></button>
-        </div>
-        <span class="atv__fim">termina às <b data-mostra="fim"></b></span>
-      </div>
-    </li>
-  </template>
-
+  <script src="js/api.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/catalogo.js"></script>
   <script src="js/planear-dia.js"></script>
 </body>
 </html>

@@ -58,12 +58,10 @@
   border-radius: 8px;
   cursor: pointer;
 }
-.data input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
 .data__dia { font-size: 11px; font-weight: 700; }
 .data__num { font-size: 17px; font-weight: 800; line-height: 1.1; }
 .data:hover { border-color: var(--cor-borda-forte); }
-.data:has(input:checked) { background: var(--cor-texto); border-color: var(--cor-texto); color: #fff; }
-.data:has(input:focus-visible) { outline: 2px solid var(--cor-primaria); outline-offset: 2px; }
+.data.ativo { background: var(--cor-texto); border-color: var(--cor-texto); color: #fff; }
 
 /* ---------- Lista de atividades ---------- */
 .atv-bloco { display: flex; flex-direction: column; gap: 12px; }
@@ -112,15 +110,15 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.cat input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
 .cat .icone { font-size: 17px; color: var(--cor-texto-suave); }
 .cat--coworking { --cor-cat: var(--coworking); --cor-cat-suave: var(--coworking-suave); }
 .cat--estacionamento { --cor-cat: var(--estacionamento); --cor-cat-suave: var(--estacionamento-suave); }
 .cat--desporto { --cor-cat: var(--desporto); --cor-cat-suave: var(--desporto-suave); }
 .cat:hover { border-color: var(--cor-borda-forte); }
-.cat:has(input:checked) { background: var(--cor-cat-suave); border-color: var(--cor-cat); }
-.cat:has(input:checked) .icone { color: var(--cor-cat); }
-.cat:has(input:focus-visible) { outline: 2px solid var(--cor-primaria); outline-offset: 2px; }
+.cat.ativo { background: var(--cor-cat-suave); border-color: var(--cor-cat); }
+.cat.ativo .icone { color: var(--cor-cat); }
+.cat:disabled { opacity: 0.4; cursor: not-allowed; }
+.cat:disabled:hover { border-color: var(--cor-borda); }
 
 /* Duração (esquerda) e horário preferido (direita) */
 .atv__linha { display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 12px 14px; align-items: end; }
@@ -163,13 +161,11 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.turno input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
-.turno:has(input:checked) { background: var(--cor-superficie); color: var(--cor-texto); font-weight: 700; box-shadow: 0 1px 2px rgba(20, 22, 31, 0.12); }
-.turno:has(input:focus-visible) { outline: 2px solid var(--cor-primaria); outline-offset: 1px; }
+.turno.ativo { background: var(--cor-superficie); color: var(--cor-texto); font-weight: 700; box-shadow: 0 1px 2px rgba(20, 22, 31, 0.12); }
 
-/* "Começa às": só aparece quando está escolhida a opção Hora específica */
-.atv__hora { display: none; align-items: center; gap: 10px; font-size: 12px; }
-.atv:has(input[value="hora"]:checked) .atv__hora { display: flex; }
+/* "Começa às" e "Pessoas": o JS só os desenha quando fazem falta */
+.atv__hora { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.atv__hora > .atv__rotulo { min-width: 64px; }
 .atv__hora .passo { width: 104px; }
 .atv__fim { color: var(--cor-texto-suave); }
 .atv__fim b { font: 700 12px var(--fonte-mono); color: var(--cor-texto); }
@@ -236,31 +232,6 @@
   .atv__linha { grid-template-columns: minmax(0, 1fr); }
   .cat { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: 11.5px; }
 }
-/* ---------- Cabeçalho: seletor Utilizador / Admin ---------- */
-.vista {
-  display: flex;
-  padding: 3px;
-  background: var(--cor-chip);
-  border-radius: 8px;
-}
-.vista__btn {
-  padding: 6px 12px;
-  border-radius: 6px;
-  color: var(--cor-texto-suave);
-  font-size: 13px;
-  font-weight: 600;
-}
-.vista__btn:hover { color: var(--cor-texto); }
-.vista__btn.ativo {
-  background: var(--cor-superficie);
-  color: var(--cor-texto);
-  font-weight: 700;
-  box-shadow: 0 1px 2px rgba(20, 22, 31, 0.12);
-}
-
-@media (max-width: 700px) {
-  .vista { display: none; }
-}
 /* ---------- Topo da página: migalhas + título ---------- */
 .plano-topo { display: flex; flex-direction: column; gap: 14px; }
 .migalhas { display: flex; gap: 6px; font-size: 12px; color: var(--cor-texto-suave); }
@@ -317,4 +288,75 @@
 @media (max-width: 480px) {
   .plano-item { grid-template-columns: 36px minmax(0, 1fr) auto; }
   .plano-item__hora { grid-column: 1 / -1; }
+}
+/* ---------- Tipo dentro da categoria (mesa, sala, padel...) ---------- */
+.atv__tipos { display: flex; flex-wrap: wrap; gap: 6px; }
+.tipo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 999px;
+  background: var(--cor-superficie);
+  color: var(--cor-texto-suave);
+  font-size: 12px;
+  font-weight: 600;
+}
+.tipo .icone { font-size: 16px; }
+.tipo:hover { border-color: var(--cor-borda-forte); color: var(--cor-texto); }
+.tipo.ativo { border-color: var(--cor-texto); background: var(--cor-texto); color: #fff; }
+
+/* Foco do teclado em todos os botões de escolha */
+.data:focus-visible, .cat:focus-visible, .tipo:focus-visible, .turno:focus-visible {
+  outline: 2px solid var(--cor-primaria);
+  outline-offset: 2px;
+}
+.passo__btn:disabled { opacity: 0.35; cursor: not-allowed; background: none; }
+
+/* Nota do estacionamento e limite de atividades */
+.atv__nota, .plano-nota {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
+.atv__nota .icone, .plano-nota .icone { flex: none; font-size: 16px; }
+.atv-max { font-size: 12px; text-align: center; color: var(--cor-texto-suave); }
+
+/* ---------- Resultado: resumo, ações, sugestões ---------- */
+.plano-resumo { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+.plano-resumo .icone { font-size: 18px; color: var(--cor-primaria); }
+.plano-item.cat--coworking, .plano-item.cat--estacionamento, .plano-item.cat--desporto { border-left: 4px solid var(--cor-cat); }
+.plano-acoes { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; }
+.plano-acoes .gerar { text-decoration: none; }
+.plano-secundario {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--cor-borda-forte);
+  border-radius: 10px;
+  background: var(--cor-superficie);
+  font-size: 14px;
+  font-weight: 700;
+}
+.plano-secundario:hover { background: var(--cor-fundo); }
+.plano-sugestoes__titulo { margin-top: 12px; font-size: 12px; font-weight: 800; }
+.plano-sugestoes { padding-left: 18px; font-size: 12.5px; text-align: left; color: var(--cor-texto-suave); }
+
+/* Roda de "a carregar" */
+.plano-roda {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 8px;
+  border: 3px solid var(--cor-borda);
+  border-top-color: var(--cor-primaria);
+  border-radius: 50%;
+  animation: plano-girar 0.8s linear infinite;
+}
+@keyframes plano-girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .plano-roda { animation-duration: 2.4s; } }
+
+@media (max-width: 480px) {
+  .plano-acoes { grid-template-columns: minmax(0, 1fr); }
 }
