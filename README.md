@@ -2,6 +2,47 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint7`
+
+Quatro tarefas da Sprint 7, todas no auth-service: segurança do login e das contas.
+
+### 1. AES-GCM no segredo do 2FA
+
+- **Já existia desde a Sprint 1** (`app/security.py`): o segredo TOTP é guardado no `auth_db` cifrado com AES-256-GCM. A chave vem de um Secret (`/run/secrets/totp_encryption_key` no Docker, Secret `totp-encryption-key` no Kubernetes) e nunca do banco. Cada cifragem usa um nonce aleatório de 12 bytes, e o id do utilizador entra como dados associados: o segredo de um utilizador não serve na linha de outro.
+- **Novo:** o auth não arranca se a chave faltar ou não tiver 32 bytes. Antes só dava erro 500 no primeiro login com 2FA.
+- **Novos testes** (`tests/test_totp_crypto.py`): nonce diferente em cada cifragem, chave errada recusada, um byte alterado no banco detetado, segredo copiado para outro utilizador recusado.
+
+### 2. Limite de tentativas
+
+- **5 erros bloqueiam a conta durante 15 min** (antes eram 10). Contam juntos os erros de palavra-passe e os de código 2FA.
+- O contador fica no banco (`users.failed_login_attempts`) e sobe no próprio PostgreSQL, por isso vale para as 2 réplicas ao mesmo tempo.
+- Durante o bloqueio, até a palavra-passe certa dá `429 "Conta bloqueada por demasiadas tentativas falhadas. Tente daqui a N min."`.
+- Configuração: `MAX_FAILED_ATTEMPTS=5` e `LOCK_MINUTES=15` (`config/auth.env` e ConfigMap `auth-config`). Testes: `tests/test_lockout.py`.
+
+### 3. Validade do token e troca de palavra-passe
+
+- O token de acesso vale **30 min** (`ACCESS_TOKEN_MINUTES`, dentro dos 30 a 60 pedidos).
+- **Novo endpoint** `POST /api/auth/password/change`, com `{"current_password": "...", "new_password": "..."}` e o token de acesso. Pede a palavra-passe atual (errar conta para o limite de tentativas) e devolve um token novo, para a sessão atual continuar.
+- **Terminar as outras sessões:** cada utilizador tem uma `session_version` (migração `0003`), que vai dentro de cada token. A troca de palavra-passe, a redefinição pelo admin e o reset do 2FA sobem a versão, e o auth passa a recusar os tokens antigos: `401 "Sessão terminada. Entre outra vez."`.
+- **Limite:** o booking só valida a assinatura do token e não sabe da versão. Num outro dispositivo, a sessão termina no auth logo, mas as reservas continuam a funcionar até o token expirar (no máximo 30 min).
+- **Frase do mockup:** em vez de "as outras sessões são terminadas", usar "As sessões noutros dispositivos vão ser terminadas (pode levar até 30 minutos)."
+- Testes: `tests/test_password_change.py`.
+
+### 4. Reset de 2FA pelo admin
+
+- **Já existia desde a Sprint 1**: `POST /api/auth/users/{id}/2fa/reset` (só ADMIN). Apaga o segredo antigo, e no próximo login o utilizador lê um QR code novo.
+- **Novo:**
+  - termina as sessões abertas, para o caso de o telemóvel ter sido roubado com o SlotUp aberto;
+  - um admin já não repõe o próprio 2FA, tem de ser outro admin (como na troca de papel).
+- Testes: `tests/test_reset_2fa.py`.
+
+### Para o frontend
+
+- Página "Alterar palavra-passe": `POST /api/auth/password/change`. Guardar o `access_token` que vem na resposta.
+- Página de admin: `GET /api/auth/users` lista os utilizadores, e `POST /api/auth/users/{id}/2fa/reset` é o botão "Repor 2FA".
+- Os `401` com `"Sessão terminada. Entre outra vez."` já levam ao login, porque o `api.js` termina a sessão em qualquer `401`.
+
+
 ## O que mudou na branch `dev-sprint6`
 
 Seis tarefas da Sprint 6 (backend): o SlotUp inteiro a correr no cluster kind, com HTTPS e com cada serviço nos 2 servidores. Tudo está em `infra/k8s/`.
