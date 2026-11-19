@@ -85,7 +85,7 @@ kubectl -n slotup exec deploy/booking -- python -m app.seed
 1. Abrir **https://localhost:8443** e criar uma conta.
 2. Entrar com a conta e configurar o 2FA na app de autenticação.
 3. Fazer uma reserva e depois cancelá-la.
-4. Ver os emails da reserva e do cancelamento: `kubectl -n slotup port-forward svc/mailpit 8025:8025` e abrir http://localhost:8025.
+4. Ver os emails da reserva e do cancelamento: `kubectl -n slotup port-forward svc/mailpit 8026:8025` e abrir http://localhost:8026 (8026 para não chocar com o Mailpit do Docker Compose, que usa o 8025).
 
 #### Teste de falha
 

@@ -67,4 +67,4 @@ echo
 kubectl get pods -n "$NS" -o wide
 echo
 echo "SlotUp no ar: https://localhost:8443"
-echo "Emails (Mailpit): kubectl -n $NS port-forward svc/mailpit 8025:8025  e abrir http://localhost:8025"
+echo "Emails (Mailpit): kubectl -n $NS port-forward svc/mailpit 8026:8025  e abrir http://localhost:8026"

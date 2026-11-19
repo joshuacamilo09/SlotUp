@@ -1,7 +1,7 @@
 # Mailpit: servidor de email FALSO, só para desenvolvimento (como no Docker Compose).
 # Recebe os emails do worker (SMTP na porta 1025) e mostra-os numa página web (8025).
-# Para ver os emails:  kubectl -n slotup port-forward svc/mailpit 8025:8025
-#                      e abrir http://localhost:8025
+# Para ver os emails:  kubectl -n slotup port-forward svc/mailpit 8026:8025
+#                      e abrir http://localhost:8026
 apiVersion: apps/v1
 kind: Deployment
 metadata:
