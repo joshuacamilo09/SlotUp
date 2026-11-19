@@ -43,11 +43,13 @@ def _now() -> datetime:
 
 
 def _ensure_not_locked(user: User) -> None:
+    """Conta bloqueada? Então 429, mesmo com a password ou o código certos."""
     if user.locked_until and user.locked_until > _now():
         retry = int((user.locked_until - _now()).total_seconds()) + 1
+        minutes = -(-retry // 60)  # arredonda para cima: 61 s -> 2 min
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
-            "Demasiadas tentativas falhadas. Tente mais tarde.",
+            f"Conta bloqueada por demasiadas tentativas falhadas. Tente daqui a {minutes} min.",
             headers={"Retry-After": str(retry)},
         )
 

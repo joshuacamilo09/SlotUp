@@ -42,8 +42,10 @@ class Settings(BaseSettings):
     totp_encryption_key_file: str = "/run/secrets/totp_encryption_key"
     totp_issuer: str = "SlotUp"
 
-    # Proteção contra tentativas repetidas (password e código TOTP)
-    max_failed_attempts: int = 10
+    # Proteção contra tentativas repetidas: 5 erros (password ou código 2FA, somados)
+    # bloqueiam a conta durante 15 min. O contador fica no banco (users.failed_login_attempts),
+    # por isso vale para todas as réplicas.
+    max_failed_attempts: int = 5
     lock_minutes: int = 15
 
     # Validade do token de redefinição de palavra-passe

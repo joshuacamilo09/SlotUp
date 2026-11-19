@@ -33,7 +33,8 @@ os.environ.setdefault("DB_PASSWORD", os.environ.get("AUTH_DB_PASSWORD", "troque-
 os.environ["JWT_PRIVATE_KEY_FILE"] = str(_tmp / "private.pem")
 os.environ["JWT_PUBLIC_KEY_FILE"] = str(_tmp / "public.pem")
 os.environ["TOTP_ENCRYPTION_KEY"] = base64.urlsafe_b64encode(os.urandom(32)).decode()
-os.environ["MAX_FAILED_ATTEMPTS"] = "3"
+os.environ["MAX_FAILED_ATTEMPTS"] = "5"
+os.environ["LOCK_MINUTES"] = "15"
 os.environ.pop("ADMIN_EMAIL", None)
 os.environ.pop("ADMIN_PASSWORD", None)
 

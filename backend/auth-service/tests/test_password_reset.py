@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import text
 
+from app.config import get_settings
 from app.database import SessionLocal
 from tests.conftest import PASSWORD, bearer, get_user, totp_code
 from tests.test_roles_and_health import _make_admin
@@ -126,7 +127,7 @@ def test_novo_pedido_anula_o_token_anterior(client, admin, registered):
 
 
 def test_redefinir_desbloqueia_a_conta(client, admin, registered):
-    for _ in range(3):  # nos testes, MAX_FAILED_ATTEMPTS = 3
+    for _ in range(get_settings().max_failed_attempts):  # 5 erros bloqueiam
         client.post("/api/auth/login", json={"email": registered, "password": "errada-errada"})
     assert login_status(client, registered, PASSWORD)[0] == 429  # bloqueada
 
