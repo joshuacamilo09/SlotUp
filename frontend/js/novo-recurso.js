@@ -21,10 +21,15 @@ const DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];   // índice = 
 const PASSO_HORARIO = 30;      // abre/fecha andam de 30 em 30 minutos
 const FIM_DO_DIA = 24 * 60;    // 24:00
 
+// Opções da tela (em minutos). 1440 = 24 h = "Dia todo"
+const DURACOES_MIN = [15, 30, 60];
+const DURACOES_MAX = [60, 90, 120, 240, 1440];
+const INTERVALOS = [0, 5, 10, 15];
+
 // Valores iniciais de cada tipo: [duração mínima, duração máxima, intervalo], em minutos.
 // São só sugestões: o admin muda-os nesta tela, e é o valor gravado que vale.
 const LIMITES_INICIAIS = {
-  mesa:       [15, 720, 10],
+  mesa:       [15, 1440, 10],
   sala:       [15, 240, 10],
   quadra:     [60, 90, 10],
   personal:   [60, 60, 10],
@@ -32,8 +37,6 @@ const LIMITES_INICIAIS = {
   vaga_mota:  [15, 1440, 0],
 };
 const LIMITES_PADRAO = [15, 240, 10];   // um tipo que não está na lista acima
-const PASSO_DURACAO = 15;               // a duração anda de 15 em 15 min (regra do backend)
-const PASSO_INTERVALO = 5;
 
 // ===== AJUDANTES =====
 // 570 → "09:30"
@@ -52,12 +55,21 @@ function limitesDoTipo(tipo) {
   return { minDur, maxDur, intervalo };
 }
 
-// 45 → "45 min", 60 → "1h", 90 → "1h30"
+// 45 → "45 min", 60 → "1h", 90 → "1h30", 1440 → "Dia todo"
 function paraDuracao(minutos) {
+  if (minutos >= FIM_DO_DIA) return "Dia todo";
   if (minutos < 60) return `${minutos} min`;
   const h = Math.floor(minutos / 60);
   const m = minutos % 60;
   return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+}
+
+// HTML de um grupo de opções. `chave` vira o atributo data-* (data-dmin="30"), e
+// `desativado` diz que opções não se podem escolher (ex.: uma máxima menor que a mínima)
+function segmentos(valores, atual, chave, desativado, texto = paraDuracao) {
+  return valores.map((v) => `
+    <button type="button" class="segmento${v === atual ? " ativo" : ""}" data-${chave}="${v}"
+            aria-pressed="${v === atual}"${desativado(v) ? " disabled" : ""}>${texto(v)}</button>`).join("");
 }
 
 // ===== ESTADO =====
@@ -143,16 +155,14 @@ function render() {
   document.getElementById("fecha-mais").disabled = estado.fecha + PASSO_HORARIO > FIM_DO_DIA;
 
   // ----- 4. Regras de reserva -----
-  document.getElementById("dmin-valor").textContent = paraDuracao(estado.minDur);
-  document.getElementById("dmax-valor").textContent = paraDuracao(estado.maxDur);
-  document.getElementById("intervalo-valor").textContent = `${estado.intervalo} min`;
-  // Os mesmos limites que o backend valida: mínimo ≥ 15, mínimo ≤ máximo ≤ 24 h, intervalo 0 a 60
-  document.getElementById("dmin-menos").disabled = estado.minDur - PASSO_DURACAO < 15;
-  document.getElementById("dmin-mais").disabled = estado.minDur + PASSO_DURACAO > estado.maxDur;
-  document.getElementById("dmax-menos").disabled = estado.maxDur - PASSO_DURACAO < estado.minDur;
-  document.getElementById("dmax-mais").disabled = estado.maxDur + PASSO_DURACAO > FIM_DO_DIA;
-  document.getElementById("intervalo-menos").disabled = estado.intervalo - PASSO_INTERVALO < 0;
-  document.getElementById("intervalo-mais").disabled = estado.intervalo + PASSO_INTERVALO > 60;
+  // ----- Regras de reserva: opções fixas -----
+  // A mínima não pode passar da máxima, nem a máxima ficar abaixo da mínima
+  document.getElementById("escolha-dmin").innerHTML =
+    segmentos(DURACOES_MIN, estado.minDur, "dmin", (v) => v > estado.maxDur);
+  document.getElementById("escolha-dmax").innerHTML =
+    segmentos(DURACOES_MAX, estado.maxDur, "dmax", (v) => v < estado.minDur);
+  document.getElementById("escolha-intervalo").innerHTML =
+    segmentos(INTERVALOS, estado.intervalo, "intervalo", () => false, (v) => `${v} min`);
 
   // Botão de enviar: desativado enquanto espera a resposta
   const enviar = document.getElementById("criar-btn");
@@ -202,7 +212,7 @@ function renderPreview() {
       </div>
       <div class="botao botao-primario">Reservar</div>
     </article>
-    <p class="preview-regras">${dias} · ${paraHora(estado.abre)}–${paraHora(estado.fecha)} · ${paraDuracao(estado.minDur)} a ${paraDuracao(estado.maxDur)} por reserva</p>`;
+    <p class="preview-regras">${dias} · ${paraHora(estado.abre)}–${paraHora(estado.fecha)} · ${estado.maxDur >= FIM_DO_DIA ? `reservas a partir de ${paraDuracao(estado.minDur)}` : `reservas de ${paraDuracao(estado.minDur)} a ${paraDuracao(estado.maxDur)}`}</p>`;
 }
 
 // ===== EVENTOS =====
@@ -233,12 +243,9 @@ document.getElementById("form-recurso").addEventListener("click", (e) => {
   else if (b.id === "abre-mais") estado.abre += PASSO_HORARIO;
   else if (b.id === "fecha-menos") estado.fecha -= PASSO_HORARIO;
   else if (b.id === "fecha-mais") estado.fecha += PASSO_HORARIO;
-  else if (b.id === "dmin-menos") estado.minDur -= PASSO_DURACAO;
-  else if (b.id === "dmin-mais") estado.minDur += PASSO_DURACAO;
-  else if (b.id === "dmax-menos") estado.maxDur -= PASSO_DURACAO;
-  else if (b.id === "dmax-mais") estado.maxDur += PASSO_DURACAO;
-  else if (b.id === "intervalo-menos") estado.intervalo -= PASSO_INTERVALO;
-  else if (b.id === "intervalo-mais") estado.intervalo += PASSO_INTERVALO;
+  else if (d.dmin) estado.minDur = Number(d.dmin);           // data-dmin="30" → d.dmin = "30"
+  else if (d.dmax) estado.maxDur = Number(d.dmax);
+  else if (d.intervalo) estado.intervalo = Number(d.intervalo);
   else return;
 
   render();

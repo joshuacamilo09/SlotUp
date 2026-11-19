@@ -50,7 +50,25 @@
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
     gap: 12px;
 }
-.campo-ajuda { margin-top: -6px; font-size: 12px; color: var(--cor-texto-suave); }
+/* Opções fixas lado a lado (duração e intervalo), como no mockup */
+.segmentado {
+    display: grid;
+    grid-auto-flow: column; grid-auto-columns: 1fr;   /* um botão por coluna, todos com a mesma largura */
+    gap: 2px; height: 44px; padding: 3px;
+    background: var(--cor-chip); border-radius: var(--raio-botao);
+}
+.segmento {
+    border: 0; background: none;
+    border-radius: calc(var(--raio-botao) - 3px);
+    font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;
+    color: var(--cor-texto-suave);
+}
+.segmento.ativo {
+    background: var(--cor-superficie); color: var(--cor-texto); font-weight: 700;
+    box-shadow: 0 1px 2px rgba(20, 22, 31, .12);
+}
+.segmento:disabled { opacity: .35; cursor: not-allowed; }
+.segmentado-curto { max-width: 360px; }
 /* Seletor − valor + maior, ocupando a largura do campo */
 .seletor-grande { height: 44px; justify-content: space-between; }
 .seletor-grande button { width: 40px; }

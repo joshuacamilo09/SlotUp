@@ -74,7 +74,7 @@
 
                 <!-- ===== 3. Horário de funcionamento ===== -->
                 <section class="bloco">
-                    <h2 class="bloco-titulo"><span>3</span>Horário de funcionamento</h2>
+                    <h2 class="bloco-titulo"><span>3</span>Regras de reserva</h2>
 
                     <div class="campo">
                         <span class="campo-titulo">Dias disponíveis</span>
@@ -100,41 +100,23 @@
                             </div>
                         </div>
                     </div>
-                </section>
-
-                <!-- ===== 4. Regras de reserva ===== -->
-                <section class="bloco">
-                    <h2 class="bloco-titulo"><span>4</span>Regras de reserva</h2>
 
                     <div class="campos-lado-a-lado">
                         <div class="campo">
-                            <span class="campo-titulo">Duração mínima</span>
-                            <div class="seletor-hora seletor-grande">
-                                <button type="button" id="dmin-menos" aria-label="Diminuir a duração mínima"><span class="icone">remove</span></button>
-                                <span class="seletor-hora-valor" id="dmin-valor"></span>
-                                <button type="button" id="dmin-mais" aria-label="Aumentar a duração mínima"><span class="icone">add</span></button>
-                            </div>
+                            <span class="campo-titulo" id="dmin-titulo">Duração mínima</span>
+                            <div class="segmentado" id="escolha-dmin" role="group" aria-labelledby="dmin-titulo"></div>
                         </div>
                         <div class="campo">
-                            <span class="campo-titulo">Duração máxima</span>
-                            <div class="seletor-hora seletor-grande">
-                                <button type="button" id="dmax-menos" aria-label="Diminuir a duração máxima"><span class="icone">remove</span></button>
-                                <span class="seletor-hora-valor" id="dmax-valor"></span>
-                                <button type="button" id="dmax-mais" aria-label="Aumentar a duração máxima"><span class="icone">add</span></button>
-                            </div>
-                        </div>
-                        <div class="campo">
-                            <span class="campo-titulo">Intervalo entre reservas</span>
-                            <div class="seletor-hora seletor-grande">
-                                <button type="button" id="intervalo-menos" aria-label="Diminuir o intervalo"><span class="icone">remove</span></button>
-                                <span class="seletor-hora-valor" id="intervalo-valor"></span>
-                                <button type="button" id="intervalo-mais" aria-label="Aumentar o intervalo"><span class="icone">add</span></button>
-                            </div>
+                            <span class="campo-titulo" id="dmax-titulo">Duração máxima</span>
+                            <div class="segmentado" id="escolha-dmax" role="group" aria-labelledby="dmax-titulo"></div>
                         </div>
                     </div>
-                    <p class="campo-ajuda">O intervalo é o tempo livre entre duas reservas seguidas, para limpeza ou preparação.</p>
-                </section>
 
+                    <div class="campo">
+                        <span class="campo-titulo" id="intervalo-titulo">Intervalo entre reservas <small>· tempo livre para limpeza ou preparação</small></span>
+                        <div class="segmentado segmentado-curto" id="escolha-intervalo" role="group" aria-labelledby="intervalo-titulo"></div>
+                    </div>
+                </section>
                 <div class="novo-acoes">
                     <a href="admin.html" class="botao botao-secundario">Cancelar</a>
                     <button type="submit" class="botao botao-primario" id="criar-btn">Criar recurso</button>
