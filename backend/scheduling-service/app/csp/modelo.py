@@ -32,6 +32,7 @@ class Pedido:
     resource_type: str
     duration_min: int | None = None
     desired_start: int | None = None   # em minutos (no JSON chama-se preferred_start)
+    desired_end: int | None = None     # fim da janela preferida (preferred_end); None = hora específica
     people: int = 1
     favorite_resource_id: str | None = None
     covers_day: bool = False
@@ -105,6 +106,7 @@ def ler_pedido(dados: dict) -> Pedido:
         resource_type=dados["resource_type"],
         duration_min=dados.get("duration_min"),
         desired_start=para_minutos(dados["preferred_start"]) if "preferred_start" in dados else None,
+        desired_end=para_minutos(dados["preferred_end"]) if "preferred_end" in dados else None,
         people=dados["people"],
         favorite_resource_id=dados.get("favorite_resource_id"),
         covers_day=dados.get("covers_day", False),

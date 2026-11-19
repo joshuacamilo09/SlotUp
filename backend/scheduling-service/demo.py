@@ -47,10 +47,13 @@ def main() -> None:
         if p.covers_day:
             print(f"  • {pid:<15} {p.resource_type:<10} o dia todo (R7)")
         else:
-            hora = para_hhmm(p.desired_start) if p.desired_start is not None else "--:--"
+            if p.desired_end is not None:  # janela (ex.: manhã)
+                hora = f"entre {para_hhmm(p.desired_start)} e {para_hhmm(p.desired_end)}"
+            else:                          # hora específica
+                hora = f"às {para_hhmm(p.desired_start)}"
             extra = f", {p.people} pessoas" if p.people > 1 else ""
             fav = f", favorito: {nomes.get(p.favorite_resource_id, p.favorite_resource_id)}" if p.favorite_resource_id else ""
-            print(f"  • {pid:<15} {p.resource_type:<6} às {hora}, {p.duration_min} min{extra}{fav}")
+            print(f"  • {pid:<15} {p.resource_type:<6} {hora}, {p.duration_min} min{extra}{fav}")
 
     # ---------------------------------------------------------------- 1. domínios
     titulo("1. Domínios depois das restrições unárias (R1-R5, R9)")

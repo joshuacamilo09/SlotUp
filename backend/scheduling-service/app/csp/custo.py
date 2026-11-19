@@ -1,7 +1,7 @@
 """Regras flexíveis (F1 a F3): cada uma soma pontos de custo. Menor custo = melhor dia.
 
 Os pesos dizem quanto cada regra "vale". Com estes valores:
-- 1 min de distância do horário pedido custa 1 ponto (F1);
+- 1 min fora da janela preferida custa 1 ponto (F1);
 - 10 min de tempo ocioso entre atividades custam 1 ponto (F2);
 - não ficar com o recurso favorito custa 30 pontos (F3) = mudar 30 min de horário.
 São valores para o grupo confirmar.
@@ -9,10 +9,17 @@ São valores para o grupo confirmar.
 from app.csp.modelo import FOLGA_DESLOCAMENTO_MIN, Problema, Valor
 from app.csp.restricoes import tem_horario
 
-PESO_F1 = 1.0   # por minuto de distância do horário pedido
+PESO_F1 = 1.0   # por minuto fora da janela preferida
 PESO_F2 = 0.1   # por minuto de tempo ocioso
 PESO_F3 = 30.0  # por não ficar com o recurso favorito
 
+def fora_da_janela(pedido, valor: Valor) -> int:
+    """F1: minutos que a atividade fica FORA da janela preferida (0 se couber inteira)."""
+    inicio_janela = pedido.desired_start
+    # Sem preferred_end, a janela é a "hora específica": do início pedido até início + duração
+    fim_janela = pedido.desired_end if pedido.desired_end is not None else inicio_janela + (valor.fim - valor.inicio)
+    # max(0, ...): só conta o lado que sai da janela; o que fica dentro não custa nada
+    return max(0, inicio_janela - valor.inicio) + max(0, valor.fim - fim_janela)
 
 def custo_valor(problema: Problema, pid: str, valor: Valor) -> float:
     """Custo de UM pedido sozinho (F1 + F3).
@@ -22,9 +29,9 @@ def custo_valor(problema: Problema, pid: str, valor: Valor) -> float:
     """
     pedido = problema.pedidos[pid]
     custo = 0.0
-    # F1: abs() é o valor absoluto, tanto faz ser 30 min antes ou 30 min depois
+    # F1: minutos fora da janela preferida (antes ou depois, tanto faz)
     if tem_horario(valor) and pedido.desired_start is not None:
-        custo += PESO_F1 * abs(valor.inicio - pedido.desired_start)
+        custo += PESO_F1 * fora_da_janela(pedido, valor)
     # F3: só conta se o usuário indicou um favorito
     if pedido.favorite_resource_id and valor.resource_id != pedido.favorite_resource_id:
         custo += PESO_F3
@@ -57,7 +64,7 @@ def detalhar_custo(problema: Problema, atribuicao: dict[str, Valor]) -> dict:
         # As mesmas contas de custo_valor, mas guardando F1 e F3 em separado
         f1 = 0.0
         if tem_horario(valor) and pedido.desired_start is not None:
-            f1 = PESO_F1 * abs(valor.inicio - pedido.desired_start)
+            f1 = PESO_F1 * fora_da_janela(pedido, valor)
         f3 = 0.0
         if pedido.favorite_resource_id and valor.resource_id != pedido.favorite_resource_id:
             f3 = PESO_F3

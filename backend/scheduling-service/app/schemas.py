@@ -31,6 +31,9 @@ class Activity(Strict):
     # multiple_of=15: a mesma grelha de 15 min do booking
     duration_min: int | None = Field(default=None, ge=15, multiple_of=15)
     preferred_start: Hora | None = None
+    # Janela preferida: a atividade inteira deve caber entre preferred_start e preferred_end.
+    # Sem preferred_end, a janela é preferred_start + duração (uma "hora específica")
+    preferred_end: Hora | None = None
     covers_day: bool = False
     favorite_resource_id: Id | None = None  # preenchido pelo booking a partir do histórico (F3)
 
@@ -38,11 +41,13 @@ class Activity(Strict):
     @model_validator(mode="after")
     def _campos_conforme_o_tipo(self) -> "Activity":
         if self.covers_day:
-            # A vaga não tem horário próprio: a R7 calcula-o a partir das outras atividades
-            if self.duration_min is not None or self.preferred_start is not None:
-                raise ValueError(f"'{self.id}': uma atividade que cobre o dia não leva duration_min nem preferred_start")
+            # A vaga não tem horário próprio: a VAGA_COBRE_O_DIA calcula-o a partir das outras atividades
+            if self.duration_min is not None or self.preferred_start is not None or self.preferred_end is not None:
+                raise ValueError(f"'{self.id}': uma atividade que cobre o dia não leva duração nem horário preferido")
         elif self.duration_min is None or self.preferred_start is None:
             raise ValueError(f"'{self.id}': duration_min e preferred_start são obrigatórios")
+        elif self.preferred_end is not None and self.preferred_end <= self.preferred_start:
+            raise ValueError(f"'{self.id}': preferred_end tem de ser depois de preferred_start")
         return self
 
 class ScheduleRule(Strict):

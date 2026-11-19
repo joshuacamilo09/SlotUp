@@ -332,3 +332,33 @@ def test_primeira_solucao_ja_fica_perto_do_pedido(dados):
     problema = montar_problema(dados, agora=AGORA)
     _, custo, _ = resolver(problema, otimizar=False)
     assert custo <= 200
+
+# ---------------------------------------------------------------- janela preferida
+def test_fora_da_janela():
+    from app.csp.custo import fora_da_janela
+    from app.csp.modelo import Pedido
+    manha = Pedido(id="t", resource_type="mesa", duration_min=180, desired_start=8 * 60, desired_end=13 * 60)
+    assert fora_da_janela(manha, Valor("mesa-01", 10 * 60, 13 * 60)) == 0    # 10:00-13:00: cabe inteira
+    assert fora_da_janela(manha, Valor("mesa-01", 11 * 60, 14 * 60)) == 60   # termina 1 h depois da janela
+    hora = Pedido(id="r", resource_type="sala", duration_min=60, desired_start=14 * 60)
+    assert fora_da_janela(hora, Valor("sala-grande", 15 * 60 + 15, 16 * 60 + 15)) == 75  # igual ao F1 antigo
+
+
+def test_janela_prefere_o_que_cabe_dentro(dados):
+    from app.csp.custo import custo_valor, melhores_opcoes
+    # Reunião "à tarde, até às 18h": às 15:15 (primeira livre na sala grande) já cabe na janela
+    dados["activities"][2].update(preferred_start="15:00", preferred_end="18:00")
+    problema = montar_problema(dados, agora=AGORA)
+    primeira = melhores_opcoes(problema, "reuniao", 1)[0]
+    assert primeira.inicio == 15 * 60 + 15
+    assert custo_valor(problema, "reuniao", primeira) == 0
+
+
+@pytest.mark.parametrize("mudar", [
+    lambda d: d["activities"][2].update(preferred_end="13:00"),                           # fim antes do início (14:00)
+    lambda d: d["activities"][0].update(preferred_start="08:00", preferred_end="20:00"),  # a vaga não leva horário
+])
+def test_janela_invalida_da_422(cliente, dados, mudar):
+    mudar(dados)
+    resposta = cliente.post("/api/scheduling/plan", json=dados)
+    assert resposta.status_code == 422

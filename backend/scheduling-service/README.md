@@ -39,7 +39,8 @@ Formato do JSON que o **booking-service** envia ao **scheduling-service** (CSP) 
 | `resource_type` | sim | Tipo de recurso, igual ao do booking: `mesa`, `sala`, `quadra`, `personal`, `vaga_carro`, `vaga_mota` |
 | `people` | sim | Número de pessoas (≥ 1). O recurso precisa ter `capacity` maior ou igual |
 | `duration_min` | sim, exceto vaga | Duração em minutos, múltiplo de 15 |
-| `preferred_start` | sim, exceto vaga | Horário preferido (`HH:MM`) |
+| `preferred_start` | sim, exceto vaga | Início da janela preferida (`HH:MM`) |
+| `preferred_end` | não | Fim da janela preferida. A atividade inteira deve caber entre `preferred_start` e `preferred_end` (ex.: manhã = 08:00 a 13:00). Sem ele, a janela é `preferred_start` + duração (uma hora específica). Cada minuto fora da janela custa 1 ponto (F1) |
 | `covers_day` | só nas vagas | `true` em `vaga_carro` e `vaga_mota`: a vaga cobre da primeira à última atividade, mais 10 min de cada lado |
 | `favorite_resource_id` | não | Recurso preferido do usuário para esta atividade. Preenchido pelo booking a partir do histórico de reservas (o recurso deste tipo mais reservado). Não ficar com ele custa 30 pontos (F3) |
 
