@@ -41,6 +41,10 @@ def _load_user(
         raise _unauthorized() from None
     if user is None or not user.is_active:
         raise _unauthorized()
+    # Sessão terminada (troca de palavra-passe, redefinição ou reposição do 2FA): o token
+    # tem uma versão antiga. Tokens sem "sv" (de antes da Sprint 7) contam como versão 0.
+    if payload.get("sv", 0) != user.session_version:
+        raise _unauthorized("Sessão terminada. Entre outra vez.")
     return user
 
 

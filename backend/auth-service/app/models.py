@@ -28,6 +28,9 @@ class User(Base):
     totp_last_used_step: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Versão das sessões (migração 0003): vai em cada token ("sv"). Sobe ao trocar ou
+    # redefinir a palavra-passe e ao repor o 2FA, e os tokens antigos deixam de valer.
+    session_version: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

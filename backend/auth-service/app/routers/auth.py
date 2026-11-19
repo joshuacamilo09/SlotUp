@@ -11,6 +11,7 @@ from app.models import PasswordResetToken ,User
 from app.schemas import (
     CodeIn,
     LoginIn,
+    PasswordChangeIn,
     PasswordResetIn,
     PreAuthOut,
     RegisterIn,
@@ -110,12 +111,13 @@ def _issue_access_token(db: Session, user: User, settings: Settings) -> TokenOut
         update(User).where(User.id == user.id).values(failed_login_attempts=0, locked_until=None)
     )
     db.commit()
+    db.refresh(user)  # lê a session_version atual (pode ter acabado de subir)
     token = create_token(
         settings,
         subject=user.id,
         typ="access",
         minutes=settings.access_token_minutes,
-        claims={"email": user.email, "role": user.role},
+        claims={"email": user.email, "role": user.role, "sv": user.session_version},
     )
     return TokenOut(access_token=token, expires_in=settings.access_token_minutes * 60)
 
@@ -159,7 +161,7 @@ def login(
         subject=user.id,
         typ="pre_auth",
         minutes=settings.pre_auth_token_minutes,
-        claims={"stage": stage},
+        claims={"stage": stage, "sv": user.session_version},
     )
     return PreAuthOut(
         status="MFA_REQUIRED" if user.two_fa_enabled else "MFA_SETUP_REQUIRED",
@@ -226,6 +228,40 @@ def me(user: User = Depends(current_user)) -> User:
     return user
 
 
+# --------------------------------------------------------------------------- trocar a palavra-passe
+WRONG_CURRENT_PASSWORD = HTTPException(status.HTTP_401_UNAUTHORIZED, "A palavra-passe atual está errada")
+
+
+@router.post("/password/change", response_model=TokenOut)
+def change_password(
+    body: PasswordChangeIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> TokenOut:
+    """Troca a palavra-passe de quem tem sessão iniciada.
+
+    * Pede a palavra-passe atual: um token roubado não chega para a mudar. Errar conta
+      para o limite de tentativas (5 erros bloqueiam a conta).
+    * Termina as outras sessões no auth: a session_version sobe e os tokens antigos
+      deixam de valer. No booking, que só valida a assinatura, um token antigo ainda
+      vale até expirar (no máximo 30 min).
+    * Devolve um token novo, para esta sessão continuar.
+    """
+    _ensure_not_locked(user)
+    if not verify_password(user.password_hash, body.current_password):
+        _register_failure(db, user.id, settings)
+        raise WRONG_CURRENT_PASSWORD
+    if body.new_password == body.current_password:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "A palavra-passe nova tem de ser diferente da atual")
+
+    db.execute(
+        update(User)
+        .where(User.id == user.id)
+        .values(password_hash=hash_password(body.new_password), session_version=User.session_version + 1)
+    )
+    log.info("password_trocada user_id=%s", user.id)
+    return _issue_access_token(db, user, settings)  # faz o commit e zera o contador de falhas
 
 # --------------------------------------------------------------------------- redefinir a palavra-passe
 INVALID_RESET_TOKEN = HTTPException(status.HTTP_400_BAD_REQUEST, "Token inválido ou expirado")
@@ -239,6 +275,7 @@ def reset_password(body: PasswordResetIn, db: Session = Depends(get_db)) -> None
       expirado. Com dois pedidos ao mesmo tempo (até em réplicas diferentes), só um consegue.
     * Token errado, já usado ou expirado: sempre a mesma resposta, para não dar pistas.
     * Desbloqueia a conta (contador de falhas a zero). O 2FA continua igual e obrigatório.
+    * Termina as sessões abertas (session_version sobe).
     """
     user_id = db.scalar(
         update(PasswordResetToken)
@@ -258,7 +295,12 @@ def reset_password(body: PasswordResetIn, db: Session = Depends(get_db)) -> None
     db.execute(
         update(User)
         .where(User.id == user_id)
-        .values(password_hash=hash_password(body.new_password), failed_login_attempts=0, locked_until=None)
+        .values(
+            password_hash=hash_password(body.new_password),
+            failed_login_attempts=0,
+            locked_until=None,
+            session_version=User.session_version + 1,  # termina as sessões abertas
+        )
     )
     db.commit()
     log.info("password_redefinida user_id=%s", user_id)

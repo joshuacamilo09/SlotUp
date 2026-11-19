@@ -61,6 +61,11 @@ class PasswordResetTokenOut(BaseModel):
     token: str
     expires_at: datetime
 
+class PasswordChangeIn(BaseModel):
+    """Troca da palavra-passe por quem tem sessão iniciada."""
+
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=10, max_length=128)  # mesma regra do registo
 
 class PasswordResetIn(BaseModel):
     token: str = Field(min_length=20, max_length=128)
