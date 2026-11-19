@@ -145,3 +145,13 @@ def encrypt_totp_secret(settings: Settings, secret: str, user_id: uuid.UUID) -> 
 def decrypt_totp_secret(settings: Settings, blob: bytes, user_id: uuid.UUID) -> str:
     nonce, ciphertext = blob[:12], blob[12:]
     return _aesgcm(settings).decrypt(nonce, ciphertext, user_id.bytes).decode()
+
+
+
+def check_totp_key(settings: Settings) -> None:
+    """Confirma no arranque que a chave de cifra do 2FA existe e tem 32 bytes.
+
+    Sem isto, uma chave em falta ou errada só dava erro (500) no primeiro login com 2FA.
+    Assim o serviço nem arranca e o log diz logo o que falta.
+    """
+    _aesgcm(settings)

@@ -12,7 +12,7 @@ from app.config import get_settings
 from app.database import SessionLocal
 from app.models import User
 from app.routers import auth, health, users
-from app.security import hash_password
+from app.security import check_totp_key, hash_password
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("auth")
@@ -53,6 +53,12 @@ def bootstrap_admin() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    try:
+        check_totp_key(get_settings())
+    except Exception as exc:
+        # Sem a chave do 2FA o serviço não consegue fazer logins: melhor não arrancar
+        log.error("arranque_recusado chave do 2FA (TOTP_ENCRYPTION_KEY) em falta ou inválida: %s", exc)
+        raise
     bootstrap_admin()
     yield
 
