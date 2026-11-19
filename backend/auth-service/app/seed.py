@@ -29,7 +29,7 @@ DEMO_USER_EMAIL = "ana@slotup.pt"
 def _requirede_env(name: str) -> str:
     value = os.environ.get(name, "").strip()
     if not value:
-        sys.exit(f"Defina {nome} no infra/docker/.env")
+        sys.exit(f"Defina {name} no infra/docker/.env")
     return value
 
 def _check_totp_secret(secret: str) -> None:

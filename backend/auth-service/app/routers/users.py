@@ -53,7 +53,17 @@ def reset_2fa(
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> Response:
-    """Recuperação de conta: quem perdeu o telemóvel volta a configurar o 2FA no próximo login."""
+    """Recuperação de conta: quem perdeu a app autenticadora volta a configurar o 2FA.
+
+    * Apaga o segredo antigo: os códigos do telemóvel perdido deixam de servir.
+    * No próximo login (com a palavra-passe), o utilizador lê um QR code novo.
+    * Termina as sessões abertas (session_version sobe): se o telemóvel foi roubado
+      com o SlotUp aberto, essa sessão também acaba.
+    * Desbloqueia a conta, caso tenha ficado bloqueada a tentar códigos.
+    * Um admin não repõe o próprio 2FA: tem de ser outro admin (como na troca de papel).
+    """
+    if user_id == admin.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Não pode repor o seu próprio 2FA: peça a outro administrador")
     user = _get_or_404(db, user_id)
     db.execute(
         update(User)
@@ -64,6 +74,7 @@ def reset_2fa(
             totp_last_used_step=None,
             failed_login_attempts=0,
             locked_until=None,
+            session_version=User.session_version + 1,
         )
     )
     db.commit()
