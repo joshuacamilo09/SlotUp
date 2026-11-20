@@ -103,6 +103,10 @@ class BusyInterval(Strict):
 
 Mode = Literal["plan", "suggest"]
 
+# Tamanho máximo de um pedido. 10 atividades já é um dia muito cheio (a tela permite 5);
+# os outros dois só protegem o serviço de pedidos absurdos.
+MAXIMOS = {"activities": 10, "resources": 300, "busy": 3000}
+
 
 class PlanIn(Strict):
     """Corpo de POST /api/scheduling/plan."""
@@ -112,16 +116,18 @@ class PlanIn(Strict):
     now: datetime  # hora local do complexo: o scheduling não usa o relógio dele
     max_alternatives: int = Field(default=3, ge=1, le=10)  # só conta no modo suggest
     # Entre 1 e 10 atividades: limita o tamanho do problema (e o tempo de busca)
-    activities: Annotated[list[Activity], Field(min_length=1, max_length=10)]
+    activities: Annotated[list[Activity], Field(min_length=1)]
     resources: list[ResourceIn]
     busy: list[BusyInterval]
 
-    @field_validator("now")
-    @classmethod  # o field_validator recebe a classe, não um objeto já criado
-    def _sem_fuso(cls, value: datetime) -> datetime:
-        if value.tzinfo is not None:
-            raise ValueError("now vai em hora local do complexo, sem fuso (ex.: 2026-12-09T15:30)")
-        return value
+    @field_validator("activities", "resources", "busy")
+    @classmethod
+    def _tamanho_maximo(cls, valor: list, info) -> list:
+        """Limite de tamanho do pedido, com uma mensagem clara (o 422 diz o máximo e quantos vieram)."""
+        maximo = MAXIMOS[info.field_name]  # info.field_name: o campo que está a ser validado
+        if len(valor) > maximo:
+            raise ValueError(f"No máximo {maximo} itens em '{info.field_name}' por pedido (recebidos: {len(valor)})")
+        return valor
 
     @model_validator(mode="after")
     def _regras_do_pedido(self) -> "PlanIn":
@@ -185,6 +191,7 @@ class PlanStats(BaseModel):
     prunes: int
     time_ms: float
     limit_reached: bool
+    limit: Literal["nodes", "time"] | None = None  # que limite parou a busca (None = terminou)
 
 
 class PlanOut(BaseModel):

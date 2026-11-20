@@ -333,11 +333,13 @@ class PlanearIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     day: date
-    activities: Annotated[list[AtividadeIn], Field(min_length=1, max_length=MAX_ATIVIDADES)]
+    activities: Annotated[list[AtividadeIn], Field(min_length=1)]
 
     @model_validator(mode="after")
     def _regras_do_pedido(self) -> "PlanearIn":
         ids = [a.id for a in self.activities]
+        if len(self.activities) > MAX_ATIVIDADES:
+            raise ValueError(f"No máximo {MAX_ATIVIDADES} atividades por plano (recebidas: {len(self.activities)})")
         if len(ids) != len(set(ids)):  # set() tira os repetidos
             raise ValueError("Os ids das atividades têm de ser únicos")
         if sum(a.covers_day for a in self.activities) > 1:  # True conta como 1
@@ -401,11 +403,13 @@ class ConfirmarPlanoIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     day: date
-    items: Annotated[list[ConfirmarItem], Field(min_length=1, max_length=MAX_ATIVIDADES)]
+    items: Annotated[list[ConfirmarItem], Field(min_length=1)]
 
     @model_validator(mode="after")
     def _uma_reserva_por_atividade(self) -> "ConfirmarPlanoIn":
         ids = [i.activity_id for i in self.items]
+        if len(self.items) > MAX_ATIVIDADES:
+            raise ValueError(f"No máximo {MAX_ATIVIDADES} atividades por plano (recebidas: {len(self.items)})")
         if len(ids) != len(set(ids)):
             raise ValueError("Os ids das atividades têm de ser únicos")
         return self

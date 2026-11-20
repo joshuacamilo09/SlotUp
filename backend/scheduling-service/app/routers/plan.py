@@ -13,7 +13,8 @@ router = APIRouter(prefix="/api/scheduling", tags=["scheduling"])
 
 def _estatisticas(stats: Estatisticas) -> PlanStats:
     return PlanStats(nodes=stats.nos, solutions=stats.solucoes, prunes=stats.podas,
-                     time_ms=round(stats.tempo_ms, 2), limit_reached=stats.limite_atingido)
+                     time_ms=round(stats.tempo_ms, 2), limit_reached=stats.limite_atingido,
+                     limit={"nos": "nodes", "tempo": "time"}.get(stats.limite))  # .get: None se não parou
 
 
 @router.post("/plan", response_model=PlanOut)

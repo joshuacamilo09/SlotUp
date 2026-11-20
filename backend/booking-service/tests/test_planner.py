@@ -288,3 +288,8 @@ def test_conflito_sem_scheduling_continua_409_sem_sugestoes(client, helpers, adm
     response = book(client, helpers.bearer(helpers.make_token()), rid, at(day, 10), at(day, 11))
     assert response.status_code == 409
     assert response.json() == {"detail": "Este horário já está reservado", "alternatives": []}
+
+def test_mais_de_5_atividades_explica_o_limite(client, user, scheduling):
+    response = planear(client, user, *[sala(id=f"a{i}") for i in range(6)])
+    assert response.status_code == 422
+    assert "No máximo 5 atividades" in str(response.json()["detail"])   

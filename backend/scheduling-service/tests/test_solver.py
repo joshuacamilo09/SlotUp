@@ -164,11 +164,34 @@ def test_sem_solucao_quando_nenhuma_vaga_cobre_o_dia(dados):
 
 
 def test_limite_de_nos(dados):
-    # Com um limite minúsculo, a busca para cedo mas ainda devolve uma solução válida
     problema = montar_problema(dados, agora=AGORA)
     solucao, _, stats = resolver(problema, limite_nos=10)
-    assert stats.limite_atingido
-    assert solucao is not None
+    assert stats.limite_atingido and stats.limite == "nos"
+    assert solucao is not None  # anytime: a melhor achada até ao limite
+
+
+def test_limite_de_tempo(dados):
+    problema = montar_problema(dados, agora=AGORA)
+    solucao, _, stats = resolver(problema, limite_ms=0)  # prazo já passado: pára no primeiro nó
+    assert stats.limite_atingido and stats.limite == "tempo"
+    assert solucao is None
+
+
+def test_api_limite_de_tempo_explica_a_falha(cliente, dados, monkeypatch):
+    # A rota passa a usar um resolver com limite de 0 ms
+    monkeypatch.setattr("app.routers.plan.resolver", lambda problema: resolver(problema, limite_ms=0))
+    corpo = cliente.post("/api/scheduling/plan", json=dados).json()
+    assert corpo["status"] == "NO_SOLUTION"
+    assert corpo["failure"]["code"] == "LIMIT_REACHED" and "tempo máximo" in corpo["failure"]["message"]
+    assert corpo["stats"]["limit_reached"] and corpo["stats"]["limit"] == "time"
+
+
+def test_api_pedido_grande_demais_da_422_claro(cliente, dados):
+    base = dados["activities"][1]  # o trabalho (mesa)
+    dados["activities"] = [{**base, "id": f"a{i}"} for i in range(11)]
+    resposta = cliente.post("/api/scheduling/plan", json=dados)
+    assert resposta.status_code == 422
+    assert "No máximo 10 itens em 'activities'" in str(resposta.json()["detail"])
 
 
 # ---------------------------------------------------------------- comparação com força bruta

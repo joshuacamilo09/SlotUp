@@ -14,9 +14,11 @@ from app.csp.custo import custo_total, custo_valor, ordenar
 from app.csp.modelo import Problema, Valor, para_hhmm
 from app.csp.restricoes import compativeis, intervalo_estacionamento, tem_horario, vaga_valida, verificar_pedido
 
-
-# Proteção da API: um pedido enorme não pode deixar o serviço preso numa busca sem fim
-LIMITE_NOS_PADRAO = 200_000  # o _ é só para ler melhor: 200000
+# Proteção da API: um pedido enorme não pode deixar o serviço preso numa busca sem fim.
+# O limite que chegar primeiro pára a busca; a melhor solução achada até ali continua
+# válida (branch and bound é "anytime"), só pode não ser a ótima.
+LIMITE_NOS_PADRAO = 200_000      # o _ é só para ler melhor: 200000
+LIMITE_TEMPO_MS_PADRAO = 2_000   # 2 s: abaixo dos 3 s que o booking espera pela resposta
 
 
 @dataclass
@@ -27,10 +29,14 @@ class Estatisticas:
     podas: int = 0                 # quantas vezes o branch and bound cortou um ramo
     tempo_ms: float = 0.0
     limite_atingido: bool = False  # True = parou antes de terminar (a solução pode não ser a ótima)
+    limite: str | None = None      # QUAL limite parou a busca: "nos" ou "tempo"
 
 
 class _LimiteAtingido(Exception):
-    """Exceção interna: serve para "saltar" de dentro da recursão quando passa do limite."""
+    """Exceção interna: serve para "saltar" de dentro da recursão quando passa do limite.
+
+    Leva o nome do limite ("nos" ou "tempo") para as estatísticas.
+    """
 
 
 @dataclass
@@ -42,12 +48,14 @@ class _Busca:
     otimizar: bool
     limite_nos: int
     stats: Estatisticas
+    prazo: float = math.inf  # o relógio (time.perf_counter) a partir do qual a busca pára
     melhor_custo: float = math.inf
     melhor_solucao: dict | None = None
 
 
 def resolver(problema: Problema, usar_fc: bool = True, usar_mrv: bool = True,
-             otimizar: bool = True, limite_nos: int = LIMITE_NOS_PADRAO):
+             otimizar: bool = True, limite_nos: int = LIMITE_NOS_PADRAO,
+             limite_ms: float = LIMITE_TEMPO_MS_PADRAO):
     """Procura a solução de menor custo (ou a primeira válida, se otimizar=False).
 
     Devolve (solução, custo, estatísticas). A solução é um dict {id_do_pedido: Valor},
@@ -61,18 +69,17 @@ def resolver(problema: Problema, usar_fc: bool = True, usar_mrv: bool = True,
         if not dominio:
             return None, math.inf, stats
 
-    # Horários preferidos: cada domínio fica ordenado do mais perto para o mais longe do pedido.
-    # Vale nos dois modos: sem otimizar, a primeira solução encontrada já fica perto do que o usuário quis;
-    # a otimizar, as boas soluções aparecem cedo e o branch and bound corta mais.
     dominios = {pid: ordenar(problema, pid, valores) for pid, valores in problema.dominios.items()}
 
     busca = _Busca(problema, usar_fc, usar_mrv, otimizar, limite_nos, stats)
     inicio = time.perf_counter()  # relógio de alta precisão
+    busca.prazo = inicio + limite_ms / 1000  # milissegundos -> segundos
     try:
         _backtrack(busca, {}, 0.0, dominios)
-    except _LimiteAtingido:
+    except _LimiteAtingido as limite:
         # Branch and bound é um algoritmo "anytime": a melhor solução até aqui é válida
         stats.limite_atingido = True
+        stats.limite = str(limite)  # "nos" ou "tempo"
     stats.tempo_ms = (time.perf_counter() - inicio) * 1000  # segundos -> milissegundos
     return busca.melhor_solucao, busca.melhor_custo, stats
 
@@ -165,7 +172,9 @@ def _backtrack(busca: _Busca, atribuicao: dict, custo_parcial: float, dominios: 
     for valor in dominios[var]:
         busca.stats.nos += 1
         if busca.stats.nos > busca.limite_nos:
-            raise _LimiteAtingido()  # sobe pela recursão até ao try do resolver
+            raise _LimiteAtingido("nos")  # sobe pela recursão até ao try do resolver
+        if time.perf_counter() > busca.prazo:
+            raise _LimiteAtingido("tempo")
 
         novo_custo = custo_parcial + custo_valor(problema, var, valor)
 

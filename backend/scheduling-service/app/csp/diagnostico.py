@@ -74,9 +74,11 @@ def diagnosticar(problema: Problema, stats: Estatisticas) -> dict:
         code = "NO_CAPACITY" if regra.id == "CAPACIDADE" else "NO_FREE_SLOT"
         return falha(code, pid, regra.id, regra.explicar(pedido), motivos_por_recurso(problema, pid))
 
-    # 2) A busca parou no limite de nós antes de achar algo
+    # 2) A busca parou num limite (nós ou tempo) antes de achar algo
     if stats.limite_atingido:
-        return falha("LIMIT_REACHED", None, None, "A busca atingiu o limite antes de encontrar uma solução.")
+        quanto = "o tempo máximo" if stats.limite == "tempo" else "o número máximo de combinações"
+        return falha("LIMIT_REACHED", None, None,
+                     f"A busca atingiu {quanto} antes de encontrar um plano. Tente com menos atividades.")
 
     # 3) Todas têm opções, mas juntas não cabem. A culpa é da vaga?
     #    Teste: tirar a vaga e ver se o resto tem solução.
