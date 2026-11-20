@@ -6,6 +6,7 @@ from sqlalchemy.exc import InterfaceError, OperationalError
 
 from app.config import get_settings
 from app.routers import availability, categories, health, reservations, resources, session_check, waitlist
+from app.scheduling_client import SchedulingIndisponivel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("booking")
@@ -44,5 +45,17 @@ async def database_unavailable(_: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(
         status_code=503,
         content={"detail": "Base de dados temporariamente indisponível"},
+        headers={"Retry-After": "5"},
+    )
+
+@app.exception_handler(SchedulingIndisponivel)
+async def scheduling_unavailable(_: Request, exc: SchedulingIndisponivel) -> JSONResponse:
+    """Plano B: o planeador (scheduling) não respondeu. 503 em vez de 500.
+
+    Só o "Planear o meu dia" depende do scheduling; reservar uma a uma continua a funcionar.
+    """
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "O planeador está indisponível. Pode reservar as atividades uma a uma."},
         headers={"Retry-After": "5"},
     )
