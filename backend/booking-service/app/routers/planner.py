@@ -14,7 +14,9 @@ import logging
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, status
+from typing import Annotated
+
+from fastapi import APIRouter, Body, Depends, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -33,6 +35,28 @@ router = APIRouter(prefix="/api/reservas/planear", tags=["planear"])
 
 FAVORITO_DIAS = 90  # o recurso favorito vem das reservas dos últimos 90 dias
 MAX_SUGESTOES = 3   # alternativas no 409 do Criar reserva
+
+# Exemplos para o Swagger (/docs): aparecem num menu ao lado do "Try it out"
+EXEMPLOS_PLANEAR = {
+    "dia_completo": {
+        "summary": "Mesa de manhã, sala para 4 às 14:00 e vaga de carro",
+        "value": {"day": "2026-12-10", "activities": [
+            {"id": "a1", "resource_type": "mesa", "people": 1, "duration_min": 180,
+             "preferred_start": "08:00", "preferred_end": "13:00"},
+            {"id": "a2", "resource_type": "sala", "people": 4, "duration_min": 60, "preferred_start": "14:00"},
+            {"id": "a3", "resource_type": "vaga_carro", "people": 1, "covers_day": True},
+        ]},
+    },
+}
+EXEMPLOS_CONFIRMAR = {
+    "plano": {
+        "summary": "Os itens que o planear devolveu (sem o resource_name)",
+        "value": {"day": "2026-12-10", "items": [
+            {"activity_id": "a1", "resource_id": "6f1c2a8e-0000-5000-8000-000000000001", "start": "09:00", "end": "12:00"},
+            {"activity_id": "a2", "resource_id": "6f1c2a8e-0000-5000-8000-000000000002", "start": "14:00", "end": "15:00"},
+        ]},
+    },
+}
 
 
 def _hhmm(valor: datetime | time) -> str:
@@ -178,9 +202,23 @@ def sugerir_alternativas(db: Session, recurso: Resource, inicio: datetime, fim: 
     return sugestoes
 
 
-@router.post("", response_model=PlanoOut)
+@router.post(
+    "",
+    response_model=PlanoOut,
+    summary="Planear o meu dia (não reserva)",
+    description=(
+        "O usuário diz o dia e as atividades; o booking junta os recursos ativos, os horários e a ocupação "
+        "do banco e pede o plano ao scheduling (CSP). **Não reserva nada**: para isso, `POST /planear/confirmar`.\n\n"
+        "Sem plano possível a resposta continua 200, com `status: NO_SOLUTION` e `failure` "
+        "(motivo geral em `message` e um motivo por recurso em `reasons`)."
+    ),
+    responses={
+        422: {"description": "Pedido inválido (ex.: mais de 5 atividades, 2 vagas, só estacionamento, duração fora dos 15 min)"},
+        503: {"description": "Plano B: o scheduling não respondeu a tempo. Reservar uma a uma continua a funcionar"},
+    },
+)
 def planear_dia(
-    body: PlanearIn,
+    body: Annotated[PlanearIn, Body(openapi_examples=EXEMPLOS_PLANEAR)],
     user: CurrentUser = Depends(current_user),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -218,9 +256,26 @@ def planear_dia(
     return resposta
 
 
-@router.post("/confirmar", response_model=list[ReservationOut], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/confirmar",
+    response_model=list[ReservationOut],
+    status_code=status.HTTP_201_CREATED,
+    summary="Confirmar o plano (tudo ou nada)",
+    description=(
+        "Cria uma reserva por item, numa só transação. Cada item passa pelas regras de uma reserva normal "
+        "e o PostgreSQL confere a sobreposição. Se um item falhar, **nenhum** fica gravado."
+    ),
+    responses={
+        409: {"description": "Um horário foi ocupado entretanto. Nada foi reservado",
+              "content": {"application/json": {"example": {
+                  "detail": "Sala A já não está livre das 14:00 às 15:00. Nada foi reservado: gere o plano de novo.",
+                  "activity_id": "a2"}}}},
+        404: {"description": "Recurso inexistente ou desativado"},
+        422: {"description": "Item fora das regras (horário de abertura, duração, 15 min, passado, 30 dias) ou pedido inválido"},
+    },
+)
 def confirmar_plano(
-    body: ConfirmarPlanoIn,
+    body: Annotated[ConfirmarPlanoIn, Body(openapi_examples=EXEMPLOS_CONFIRMAR)],
     user: CurrentUser = Depends(current_user),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),

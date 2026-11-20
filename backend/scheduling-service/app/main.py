@@ -8,6 +8,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 # Serviço interno: só o booking-service lhe fala (não passa pelo Ingress).
 # O algoritmo CSP entra aqui em /api/scheduling/... (tarefas da componente de IA).
-app = FastAPI(title="SlotUp · scheduling-service")
+app = FastAPI(
+    title="SlotUp · scheduling-service (CSP)",
+    description=(
+        "Planeador do SlotUp: monta o plano do dia (`mode=plan`) ou sugere horários para uma "
+        "atividade (`mode=suggest`). Interno: só o booking chama. Contrato completo no README.md do serviço."
+    ),
+    version="1.0.0",
+)
 app.include_router(health.router)
 app.include_router(plan.router)

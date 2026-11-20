@@ -94,7 +94,19 @@ def check_slot(db: Session, body: ReservationCreate, settings: Settings) -> tupl
     return resource, start, end
 
 
-@router.post("", response_model=ReservationOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ReservationOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={409: {
+        "description": "Horário ocupado. Traz até 3 sugestões do CSP (lista vazia se o scheduling não responder)",
+        "content": {"application/json": {"example": {
+            "detail": "Este horário já está reservado",
+            "alternatives": [{"resource_id": "90c6f36d-7c96-5d27-bd80-ffd8010d1f2a", "resource_name": "Mesa 2",
+                              "start_at": "2026-11-23T14:45:00+00:00", "end_at": "2026-11-23T15:45:00+00:00"}],
+        }}},
+    }},
+)
 def create_reservation(
     body: ReservationCreate,
     user: CurrentUser = Depends(current_user),

@@ -1,11 +1,13 @@
 import time
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException
 
 from app.csp.custo import custo_valor, melhores_opcoes
 from app.csp.diagnostico import diagnosticar
 from app.csp.modelo import montar_problema, para_hhmm
 from app.csp.solver import Estatisticas, formatar_solucao, resolver
+from app.exemplos import EXEMPLOS_PLAN
 from app.schemas import Failure, PlanIn, PlanItem, PlanOut, PlanStats, Solution
 
 router = APIRouter(prefix="/api/scheduling", tags=["scheduling"])
@@ -17,8 +19,20 @@ def _estatisticas(stats: Estatisticas) -> PlanStats:
                      limit={"nos": "nodes", "tempo": "time"}.get(stats.limite))  # .get: None se não parou
 
 
-@router.post("/plan", response_model=PlanOut)
-def planear(body: PlanIn) -> PlanOut:
+@router.post(
+    "/plan",
+    response_model=PlanOut,
+    summary="Planear o dia ou sugerir horários (CSP)",
+    description=(
+        "Só o booking chama esta rota, pela rede interna. Com `mode=plan` devolve o plano de menor custo "
+        "para todas as atividades; com `mode=suggest` (1 atividade) devolve as melhores alternativas.\n\n"
+        "A resposta é **200 mesmo sem solução**: aí `status` é `NO_SOLUTION` e `failure` explica porquê. "
+        "A busca pára aos 2 s ou 200 mil nós (`stats.limit`)."
+    ),
+    response_description="O plano, as sugestões ou o motivo da falha",
+    responses={422: {"description": "Pedido inválido: campo em falta ou desconhecido, regra do pedido (ex.: 2 vagas) ou acima dos limites de tamanho"}},
+)
+def planear(body: Annotated[PlanIn, Body(openapi_examples=EXEMPLOS_PLAN)]) -> PlanOut:
     dados = body.model_dump(mode="json", exclude_none=True)
     try:
         problema = montar_problema(dados)

@@ -1,47 +1,36 @@
-"""Contrato de dados booking -> scheduling (validado pelo Pydantic).
+"""Formato do contrato booking ⇄ scheduling (validado pelo Pydantic).
 
-É a versão em código do documentacao/README.md: se um mudar, o
-outro tem de mudar também. O booking monta este corpo a partir do booking_db.
+As descrições (description=...) e os docstrings das classes aparecem no Swagger (/docs).
+O contrato completo, com exemplos, está no README.md do serviço.
 """
 from datetime import date, datetime
-from typing import Annotated, Literal  # Literal: o campo só aceita os valores listados
-
+from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
-# Hora "HH:MM" ou "HH:MM:00" (o booking manda com segundos). (:00)? = os segundos são opcionais
 Hora = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d(:00)?$")]
 Id = Annotated[str, StringConstraints(min_length=1, max_length=64)]
-# Igual ao booking: "Mesa" e "mesa" ficam iguais (to_lower) e os espaços à volta saem
 ResourceType = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, min_length=2, max_length=30)]
 
-
 class Strict(BaseModel):
-    """Base de todos os modelos de ENTRADA: campo desconhecido dá 422 em vez de ser ignorado."""
-
     model_config = ConfigDict(extra="forbid")
 
-
-# --------------------------------------------------------------------------- entrada
 class Activity(Strict):
-    """Uma atividade pedida pelo usuário (uma variável do CSP)."""
+    """Uma atividade do dia: uma variável do CSP."""
 
-    id: Id
-    resource_type: ResourceType
-    people: int = Field(ge=1)  # obrigatório: sem valor por padrão
-    # multiple_of=15: a mesma grelha de 15 min do booking
-    duration_min: int | None = Field(default=None, ge=15, multiple_of=15)
-    preferred_start: Hora | None = None
+    id: Id = Field(description="Nome único da atividade no pedido (volta no activity_id da resposta).")
+    resource_type: ResourceType = Field(description="Tipo de recurso, igual ao do booking (mesa, sala, quadra, personal, vaga_carro, vaga_mota).")
+    people: int = Field(ge=1, description="Número de pessoas. O recurso precisa de capacity maior ou igual (regra CAPACIDADE).")
+    duration_min: int | None = Field(default=None, ge=15, multiple_of=15,
+                                     description="Duração em minutos, múltiplo de 15. Obrigatória, exceto com covers_day.")
+    preferred_start: Hora | None = Field(default=None, description="Início da janela preferida (HH:MM). Obrigatório, exceto com covers_day.")
     # Janela preferida: a atividade inteira deve caber entre preferred_start e preferred_end.
     # Sem preferred_end, a janela é preferred_start + duração (uma "hora específica")
-    preferred_end: Hora | None = None
-    covers_day: bool = False
-    favorite_resource_id: Id | None = None  # preenchido pelo booking a partir do histórico (F3)
-
-    # mode="after": corre depois de os campos já estarem validados um a um
+    preferred_end: Hora | None = Field(default=None, description="Fim da janela preferida (ex.: manhã = 08:00 a 13:00). Sem ele, a janela é preferred_start + duração. Cada minuto fora custa 1 ponto (F1).")
+    covers_day: bool = Field(default=False, description="Só nas vagas: a vaga cobre da 1.ª à última atividade, com 10 min de folga, arredondado a 15 min.")
+    favorite_resource_id: Id | None = Field(default=None, description="Recurso preferido (o booking preenche pelo histórico). Não ficar com ele custa 30 pontos (F3).")
     @model_validator(mode="after")
     def _campos_conforme_o_tipo(self) -> "Activity":
         if self.covers_day:
-            # A vaga não tem horário próprio: a VAGA_COBRE_O_DIA calcula-o a partir das outras atividades
             if self.duration_min is not None or self.preferred_start is not None or self.preferred_end is not None:
                 raise ValueError(f"'{self.id}': uma atividade que cobre o dia não leva duração nem horário preferido")
         elif self.duration_min is None or self.preferred_start is None:
@@ -53,9 +42,9 @@ class Activity(Strict):
 class ScheduleRule(Strict):
     """Um intervalo do horário SEMANAL do recurso (igual ao availability_rules do booking)."""
 
-    weekday: int = Field(ge=0, le=6)  # 0 = segunda ... 6 = domingo (convenção do Python)
-    open_time: Hora
-    close_time: Hora
+    weekday: int = Field(ge=0, le=6, description="0 = segunda ... 6 = domingo (convenção do Python).")
+    open_time: Hora = Field(description="Abre (HH:MM ou HH:MM:SS, hora local).")
+    close_time: Hora = Field(description="Fecha (HH:MM ou HH:MM:SS, hora local).")
 
     @model_validator(mode="after")
     def _fecha_depois_de_abrir(self) -> "ScheduleRule":
@@ -75,11 +64,12 @@ class ResourceIn(Strict):
     id: Id
     name: Annotated[str, StringConstraints(min_length=1, max_length=150)]
     resource_type: ResourceType
-    capacity: int = Field(ge=1)
-    schedule: Annotated[list[ScheduleRule], Field(max_length=35)]  # 7 dias x 5 intervalos, como no booking
-    min_duration_min: DurationMin
-    max_duration_min: DurationMin
-    buffer_min: BufferMin
+    capacity: int = Field(ge=1, description="Quantas pessoas cabem.")
+    # 7 dias x 5 intervalos, como no booking
+    schedule: Annotated[list[ScheduleRule], Field(max_length=35, description="Horário SEMANAL; o scheduling escolhe as janelas do dia pedido. Lista vazia = sempre fechado.")]
+    min_duration_min: DurationMin = Field(description="Duração mínima de uma reserva (regra DURACAO).")
+    max_duration_min: DurationMin = Field(description="Duração máxima de uma reserva (regra DURACAO).")
+    buffer_min: BufferMin = Field(description="Intervalo obrigatório entre reservas seguidas do recurso (regra INTERVALO_RECURSO).")
 
     @model_validator(mode="after")
     def _minimo_ate_maximo(self) -> "ResourceIn":
@@ -87,19 +77,18 @@ class ResourceIn(Strict):
             raise ValueError(f"'{self.id}': min_duration_min não pode ser maior que max_duration_min")
         return self
 
+
 class BusyInterval(Strict):
-    """Um intervalo ocupado por uma reserva CONFIRMED ou HELD."""
+    """Um intervalo ocupado de um recurso (reservas CONFIRMED e HELD), em hora local do dia pedido."""
 
     resource_id: Id
     start: Hora
     end: Hora
-
     @model_validator(mode="after")
     def _fim_depois_do_inicio(self) -> "BusyInterval":
         if self.end <= self.start:
             raise ValueError("end tem de ser depois de start")
         return self
-
 
 Mode = Literal["plan", "suggest"]
 
@@ -107,18 +96,16 @@ Mode = Literal["plan", "suggest"]
 # os outros dois só protegem o serviço de pedidos absurdos.
 MAXIMOS = {"activities": 10, "resources": 300, "busy": 3000}
 
-
 class PlanIn(Strict):
-    """Corpo de POST /api/scheduling/plan."""
+    """O pedido do booking: o dia, as atividades e tudo o que o CSP precisa de saber do banco."""
 
-    mode: Mode
-    day: date
-    now: datetime  # hora local do complexo: o scheduling não usa o relógio dele
-    max_alternatives: int = Field(default=3, ge=1, le=10)  # só conta no modo suggest
-    # Entre 1 e 10 atividades: limita o tamanho do problema (e o tempo de busca)
-    activities: Annotated[list[Activity], Field(min_length=1)]
-    resources: list[ResourceIn]
-    busy: list[BusyInterval]
+    mode: Mode = Field(description="plan = planear o dia inteiro; suggest = sugerir horários para UMA atividade.")
+    day: date = Field(description="Dia a planear (AAAA-MM-DD).")
+    now: datetime = Field(description="Agora, em hora local do complexo e SEM fuso. No dia de hoje, nada começa antes disto.")
+    max_alternatives: int = Field(default=3, ge=1, le=10, description="Só no suggest: quantas sugestões devolver.")
+    activities: Annotated[list[Activity], Field(min_length=1, description="As atividades pedidas (1 a 10).")]
+    resources: list[ResourceIn] = Field(description="Recursos ATIVOS dos tipos pedidos (até 300).")
+    busy: list[BusyInterval] = Field(description="Ocupação do dia: reservas CONFIRMED e HELD (até 3000).")
 
     @field_validator("activities", "resources", "busy")
     @classmethod
@@ -128,13 +115,17 @@ class PlanIn(Strict):
         if len(valor) > maximo:
             raise ValueError(f"No máximo {maximo} itens em '{info.field_name}' por pedido (recebidos: {len(valor)})")
         return valor
-
+    @field_validator("now")
+    @classmethod
+    def _sem_fuso(cls, value: datetime) -> datetime:
+        if value.tzinfo is not None:
+            raise ValueError("now vai em hora local do complexo, sem fuso (ex.: 2026-12-09T15:30)")
+        return value
     @model_validator(mode="after")
     def _regras_do_pedido(self) -> "PlanIn":
         ids = [a.id for a in self.activities]
-        if len(ids) != len(set(ids)):  # um set não tem repetidos: se encolheu, havia ids iguais
+        if len(ids) != len(set(ids)):
             raise ValueError("Os ids das atividades têm de ser únicos")
-        # sum() de booleanos conta os True (True vale 1)
         if sum(a.covers_day for a in self.activities) > 1:
             raise ValueError("No máximo 1 atividade que cobre o dia (R8)")
         if self.activities and all(a.covers_day for a in self.activities):
@@ -144,10 +135,8 @@ class PlanIn(Strict):
             raise ValueError("mode=suggest exige exatamente 1 atividade, sem covers_day")
         return self
 
-
-# --------------------------------------------------------------------------- saída
 class PlanItem(BaseModel):
-    """Uma atividade já decidida: que recurso, de quando a quando."""
+    """Uma atividade já colocada: que recurso e de quando a quando (HH:MM, hora local)."""
 
     activity_id: str
     resource_id: str
@@ -155,18 +144,13 @@ class PlanItem(BaseModel):
     start: str
     end: str
 
-
 class Solution(BaseModel):
-    """Um plano completo (modo plan) ou uma sugestão (modo suggest)."""
+    """Um plano. cost = custo total (F1 + F2 + F3): quanto menor, mais perto do pedido."""
 
     cost: float
     items: list[PlanItem]
 
-
-FailureCode = Literal[
-    "NO_RESOURCE", "NO_CAPACITY", "NO_FREE_SLOT", "CONFLICT", "PARKING_NOT_COVERED", "LIMIT_REACHED"
-]
-
+FailureCode = Literal["NO_RESOURCE", "NO_CAPACITY", "NO_FREE_SLOT", "CONFLICT", "PARKING_NOT_COVERED", "LIMIT_REACHED"]
 
 class Reason(BaseModel):
     """Porque é que UM recurso não serve para a atividade que falhou."""
@@ -176,15 +160,16 @@ class Reason(BaseModel):
 
 
 class Failure(BaseModel):
+    """Porque não há plano. message e reasons já vêm em texto para a tela."""
+
     code: FailureCode
     activity_id: str | None
     rule_id: str | None  # a regra que impediu o plano (ex.: "DURACAO"); None quando não há uma só
     message: str
     reasons: list[Reason] = []  # um por recurso do tipo pedido; vazio quando a falha é da combinação
 
-
 class PlanStats(BaseModel):
-    """Números da busca."""
+    """Números da busca: nós explorados, soluções vistas, podas do branch and bound e tempo."""
 
     nodes: int
     solutions: int
@@ -193,9 +178,8 @@ class PlanStats(BaseModel):
     limit_reached: bool
     limit: Literal["nodes", "time"] | None = None  # que limite parou a busca (None = terminou)
 
-
 class PlanOut(BaseModel):
-    """Resposta: só um de plan, alternatives e failure vem preenchido; os outros vêm null."""
+    """A resposta: sempre 200 quando o pedido é válido, mesmo sem solução (status NO_SOLUTION)."""
 
     status: Literal["OK", "NO_SOLUTION"]
     mode: Mode
