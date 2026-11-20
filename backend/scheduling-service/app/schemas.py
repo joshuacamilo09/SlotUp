@@ -162,13 +162,19 @@ FailureCode = Literal[
 ]
 
 
-class Failure(BaseModel):
-    """Por que não houve solução: o code é para o frontend decidir, a message é para ler."""
+class Reason(BaseModel):
+    """Porque é que UM recurso não serve para a atividade que falhou."""
+    rule_id: str              # a regra que o tirou de jogo (ex.: "CAPACIDADE")
+    resource_id: str
+    message: str              # texto pronto para a tela (ex.: "Sala Pequena: só tem lugar para 4 ...")
 
+
+class Failure(BaseModel):
     code: FailureCode
     activity_id: str | None
     rule_id: str | None  # a regra que impediu o plano (ex.: "DURACAO"); None quando não há uma só
     message: str
+    reasons: list[Reason] = []  # um por recurso do tipo pedido; vazio quando a falha é da combinação
 
 
 class PlanStats(BaseModel):

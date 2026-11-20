@@ -248,6 +248,25 @@ def test_api_motivo_da_falha(cliente, dados, mudar, codigo):
     resposta = cliente.post("/api/scheduling/plan", json=dados)
     assert resposta.json()["failure"]["code"] == codigo
 
+# ---------------------------------------------------------------- explicação da falha
+def test_failure_explica_cada_recurso(cliente, dados):
+    # Reunião para 6: a sala pequena (4 lugares) não serve e a sala grande está ocupada o dia todo
+    dados["busy"].append({"resource_id": "sala-grande", "start": "08:00", "end": "20:00"})
+    falha = cliente.post("/api/scheduling/plan", json=dados).json()["failure"]
+    assert falha["code"] == "NO_FREE_SLOT" and falha["activity_id"] == "reuniao"
+    motivos = {m["resource_id"]: m for m in falha["reasons"]}  # resource_id -> motivo
+    assert set(motivos) == {"sala-pequena", "sala-grande"}  # um motivo por sala, nenhum de outro tipo
+    assert motivos["sala-pequena"]["rule_id"] == "CAPACIDADE"
+    assert "só tem lugar para 4" in motivos["sala-pequena"]["message"]
+    assert motivos["sala-grande"]["rule_id"] == "RECURSO_LIVRE"
+    assert motivos["sala-grande"]["message"].startswith("Sala Grande:")
+
+
+def test_failure_da_combinacao_nao_tem_motivos_por_recurso(cliente, dados):
+    dados["busy"].append({"resource_id": "vaga-02", "start": "10:00", "end": "17:00"})
+    falha = cliente.post("/api/scheduling/plan", json=dados).json()["failure"]
+    assert falha["code"] == "PARKING_NOT_COVERED" and falha["reasons"] == []
+
 # ---------------------------------------------------------------- modo suggest
 def _sugestao(dados, **mudancas):
     """O pedido de sugestões: só a reunião (sala para 6 às 14:00; a sala grande está ocupada 14-15)."""

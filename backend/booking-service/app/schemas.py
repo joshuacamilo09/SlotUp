@@ -359,12 +359,18 @@ class PlanoItem(BaseModel):
 class PlanoSolucao(BaseModel):
     items: list[PlanoItem]
 
+class PlanoMotivo(BaseModel):
+    rule_id: str
+    resource_id: uuid.UUID
+    message: str  # ex.: "Sala Pequena: só tem lugar para 4 (pedido: 6 pessoas)."
+
 
 class PlanoFalha(BaseModel):
     code: str
     activity_id: str | None
     rule_id: str | None  # a regra que impediu o plano: a tela escolhe as sugestões por ela
     message: str
+    reasons: list[PlanoMotivo] = []  # um motivo por recurso (vazio quando a falha é da combinação)
 
 class PlanoOut(BaseModel):
     """A resposta do scheduling, só com o que a tela usa (sem custo nem estatísticas)."""

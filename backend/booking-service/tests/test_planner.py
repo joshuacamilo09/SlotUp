@@ -27,7 +27,9 @@ from tests.test_reservations import (  # noqa: F401  (fixtures do pytest)
 PLANEAR = "/api/reservas/planear"
 SEM_SOLUCAO = {
     "status": "NO_SOLUTION", "mode": "plan", "plan": None, "alternatives": None,
-    "failure": {"code": "NO_FREE_SLOT", "activity_id": "a1", "rule_id": "RECURSO_LIVRE", "message": "ocupado"},
+    "failure": {"code": "NO_FREE_SLOT", "activity_id": "a1", "rule_id": "RECURSO_LIVRE", "message": "ocupado",
+                "reasons": [{"rule_id": "RECURSO_LIVRE", "resource_id": "00000000-0000-0000-0000-000000000001",
+                             "message": "Sala A: não tem nenhum horário livre com esta duração nesse dia."}]},
     "stats": {"nodes": 0, "solutions": 0, "prunes": 0, "time_ms": 0.1, "limit_reached": False},
 }
 
@@ -140,6 +142,7 @@ def test_sem_solucao_devolve_o_motivo(client, user, scheduling):
     body = planear(client, user, sala()).json()
     assert body["status"] == "NO_SOLUTION" and body["plan"] is None
     assert body["failure"]["rule_id"] == "RECURSO_LIVRE"
+    assert body["failure"]["reasons"][0]["message"].startswith("Sala A:")
 
 
 def test_plano_b_scheduling_indisponivel_da_503(client, user, monkeypatch):

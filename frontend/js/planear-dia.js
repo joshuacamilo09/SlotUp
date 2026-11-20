@@ -223,12 +223,20 @@ function renderResultado() {
         </button>
       </div>`;
   } else if (f === "sem-plano") {
-    const sugestoes = SUGESTOES[estado.falha?.rule_id] ?? SUGESTOES_PADRAO;
+    const falha = estado.falha ?? {};
+    const sugestoes = SUGESTOES[falha.rule_id] ?? SUGESTOES_PADRAO;
+    // Qual atividade falhou ("Atividade 2 · Salas de reunião"), quando a falha é de uma só
+    const i = estado.atividades.findIndex((a) => a.id === falha.activity_id);
+    const qual = i >= 0 ? `Atividade ${i + 1} · ${textoTipo(estado.atividades[i].categoria, estado.atividades[i].tipo)}` : "";
+    const motivos = falha.reasons ?? [];   // um por recurso: "Sala Pequena: só tem lugar para 4 ..."
     el.className = "plano-vazio plano-vazio--erro";
     el.innerHTML = `
       <span class="icone" aria-hidden="true">event_busy</span>
       <p class="plano-vazio__titulo">Não há horários que encaixem tudo</p>
-      <p class="plano-vazio__texto">${esc(estado.falha?.message ?? `Em ${dataCurta(estado.dia)}, não encontrámos recursos livres para todas as atividades.`)}</p>
+      ${qual ? `<p class="plano-vazio__texto"><b>${esc(qual)}</b></p>` : ""}
+      ${motivos.length
+        ? `<ul class="plano-sugestoes">${motivos.map((m) => `<li>${esc(m.message)}</li>`).join("")}</ul>`
+        : `<p class="plano-vazio__texto">${esc(falha.message ?? `Em ${dataCurta(estado.dia)}, não encontrámos recursos livres para todas as atividades.`)}</p>`}
       <p class="plano-sugestoes__titulo">Experimente</p>
       <ul class="plano-sugestoes">${sugestoes.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>`;
   } else if (f === "confirmado") {

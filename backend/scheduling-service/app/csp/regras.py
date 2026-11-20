@@ -3,10 +3,10 @@
 Cada regra tem um identificador (id), um nome e uma mensagem próprios, e
 implementa só o "gancho" (hook) do seu tipo:
 
-- tipo "pedido":  verificar_pedido(problema)                      -> antes da busca, olha o pedido inteiro
+- tipo "pedido":  verificar_pedido(problema)               -> antes da busca, olha o pedido inteiro
 - tipo "unaria":  permite(problema, pedido, recurso, inicio, fim) -> monta os domínios (consistência de nó)
-- tipo "binaria": compativeis(problema, a, b)                     -> durante a busca (forward checking)
-- tipo "global":  vaga_valida(problema, vaga, atribuicao)         -> durante a busca, com todas as atividades
+- tipo "binaria": compativeis(problema, a, b)              -> durante a busca (forward checking)
+- tipo "global":  vaga_valida(problema, vaga, atribuicao)  -> durante a busca, com todas as atividades
 
 Ligar ou desligar uma regra é tirá-la ou pô-la na lista do modo, em ATIVAS_POR_MODO.
 O booking NÃO escolhe regras no pedido: a lista fica no código.
@@ -24,10 +24,15 @@ class Regra:
     nome = ""      # nome curto, para pessoas
     mensagem = ""  # frase usada quando é esta regra que impede o plano
     tipo = ""      # "pedido", "unaria", "binaria" ou "global"
+    motivo = ""    # unárias: o que a regra diz de UM recurso (vai no failure.reasons)
 
     def explicar(self, pedido) -> str:
         """Mensagem para o failure. As regras podem mostrar dados do pedido."""
         return f"{self.nome}: {self.mensagem}"
+
+    def explicar_recurso(self, pedido, recurso: dict) -> str:
+        """Porque é que ESTE recurso não serve. As regras podem mostrar os dados dele."""
+        return f"{recurso['name']}: {self.motivo}"
 
 
 # --------------------------------------------------------------------------- unárias
@@ -38,6 +43,7 @@ class Capacidade(Regra):
     id = "CAPACIDADE"
     nome = "Capacidade"
     mensagem = "nenhum recurso deste tipo comporta todas as pessoas."
+    motivo = "não tem lugar para todas as pessoas."
     tipo = "unaria"
 
     def permite(self, problema, pedido, recurso, inicio, fim) -> bool:
@@ -46,11 +52,15 @@ class Capacidade(Regra):
     def explicar(self, pedido) -> str:
         return f"{self.nome}: nenhum recurso do tipo '{pedido.resource_type}' comporta {pedido.people} pessoas."
 
+    def explicar_recurso(self, pedido, recurso: dict) -> str:
+        return f"{recurso['name']}: só tem lugar para {recurso['capacity']} (pedido: {pedido.people} pessoas)."
+
 
 class Duracao(Regra):
     id = "DURACAO"
     nome = "Duração mínima e máxima"
     mensagem = "nenhum recurso deste tipo aceita esta duração."
+    motivo = "não aceita esta duração."
     tipo = "unaria"
 
     def permite(self, problema, pedido, recurso, inicio, fim) -> bool:
@@ -62,11 +72,16 @@ class Duracao(Regra):
     def explicar(self, pedido) -> str:
         return f"{self.nome}: nenhum recurso do tipo '{pedido.resource_type}' aceita {pedido.duration_min} min."
 
+    def explicar_recurso(self, pedido, recurso: dict) -> str:
+        minimo, maximo = duracao_permitida(recurso)
+        return f"{recurso['name']}: aceita reservas de {minimo} a {maximo} min (pedido: {pedido.duration_min} min)."
+
 
 class Multiplo15(Regra):
     id = "MULTIPLO_15"
     nome = "Múltiplos de 15 minutos"
     mensagem = "o início e a duração têm de ser múltiplos de 15 minutos."
+    motivo = "o início e a duração não estão na grelha de 15 minutos."
     tipo = "unaria"
 
     def permite(self, problema, pedido, recurso, inicio, fim) -> bool:
@@ -80,11 +95,13 @@ class HorarioAbertura(Regra):
     id = "HORARIO_ABERTURA"
     nome = "Horário de abertura"
     mensagem = "o recurso está fechado nesse dia ou a atividade não cabe no horário de abertura."
+    motivo = "está fechado nesse dia ou a atividade não cabe no horário de abertura."
     tipo = "unaria"
 
     def permite(self, problema, pedido, recurso, inicio, fim) -> bool:
         if inicio is None:
             return True  # a vaga é verificada na VAGA_COBRE_O_DIA
+        # any(): basta UMA janela que contenha o intervalo inteiro
         # As janelas DAQUELE dia (o modelo já as tirou do horário semanal)
         return any(abre <= inicio and fim <= fecha for abre, fecha in problema.aberturas[recurso["id"]])
 
@@ -93,6 +110,7 @@ class SemPassado(Regra):
     id = "SEM_PASSADO"
     nome = "Sem passado"
     mensagem = "o dia ou o horário pedido já passou."
+    motivo = "os horários possíveis desse dia já passaram."
     tipo = "unaria"
 
     def permite(self, problema, pedido, recurso, inicio, fim) -> bool:
@@ -109,10 +127,11 @@ class Antecedencia(Regra):
     id = "ANTECEDENCIA"
     nome = "Antecedência máxima"
     mensagem = f"só é possível planear até {ANTECEDENCIA_MAX_DIAS} dias à frente."
+    motivo = f"só se reserva até {ANTECEDENCIA_MAX_DIAS} dias à frente."
     tipo = "unaria"
 
     def permite(self, problema, pedido, recurso, inicio, fim) -> bool:
-        # date - date dá um intervalo; .days é o número de dias dele
+        # .days: o número de dias de um intervalo de datas
         return (problema.day - problema.agora.date()).days <= ANTECEDENCIA_MAX_DIAS
 
 
@@ -120,6 +139,7 @@ class RecursoLivre(Regra):
     id = "RECURSO_LIVRE"
     nome = "Recurso livre"
     mensagem = "o recurso já está reservado nesse horário."
+    motivo = "não tem nenhum horário livre com esta duração nesse dia."
     tipo = "unaria"
 
     def permite(self, problema, pedido, recurso, inicio, fim) -> bool:
@@ -133,6 +153,7 @@ class IntervaloRecurso(Regra):
     id = "INTERVALO_RECURSO"
     nome = "Intervalo entre reservas"
     mensagem = "falta o intervalo de limpeza ou preparação entre reservas seguidas do recurso."
+    motivo = "os horários livres não deixam o intervalo de limpeza entre reservas."
     tipo = "unaria"
 
     def permite(self, problema, pedido, recurso, inicio, fim) -> bool:
