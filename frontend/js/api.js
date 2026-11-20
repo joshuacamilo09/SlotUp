@@ -118,6 +118,8 @@ const api = {
   cancelReservation: (id) => request("POST", `/reservas/reservas/${id}/cancelar`),
   // Planear o meu dia: o booking monta o pedido e pede o plano ao CSP (não reserva nada)
   planDay: (day, activities) => request("POST", "/reservas/planear", { day, activities }),
+  // Reserva o plano inteiro (tudo ou nada); 409 se um horário foi ocupado entretanto
+  confirmPlan: (day, items) => request("POST", "/reservas/planear/confirmar", { day, items }),
 
   // ----- Booking: fila de espera -----
   joinWaitlist:  (resource_id, start_at, end_at) => request("POST", "/reservas/fila", { resource_id, start_at, end_at }),

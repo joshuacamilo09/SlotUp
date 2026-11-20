@@ -1,6 +1,7 @@
 """Planear o meu dia: o booking monta o pedido do contrato e pede o plano ao CSP.
 
-POST /api/reservas/planear   {day, activities: [...]}
+POST /api/reservas/planear             {day, activities: [...]}   -> proposta (não reserva)
+POST /api/reservas/planear/confirmar   {day, items: [...]}        -> reserva tudo ou nada
 
 O booking é a fonte da verdade: lê do banco os recursos ativos dos tipos pedidos,
 o horário semanal de cada um e a ocupação do dia (HELD + CONFIRMED), e envia tudo
@@ -13,16 +14,18 @@ import logging
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import scheduling_client
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import Category, Reservation, Resource
-from app.routers.reservations import ACTIVE_STATUSES
-from app.schemas import PlanearIn, PlanoOut
+from app.models import Category, Notification, Reservation, Resource
+from app.routers.reservations import _NO_OVERLAP, ACTIVE_STATUSES, _constraint_name, check_slot
+from app.schemas import ConfirmarPlanoIn, PlanearIn, PlanoOut, ReservationCreate, ReservationOut
 from app.security import CurrentUser, current_user
 
 log = logging.getLogger("booking.planner")
@@ -166,3 +169,68 @@ def planear_dia(
         user.id, body.day, len(atividades), len(recursos), resposta.get("status"),
     )
     return resposta
+
+
+@router.post("/confirmar", response_model=list[ReservationOut], status_code=status.HTTP_201_CREATED)
+def confirmar_plano(
+    body: ConfirmarPlanoIn,
+    user: CurrentUser = Depends(current_user),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    """Reserva o plano inteiro, TUDO OU NADA, numa só transação.
+
+    Entre gerar o plano e confirmar, alguém pode ter reservado um dos horários. Por
+    isso o plano não é de confiança: cada item passa pelas mesmas regras de uma reserva
+    normal (check_slot) e o banco volta a verificar a sobreposição (reservations_no_overlap).
+    Se UM item falhar, nenhum fica gravado e o usuário gera o plano de novo.
+    """
+    # 1) Valida TODOS os itens antes de gravar qualquer um (422 regra / 404 recurso)
+    validados = []
+    for item in body.items:
+        # Sem fuso: o check_slot trata-as como hora local do complexo, como numa reserva normal
+        pedido = ReservationCreate(
+            resource_id=item.resource_id,
+            start_at=datetime.combine(body.day, time.fromisoformat(item.start)),
+            end_at=datetime.combine(body.day, time.fromisoformat(item.end)),
+        )
+        recurso, inicio, fim = check_slot(db, pedido, settings)
+        validados.append((item, recurso, inicio, fim))
+
+    # 2) Grava um a um, na MESMA transação. O flush() manda o INSERT já, e é aí que o
+    #    banco confere a sobreposição; o commit só acontece no fim, se todos passarem.
+    reservas = []
+    for item, recurso, inicio, fim in validados:
+        reserva = Reservation(
+            user_id=user.id, user_email=user.email, resource_id=recurso.id,
+            start_at=inicio, end_at=fim, status="CONFIRMED",
+        )
+        db.add(reserva)
+        try:
+            db.flush()
+        except IntegrityError as exc:
+            db.rollback()  # desfaz TAMBÉM as reservas anteriores deste plano: tudo ou nada
+            if _constraint_name(exc) != _NO_OVERLAP:
+                raise
+            log.info("plano_conflito user_id=%s recurso_id=%s atividade=%s", user.id, recurso.id, item.activity_id)
+            # JSONResponse em vez de HTTPException: assim vai também o activity_id do conflito
+            return JSONResponse(
+                status_code=status.HTTP_409_CONFLICT,
+                content={
+                    "detail": f"{recurso.name} já não está livre das {item.start} às {item.end}. "
+                              "Nada foi reservado: gere o plano de novo.",
+                    "activity_id": item.activity_id,
+                },
+            )
+        reservas.append(reserva)
+        # Pedido de email na mesma transação (outbox), como no Criar reserva
+        db.add(Notification(
+            user_id=user.id, recipient_email=user.email, type="RESERVATION_CREATED", reservation_id=reserva.id,
+            payload={"resource_name": recurso.name, "start_at": inicio.isoformat(), "end_at": fim.isoformat()},
+        ))
+
+    db.commit()
+    for reserva in reservas:
+        db.refresh(reserva)
+    log.info("plano_confirmado user_id=%s dia=%s reservas=%s", user.id, body.day, len(reservas))
+    return reservas

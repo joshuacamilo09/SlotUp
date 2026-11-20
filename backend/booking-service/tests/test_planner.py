@@ -1,4 +1,4 @@
-"""Planear o meu dia (POST /api/reservas/planear).
+"""Planear o meu dia (POST /api/reservas/planear) e confirmar o plano (POST .../confirmar).
 
 Correm contra o PostgreSQL real, mas SEM o scheduling: trocamos o
 scheduling_client.planear por uma função falsa que guarda o pedido recebido.
@@ -7,7 +7,7 @@ Assim testamos o que é do booking: montar o pedido do contrato a partir do banc
 import uuid
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from app import scheduling_client
 from app.database import SessionLocal
@@ -165,10 +165,85 @@ VAGA = {"id": "v1", "resource_type": "vaga_carro", "covers_day": True}
         ("fora_dos_15_min", [sala(minutos=50)]),
         ("sem_horario", [{"id": "a1", "resource_type": "sala", "duration_min": 60}]),
         ("janela_ao_contrario", [sala(inicio="13:00", fim="08:00")]),
-        ("so_estacionamento", [VAGA]),
         ("nenhuma", []),
+        ("so_estacionamento", [VAGA]),
     ],
 )
 def test_pedidos_invalidos_dao_422_sem_chamar_o_scheduling(client, user, scheduling, label, atividades):
     assert planear(client, user, *atividades).status_code == 422, label
     assert scheduling["pedidos"] == []
+
+
+# =========================================================================== confirmar o plano
+CONFIRMAR = f"{PLANEAR}/confirmar"
+
+
+def item(activity_id: str, rid: str, inicio: str, fim: str) -> dict:
+    return {"activity_id": activity_id, "resource_id": rid, "start": inicio, "end": fim}
+
+
+def confirmar(client, headers, *itens, dia=None):
+    return client.post(CONFIRMAR, json={"day": str(dia or next_monday()), "items": list(itens)}, headers=headers)
+
+
+def reservas_de(client, headers) -> list[dict]:
+    return client.get("/api/reservas/reservas/minhas", headers=headers).json()
+
+
+def test_confirmar_sem_token_da_401(client):
+    assert client.post(CONFIRMAR, json={}).status_code == 401
+
+
+def test_confirmar_cria_todas_as_reservas(client, helpers, admin, category):
+    eu = helpers.bearer(helpers.make_token())
+    sala_a, sala_b = create_resource(client, admin, category), create_resource(client, admin, category)
+
+    response = confirmar(client, eu, item("a1", sala_a, "09:00", "10:00"), item("a2", sala_b, "14:00", "15:30"))
+    assert response.status_code == 201, response.text
+    criadas = response.json()
+    assert [r["status"] for r in criadas] == ["CONFIRMED", "CONFIRMED"]
+    assert sorted(r["resource_id"] for r in reservas_de(client, eu)) == sorted([sala_a, sala_b])
+    with SessionLocal() as db:  # um email por reserva (outbox)
+        emails = db.scalar(text("SELECT count(*) FROM notifications WHERE reservation_id IN :ids")
+                           .bindparams(bindparam("ids", expanding=True)), {"ids": [r["id"] for r in criadas]})
+    assert emails == 2
+
+
+def test_conflito_nao_reserva_nada_e_diz_qual_atividade(client, helpers, admin, category):
+    day = next_monday()
+    eu, outro = helpers.bearer(helpers.make_token()), helpers.bearer(helpers.make_token())
+    sala_a, sala_b = create_resource(client, admin, category), create_resource(client, admin, category)
+    # Entre gerar o plano e confirmar, outra pessoa reservou a sala B
+    assert book(client, outro, sala_b, at(day, 14), at(day, 15)).status_code == 201
+
+    response = confirmar(client, eu, item("a1", sala_a, "09:00", "10:00"), item("a2", sala_b, "14:00", "15:00"))
+    assert response.status_code == 409
+    assert response.json()["activity_id"] == "a2" and "Nada foi reservado" in response.json()["detail"]
+    assert reservas_de(client, eu) == []  # a sala A (que estava livre) também não ficou reservada
+
+
+def test_item_que_viola_uma_regra_da_422_e_nao_reserva_nada(client, helpers, admin, category):
+    eu = helpers.bearer(helpers.make_token())
+    sala_a = create_resource(client, admin, category)
+    # O segundo item começa antes de a sala abrir (08:00)
+    response = confirmar(client, eu, item("a1", sala_a, "09:00", "10:00"), item("a2", sala_a, "07:00", "08:00"))
+    assert response.status_code == 422
+    assert reservas_de(client, eu) == []
+
+
+def test_recurso_inexistente_da_404(client, user):
+    assert confirmar(client, user, item("a1", str(uuid.uuid4()), "09:00", "10:00")).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "label, itens",
+    [
+        ("ids_repetidos", [item("a1", str(uuid.uuid4()), "09:00", "10:00")] * 2),
+        ("fim_antes_do_inicio", [item("a1", str(uuid.uuid4()), "10:00", "09:00")]),
+        ("hora_invalida", [item("a1", str(uuid.uuid4()), "9h", "10:00")]),
+        ("campo_a_mais", [{**item("a1", str(uuid.uuid4()), "09:00", "10:00"), "resource_name": "Sala"}]),
+        ("nenhum", []),
+    ],
+)
+def test_confirmar_pedidos_invalidos_dao_422(client, user, label, itens):
+    assert confirmar(client, user, *itens).status_code == 422, label

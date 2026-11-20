@@ -53,12 +53,13 @@ async function planear(pedido) {
 }
 
 async function confirmar(dia, itens) {
-  await esperar(600);
-  return itens;   // exemplo: "criou" uma reserva por item
+  // A API só aceita estes 4 campos (extra="forbid"): tiramos o resource_name de cada item
+  const items = itens.map(({ activity_id, resource_id, start, end }) => ({ activity_id, resource_id, start, end }));
+  await api.confirmPlan(dia, items);
+  return itens;   // a tela mostra os itens do plano (já têm o nome do recurso e a atividade)
 }
 
 // ===== 3. AJUDANTES =====
-const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 const pad = (n) => String(n).padStart(2, "0");
 const hhmm = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 const paraMinutos = (texto) => Number(texto.slice(0, 2)) * 60 + Number(texto.slice(3, 5));   // "09:30" → 570
@@ -255,7 +256,7 @@ function listaItens(itens) {
         <span class="plano-item__icone"><span class="icone" aria-hidden="true">${iconeTipo(a.categoria, a.tipo)}</span></span>
         <div>
           <p class="plano-item__nome">${esc(item.resource_name)}</p>
-          <p class="plano-item__meta">${esc(textoTipo(a.categoria, a.tipo))}${a.pessoas > 1 ? ` · ${a.pessoas} pessoas` : ""}</p>
+          <p class="plano-item__meta">${esc(textoTipo(a.categoria, a.tipo))}${TIPOS_COM_PESSOAS.includes(a.tipo) && a.pessoas > 1 ? ` · ${a.pessoas} pessoas` : ""}</p>
         </div>
         <span class="plano-item__dur">${duracaoTxt(minutos)}</span>
       </li>`;
@@ -358,7 +359,7 @@ async function confirmarPlano() {
     if (err.status === 409) {
       // Alguém reservou um dos horários entre o plano e a confirmação: nada foi criado
       estado.fase = "vazio";
-      toast("Um dos horários foi ocupado entretanto. Nada foi reservado: gere o plano de novo.", true);
+      toast(err.message, true);
     } else {
       estado.fase = "plano";
       toast(err.message || "Não foi possível reservar o plano.", true);

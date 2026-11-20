@@ -366,10 +366,40 @@ class PlanoFalha(BaseModel):
     rule_id: str | None  # a regra que impediu o plano: a tela escolhe as sugestões por ela
     message: str
 
-
 class PlanoOut(BaseModel):
     """A resposta do scheduling, só com o que a tela usa (sem custo nem estatísticas)."""
 
     status: Literal["OK", "NO_SOLUTION"]
     plan: PlanoSolucao | None
     failure: PlanoFalha | None
+
+class ConfirmarItem(BaseModel):
+    """Um item do plano que a tela recebeu, tal como vai ser reservado."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    activity_id: AtividadeId
+    resource_id: uuid.UUID
+    start: HoraMin
+    end: HoraMin
+
+    @model_validator(mode="after")
+    def _fim_depois_do_inicio(self) -> "ConfirmarItem":
+        if self.end <= self.start:  # "HH:MM" compara-se bem como texto
+            raise ValueError("O fim tem de ser depois do início")
+        return self
+
+class ConfirmarPlanoIn(BaseModel):
+    """POST /planear/confirmar: o dia e os itens do plano (todos ou nenhum)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    day: date
+    items: Annotated[list[ConfirmarItem], Field(min_length=1, max_length=MAX_ATIVIDADES)]
+
+    @model_validator(mode="after")
+    def _uma_reserva_por_atividade(self) -> "ConfirmarPlanoIn":
+        ids = [i.activity_id for i in self.items]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Os ids das atividades têm de ser únicos")
+        return self
