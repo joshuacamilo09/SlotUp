@@ -1,64 +1,69 @@
-"""Rota do CSP: POST /api/scheduling/plan (formato do documentacao/contrato-scheduling.md)."""
+import time
+
 from fastapi import APIRouter, HTTPException
 
+from app.csp.custo import custo_valor, melhores_opcoes
 from app.csp.diagnostico import diagnosticar
-from app.csp.modelo import montar_problema
-from app.csp.solver import formatar_solucao, resolver
+from app.csp.modelo import montar_problema, para_hhmm
+from app.csp.solver import Estatisticas, formatar_solucao, resolver
 from app.schemas import Failure, PlanIn, PlanItem, PlanOut, PlanStats, Solution
 
 router = APIRouter(prefix="/api/scheduling", tags=["scheduling"])
 
 
+def _estatisticas(stats: Estatisticas) -> PlanStats:
+    return PlanStats(nodes=stats.nos, solutions=stats.solucoes, prunes=stats.podas,
+                     time_ms=round(stats.tempo_ms, 2), limit_reached=stats.limite_atingido)
+
+
 @router.post("/plan", response_model=PlanOut)
 def planear(body: PlanIn) -> PlanOut:
-    """Modo plan: o melhor plano do dia, ou o motivo de não haver nenhum."""
-    # 501 = "Not Implemented": a rota existe e o pedido é válido, mas este modo ainda não está pronto
-    if body.mode == "suggest":
-        raise HTTPException(status_code=501, detail="O modo suggest ainda não está implementado")
-
-    # Pydantic -> dict, que é o que o modelo.py sabe ler (exclude_none tira os campos não enviados)
     dados = body.model_dump(mode="json", exclude_none=True)
     try:
         problema = montar_problema(dados)
+        if body.mode == "suggest":
+            return _sugerir(body, problema)
         solucao, custo, stats = resolver(problema)
     except ValueError as erro:
-        raise HTTPException(status_code=422, detail=str(erro))  # R3 e afins: o pedido está errado
-
-    estatisticas = PlanStats(
-        nodes=stats.nos,
-        solutions=stats.solucoes,
-        prunes=stats.podas,
-        time_ms=round(stats.tempo_ms, 2),
-        limit_reached=stats.limite_atingido,
-    )
-
-    # Sem solução é uma resposta válida (200), com o motivo em failure
+        raise HTTPException(status_code=422, detail=str(erro))
+    estatisticas = _estatisticas(stats)
     if solucao is None:
-        return PlanOut(
-            status="NO_SOLUTION",
-            mode=body.mode,
-            plan=None,
-            alternatives=None,
-            failure=Failure(**diagnosticar(problema, stats)),  # ** espalha o dict como argumentos
-            stats=estatisticas,
-        )
+        return PlanOut(status="NO_SOLUTION", mode=body.mode, plan=None, alternatives=None,
+                       failure=Failure(**diagnosticar(problema, stats)), stats=estatisticas)
+    nomes = {r.id: r.name for r in body.resources}
+    itens = [PlanItem(activity_id=i["activity_id"], resource_id=i["resource_id"], resource_name=nomes[i["resource_id"]],
+                      start=i["start"], end=i["end"]) for i in formatar_solucao(problema, solucao)]
+    return PlanOut(status="OK", mode=body.mode, plan=Solution(cost=custo, items=itens),
+                   alternatives=None, failure=None, stats=estatisticas)
 
-    nomes = {r.id: r.name for r in body.resources}  # id -> nome legível
-    itens = [
-        PlanItem(
-            activity_id=item["activity_id"],
-            resource_id=item["resource_id"],
-            resource_name=nomes[item["resource_id"]],
-            start=item["start"],
-            end=item["end"],
-        )
-        for item in formatar_solucao(problema, solucao)
+
+def _sugerir(body: PlanIn, problema) -> PlanOut:
+    """Modo suggest: as melhores opções para UMA atividade cujo horário estava ocupado.
+
+    Com uma só atividade não há combinações a procurar: o domínio dela (já filtrado
+    pelas regras unárias: capacidade, duração, abertura, livre, intervalo...) ordenado
+    pelo custo (F1 + F3) já dá as melhores opções. É a mesma ordem que a busca usa.
+    """
+    [pid] = problema.pedidos  # o PlanIn garante: no suggest há exatamente 1 atividade
+    inicio = time.perf_counter()
+    opcoes = melhores_opcoes(problema, pid, body.max_alternatives)
+    stats = Estatisticas(nos=len(problema.dominios[pid]), solucoes=len(opcoes),
+                         tempo_ms=(time.perf_counter() - inicio) * 1000)
+
+    if not opcoes:
+        # Nenhuma opção livre: o diagnóstico diz que regra a tirou (ex.: CAPACIDADE, RECURSO_LIVRE)
+        return PlanOut(status="NO_SOLUTION", mode="suggest", plan=None, alternatives=None,
+                       failure=Failure(**diagnosticar(problema, stats)), stats=_estatisticas(stats))
+
+    nomes = {r.id: r.name for r in body.resources}
+    # Cada opção é uma Solution com um só item, da melhor para a pior
+    solucoes = [
+        Solution(cost=custo_valor(problema, pid, valor), items=[PlanItem(
+            activity_id=pid, resource_id=valor.resource_id, resource_name=nomes[valor.resource_id],
+            start=para_hhmm(valor.inicio), end=para_hhmm(valor.fim),
+        )])
+        for valor in opcoes
     ]
-    return PlanOut(
-        status="OK",
-        mode=body.mode,
-        plan=Solution(cost=custo, items=itens),
-        alternatives=None,
-        failure=None,
-        stats=estatisticas,
-    )
+    # plan = a melhor; alternatives = todas, por ordem (a primeira é a mesma do plan)
+    return PlanOut(status="OK", mode="suggest", plan=solucoes[0], alternatives=solucoes,
+                   failure=None, stats=_estatisticas(stats))

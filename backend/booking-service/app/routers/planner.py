@@ -32,6 +32,7 @@ log = logging.getLogger("booking.planner")
 router = APIRouter(prefix="/api/reservas/planear", tags=["planear"])
 
 FAVORITO_DIAS = 90  # o recurso favorito vem das reservas dos últimos 90 dias
+MAX_SUGESTOES = 3   # alternativas no 409 do Criar reserva
 
 
 def _hhmm(valor: datetime | time) -> str:
@@ -129,6 +130,52 @@ def _favoritos(db: Session, user_id, tipos: set[str], agora: datetime) -> dict[s
     for tipo, resource_id in db.execute(consulta):
         favoritos.setdefault(tipo, str(resource_id))  # setdefault: fica o primeiro de cada tipo
     return favoritos
+
+
+def sugerir_alternativas(db: Session, recurso: Resource, inicio: datetime, fim: datetime, settings: Settings) -> list[dict]:
+    """Sugestões para o 409 do Criar reserva: os horários livres mais parecidos com o pedido.
+
+    Pede ao CSP (modo "suggest") uma atividade com a mesma duração e a mesma hora, nos
+    recursos do MESMO tipo e no mesmo dia. O recurso pedido vai como favorito (custo F3),
+    por isso o CSP prefere primeiro outra hora nesse recurso e só depois outro recurso.
+
+    Plano B: se o scheduling falhar, devolve [] e o 409 sai na mesma, só sem sugestões.
+    """
+    tz = ZoneInfo(settings.local_timezone)
+    dia = inicio.date()  # inicio e fim chegam do check_slot já em hora local
+    recursos = _recursos(db, {recurso.resource_type})
+    pedido = {
+        "mode": "suggest",
+        "day": dia.isoformat(),
+        "now": datetime.now(tz).replace(tzinfo=None).isoformat(timespec="minutes"),
+        "max_alternatives": MAX_SUGESTOES,
+        "activities": [{
+            "id": "pedido",
+            "resource_type": recurso.resource_type,
+            "people": 1,  # o Criar reserva não pede o número de pessoas
+            "duration_min": int((fim - inicio).total_seconds() // 60),
+            "preferred_start": _hhmm(inicio),
+            "favorite_resource_id": str(recurso.id),
+        }],
+        "resources": [recurso_do_contrato(r) for r in recursos],
+        "busy": _ocupacao(db, recursos, dia, tz),
+    }
+    try:
+        resposta = scheduling_client.planear(pedido)
+    except scheduling_client.SchedulingIndisponivel:
+        return []
+
+    sugestoes = []
+    for solucao in resposta.get("alternatives") or []:  # "or []": no NO_SOLUTION vem None
+        [item] = solucao["items"]  # no suggest cada opção tem um só item
+        sugestoes.append({
+            "resource_id": item["resource_id"],
+            "resource_name": item["resource_name"],
+            # Com fuso, no mesmo formato do start_at/end_at das reservas
+            "start_at": datetime.combine(dia, time.fromisoformat(item["start"]), tzinfo=tz).isoformat(),
+            "end_at": datetime.combine(dia, time.fromisoformat(item["end"]), tzinfo=tz).isoformat(),
+        })
+    return sugestoes
 
 
 @router.post("", response_model=PlanoOut)

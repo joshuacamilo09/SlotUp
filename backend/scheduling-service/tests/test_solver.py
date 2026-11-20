@@ -248,12 +248,45 @@ def test_api_motivo_da_falha(cliente, dados, mudar, codigo):
     resposta = cliente.post("/api/scheduling/plan", json=dados)
     assert resposta.json()["failure"]["code"] == codigo
 
+# ---------------------------------------------------------------- modo suggest
+def _sugestao(dados, **mudancas):
+    """O pedido de sugestões: só a reunião (sala para 6 às 14:00; a sala grande está ocupada 14-15)."""
+    reuniao = {**dados["activities"][2], **mudancas}  # ** junta os dois dicts; o da direita ganha
+    return {**dados, "mode": "suggest", "max_alternatives": 3, "activities": [reuniao]}
 
-def test_api_suggest_ainda_nao_implementado(cliente, dados):
-    dados["mode"] = "suggest"
-    dados["activities"] = [dados["activities"][1]]  # suggest exige 1 atividade só
-    resposta = cliente.post("/api/scheduling/plan", json=dados)
-    assert resposta.status_code == 501
+
+def test_api_suggest_devolve_as_melhores_opcoes(cliente, dados):
+    resposta = cliente.post("/api/scheduling/plan", json=_sugestao(dados))
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["status"] == "OK" and corpo["mode"] == "suggest"
+    opcoes = corpo["alternatives"]
+    assert len(opcoes) == 3 and corpo["plan"] == opcoes[0]
+    custos = [o["cost"] for o in opcoes]
+    assert custos == sorted(custos)  # da melhor para a pior
+    for opcao in opcoes:
+        [item] = opcao["items"]
+        assert item["resource_id"] == "sala-grande"  # a única sala que comporta 6 pessoas
+        # Nenhuma opção bate na reserva das 14:00-15:00 nem no intervalo de 10 min à volta
+        assert item["end"] <= "13:50" or item["start"] >= "15:10"
+
+
+def test_api_suggest_respeita_o_maximo_de_alternativas(cliente, dados):
+    pedido = _sugestao(dados)
+    pedido["max_alternatives"] = 1
+    assert len(cliente.post("/api/scheduling/plan", json=pedido).json()["alternatives"]) == 1
+
+
+def test_api_suggest_sem_opcoes_explica_porque(cliente, dados):
+    corpo = cliente.post("/api/scheduling/plan", json=_sugestao(dados, people=20)).json()
+    assert corpo["status"] == "NO_SOLUTION" and corpo["alternatives"] is None
+    assert corpo["failure"]["rule_id"] == "CAPACIDADE"
+
+
+def test_api_suggest_exige_uma_so_atividade(cliente, dados):
+    pedido = _sugestao(dados)
+    pedido["activities"].append(dados["activities"][1])
+    assert cliente.post("/api/scheduling/plan", json=pedido).status_code == 422
 
 # ---------------------------------------------------------------- regras ligáveis
 # Cada caso: (o que muda no cenário, a regra que deve aparecer no rule_id)

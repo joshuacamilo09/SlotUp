@@ -247,3 +247,41 @@ def test_recurso_inexistente_da_404(client, user):
 )
 def test_confirmar_pedidos_invalidos_dao_422(client, user, label, itens):
     assert confirmar(client, user, *itens).status_code == 422, label
+
+
+# =========================================================================== sugestões no 409 do Criar reserva
+def test_conflito_ao_reservar_traz_sugestoes_do_csp(client, helpers, admin, category, scheduling):
+    day = next_monday()
+    rid = create_resource(client, admin, category)
+    outro = helpers.bearer(helpers.make_token())
+    assert book(client, outro, rid, at(day, 10), at(day, 11)).status_code == 201
+    scheduling["resposta"] = {
+        "status": "OK", "mode": "suggest", "failure": None, "stats": SEM_SOLUCAO["stats"], "plan": None,
+        "alternatives": [{"cost": 15, "items": [{"activity_id": "pedido", "resource_id": rid,
+                                                 "resource_name": "Sala X", "start": "11:15", "end": "12:15"}]}],
+    }
+
+    response = book(client, helpers.bearer(helpers.make_token()), rid, at(day, 10), at(day, 11))
+    assert response.status_code == 409
+    corpo = response.json()
+    assert corpo["detail"] == "Este horário já está reservado"  # a mensagem de sempre continua igual
+    assert corpo["alternatives"] == [{"resource_id": rid, "resource_name": "Sala X",
+                                      "start_at": at(day, 11, 15).isoformat(), "end_at": at(day, 12, 15).isoformat()}]
+
+    # O pedido ao CSP: modo suggest, a mesma hora e duração, e o recurso pedido como favorito
+    [pedido] = scheduling["pedidos"]
+    assert pedido["mode"] == "suggest" and pedido["max_alternatives"] == 3
+    assert pedido["activities"] == [{"id": "pedido", "resource_type": "sala", "people": 1, "duration_min": 60,
+                                     "preferred_start": "10:00", "favorite_resource_id": rid}]
+    assert {"resource_id": rid, "start": "10:00", "end": "11:00"} in pedido["busy"]
+
+
+def test_conflito_sem_scheduling_continua_409_sem_sugestoes(client, helpers, admin, category):
+    # Sem a fixture "scheduling": vale a do conftest, que simula o scheduling em baixo (plano B)
+    day = next_monday()
+    rid = create_resource(client, admin, category)
+    book(client, helpers.bearer(helpers.make_token()), rid, at(day, 10), at(day, 11))
+
+    response = book(client, helpers.bearer(helpers.make_token()), rid, at(day, 10), at(day, 11))
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Este horário já está reservado", "alternatives": []}

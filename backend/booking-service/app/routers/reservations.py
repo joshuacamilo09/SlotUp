@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -119,7 +120,16 @@ def create_reservation(
     except IntegrityError as exc:
         db.rollback()
         if _constraint_name(exc) == _NO_OVERLAP:
-            raise HTTPException(status.HTTP_409_CONFLICT, "Este horário já está reservado") from None
+            # Import aqui dentro: o planner importa este arquivo (seria uma importação circular)
+            from app.routers.planner import sugerir_alternativas
+            # JSONResponse em vez de HTTPException: assim o 409 leva também as sugestões do CSP
+            return JSONResponse(
+                status_code=status.HTTP_409_CONFLICT,
+                content={
+                    "detail": "Este horário já está reservado",
+                    "alternatives": sugerir_alternativas(db, resource, start, end, settings),
+                },
+            )
         raise
 
     # 4) Pedido de email na mesma transação (outbox): ou ficam os dois, ou nenhum
