@@ -116,6 +116,8 @@ const api = {
   myReservations: (periodo = "futuras", limit = 50, status) =>
     request("GET", `/reservas/reservas/minhas?periodo=${periodo}&limit=${limit}` + (status ? `&status=${status}` : "")),
   cancelReservation: (id) => request("POST", `/reservas/reservas/${id}/cancelar`),
+  // Planear o meu dia: o booking monta o pedido e pede o plano ao CSP (não reserva nada)
+  planDay: (day, activities) => request("POST", "/reservas/planear", { day, activities }),
 
   // ----- Booking: fila de espera -----
   joinWaitlist:  (resource_id, start_at, end_at) => request("POST", "/reservas/fila", { resource_id, start_at, end_at }),

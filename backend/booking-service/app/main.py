@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import InterfaceError, OperationalError
 
 from app.config import get_settings
-from app.routers import availability, categories, health, reservations, resources, session_check, waitlist
+from app.routers import availability, categories, health, planner, reservations, resources, session_check, waitlist
 from app.scheduling_client import SchedulingIndisponivel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -19,6 +19,7 @@ app.include_router(availability.router)
 app.include_router(reservations.router)
 app.include_router(waitlist.router)
 app.include_router(session_check.router)
+app.include_router(planner.router)
 
 @app.middleware("http")
 async def served_by_header(request: Request, call_next):

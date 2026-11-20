@@ -276,8 +276,6 @@ class ReservationAdminOut(ReservationOut):
 Periodo = Literal["futuras", "passadas", "todas"]
 ReservationStatus = Literal["HELD", "CONFIRMED", "CANCELLED"]
 
-
-
 class WaitlistOut(BaseModel):
     """Um pedido na fila de espera."""
 
@@ -294,3 +292,81 @@ class WaitlistOut(BaseModel):
     reservation_id: uuid.UUID | None  # a reserva HELD da oferta (OFFERED) ou a confirmada (ACCEPTED)
     hold_expires_at: datetime | None  # até quando a oferta está guardada (só em OFFERED)
     created_at: datetime
+
+# --------------------------------------------------------------------------- planear o meu dia
+# As mesmas regras das atividades do contrato do scheduling (documentacao/contrato-scheduling.md).
+# Validar aqui também garante que um erro do usuário dá 422 com a mensagem certa,
+# em vez de o scheduling o recusar e o booking responder 503.
+HoraMin = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]  # "09:30"
+AtividadeId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{1,40}$")]
+MAX_ATIVIDADES = 5  # o mesmo limite da tela
+
+
+class AtividadeIn(BaseModel):
+    """Uma atividade do dia. O estacionamento vai com covers_day, sem duração nem horário."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: AtividadeId
+    resource_type: ResourceType
+    people: int = Field(default=1, ge=1, le=1000)
+    duration_min: DurationMin | None = None
+    preferred_start: HoraMin | None = None
+    preferred_end: HoraMin | None = None  # com ele, uma janela (manhã/tarde); sem ele, uma hora específica
+    covers_day: bool = False
+
+    @model_validator(mode="after")
+    def _campos_conforme_o_tipo(self) -> "AtividadeIn":
+        if self.covers_day:
+            if self.duration_min is not None or self.preferred_start is not None or self.preferred_end is not None:
+                raise ValueError("O estacionamento cobre o dia: não leva duração nem horário")
+        elif self.duration_min is None or self.preferred_start is None:
+            raise ValueError("Cada atividade precisa de duração e de horário preferido")
+        elif self.preferred_end is not None and self.preferred_end <= self.preferred_start:
+            raise ValueError("O fim da janela tem de ser depois do início")
+        return self
+
+
+class PlanearIn(BaseModel):
+    """POST /planear: o dia e as atividades. O resto (recursos, ocupação) vem do banco."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    day: date
+    activities: Annotated[list[AtividadeIn], Field(min_length=1, max_length=MAX_ATIVIDADES)]
+
+    @model_validator(mode="after")
+    def _regras_do_pedido(self) -> "PlanearIn":
+        ids = [a.id for a in self.activities]
+        if len(ids) != len(set(ids)):  # set() tira os repetidos
+            raise ValueError("Os ids das atividades têm de ser únicos")
+        if sum(a.covers_day for a in self.activities) > 1:  # True conta como 1
+            raise ValueError("No máximo 1 vaga de estacionamento por dia")
+        return self
+
+
+class PlanoItem(BaseModel):
+    activity_id: str
+    resource_id: uuid.UUID
+    resource_name: str
+    start: str  # "HH:MM", hora local do complexo
+    end: str
+
+
+class PlanoSolucao(BaseModel):
+    items: list[PlanoItem]
+
+
+class PlanoFalha(BaseModel):
+    code: str
+    activity_id: str | None
+    rule_id: str | None  # a regra que impediu o plano: a tela escolhe as sugestões por ela
+    message: str
+
+
+class PlanoOut(BaseModel):
+    """A resposta do scheduling, só com o que a tela usa (sem custo nem estatísticas)."""
+
+    status: Literal["OK", "NO_SOLUTION"]
+    plan: PlanoSolucao | None
+    failure: PlanoFalha | None

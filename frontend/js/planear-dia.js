@@ -39,7 +39,7 @@ const SUGESTOES = {
 const SUGESTOES_PADRAO = ["Reduzir a duração de uma atividade", "Mudar o horário preferido", "Escolher outro dia"];
 
 // ===== 2. LIGAÇÃO AO BACKEND =====
-// Por agora estas duas funções devolvem respostas de exemplo, NO FORMATO DO CONTRATO
+// O confirmar ainda devolve uma resposta de exemplo, NO FORMATO DO CONTRATO
 // (documentacao/contrato-scheduling.md). Na tarefa "Planear o meu dia (rota)" passam a
 // chamar o booking, e o resto da tela não muda.
 //
@@ -48,29 +48,8 @@ const SUGESTOES_PADRAO = ["Reduzir a duração de uma atividade", "Mudar o horá
 //                  devolve: { status: "OK" | "NO_SOLUTION", plan, failure }
 // confirmar(dia, itens)  cria as reservas do plano, tudo ou nada; 409 se um horário foi ocupado
 async function planear(pedido) {
-  await esperar(600);
-  const muitas = pedido.activities.find((a) => a.people > 12);
-  if (muitas) {
-    return {
-      status: "NO_SOLUTION", plan: null,
-      failure: { code: "NO_CAPACITY", activity_id: muitas.id, rule_id: "CAPACIDADE",
-                 message: `Capacidade: nenhum recurso do tipo '${muitas.resource_type}' comporta ${muitas.people} pessoas.` },
-    };
-  }
-  // Exemplo: põe cada atividade no início da janela, uma a seguir à outra
-  let livreDesde = 0;
-  const comHorario = pedido.activities.filter((a) => !a.covers_day).map((a) => {
-    const inicio = Math.max(paraMinutos(a.preferred_start), livreDesde);
-    livreDesde = inicio + a.duration_min + 15;
-    return { activity_id: a.id, resource_id: "exemplo-" + a.id, resource_name: "Recurso de exemplo",
-             start: hhmm(inicio), end: hhmm(inicio + a.duration_min) };
-  });
-  const vaga = pedido.activities.find((a) => a.covers_day);
-  if (vaga && comHorario.length) {
-    comHorario.push({ activity_id: vaga.id, resource_id: "exemplo-vaga", resource_name: "Vaga de exemplo",
-                      start: hhmm(paraMinutos(comHorario[0].start) - 10), end: hhmm(paraMinutos(comHorario.at(-1).end) + 10) });
-  }
-  return { status: "OK", plan: { cost: 0, items: comHorario }, failure: null };
+  // Os erros (422, 503 do plano B...) chegam como ApiError e o gerarPlano mostra-os num toast
+  return api.planDay(pedido.day, pedido.activities);
 }
 
 async function confirmar(dia, itens) {
