@@ -17,7 +17,7 @@ O serviço **não tem banco de dados** e nunca grava nada. É **interno**: não 
 |---|---|
 | Com o resto do sistema | `docker compose up -d --build` em `infra/docker` (o booking encontra-o pelo nome `scheduling`) |
 | Swagger (`/docs`) | Fora do Docker, com o `.venv` ativo: `uvicorn app.main:app --port 8013` e abrir `http://localhost:8013/docs`. Tem 3 exemplos prontos no "Try it out": plano, sugestões e sem solução |
-| Testes | `pytest -q` (não precisa de banco nem do booking) |
+| Testes | `pytest -q` (não precisa de banco nem do booking): uma regra por teste, cada código de falha, limites, mesma entrada → mesmo resultado, e comparação com a força bruta |
 | Demo no terminal | `python demo.py`: resolve o `dados/cenario_basico.json` passo a passo (domínios, 1.ª solução, solução ótima e custo) |
 | Benchmark | `pip install -r requirements-dev.txt`, depois `python benchmark.py` (~2 min) e `python graficos.py`. Ver a [seção 8](#8-benchmark) |
 

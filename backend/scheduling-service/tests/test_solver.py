@@ -3,6 +3,7 @@
 Rodar dentro de scheduling-service/:  python3 -m pytest -v
 """
 import json
+import copy
 from datetime import datetime
 from itertools import product  # product(A, B) = todas as combinações (a, b)
 from pathlib import Path
@@ -443,3 +444,36 @@ def test_janela_invalida_da_422(cliente, dados, mudar):
     mudar(dados)
     resposta = cliente.post("/api/scheduling/plan", json=dados)
     assert resposta.status_code == 422
+
+# ---------------------------------------------------------------- regras que a API não consegue violar
+def test_regra_multiplo_15():
+    # Pela API não dá para violar (a grade de candidatos e o schema já são de 15 em 15),
+    # por isso testamos a regra diretamente: (problema, pedido, recurso, início, fim)
+    regra = POR_ID["MULTIPLO_15"]
+    assert regra.permite(None, None, None, 540, 600)       # 09:00-10:00
+    assert not regra.permite(None, None, None, 545, 600)   # começa às 09:05
+    assert not regra.permite(None, None, None, 540, 610)   # dura 70 min
+    assert regra.permite(None, None, None, None, None)     # a vaga não tem horário próprio
+
+
+# ---------------------------------------------------------------- mesma entrada, mesmo resultado
+def test_mesma_entrada_mesma_resposta(cliente, dados):
+    respostas = [cliente.post("/api/scheduling/plan", json=dados).json() for _ in range(5)]
+    for resposta in respostas:
+        resposta["stats"]["time_ms"] = 0  # o tempo muda de corrida para corrida; o resto não pode
+    assert all(r == respostas[0] for r in respostas)
+
+
+@pytest.mark.parametrize("semente", range(5))
+def test_ordem_do_pedido_nao_muda_o_plano(semente):
+    # Os mesmos dados com as atividades, os recursos e a ocupação por outra ordem
+    dados = gerar_cenario(semente, 4, 0.5, 0.1)
+    baralhado = copy.deepcopy(dados)  # deepcopy: cópia completa, para não mexer no original
+    for lista in ("activities", "resources", "busy"):
+        baralhado[lista].reverse()
+    resultados = []
+    for pedido in (dados, baralhado):
+        problema = montar_problema(pedido, agora=AGORA)
+        solucao, custo, _ = resolver(problema)
+        resultados.append((custo, sorted(map(str, formatar_solucao(problema, solucao))) if solucao else None))
+    assert resultados[0] == resultados[1]

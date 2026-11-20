@@ -382,3 +382,5 @@ $env:BOOKING_DB_PASSWORD = "<a-do-seu-.env>"; pytest -q
 No auth-service, a variável é `AUTH_DB_PASSWORD`. O scheduling-service não precisa de nenhuma (nem de banco). Nos testes do booking, o scheduling é **simulado**: por padrão está "em baixo" (plano B), e os testes do planear trocam-no por respostas falsas, para verificar o pedido que o booking monta. Os testes geram as próprias chaves RSA, por isso **não** precisam da pasta `secrets/`.
 
 > As imagens Docker usam Python 3.12. Se um teste passar na sua máquina e falhar no Docker, verifique a versão do Python do seu `.venv` (`python --version`).
+
+**Integração com o scheduling real:** `tests/test_integracao_scheduling.py` fala com o scheduling por HTTP. Rode-o noutro terminal (`uvicorn app.main:app --port 8013` em `scheduling-service`); sem ele, esses 3 testes são pulados. Os testes do scheduling derrubado correm sempre.
