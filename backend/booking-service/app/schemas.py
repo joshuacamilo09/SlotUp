@@ -342,7 +342,10 @@ class PlanearIn(BaseModel):
             raise ValueError("Os ids das atividades têm de ser únicos")
         if sum(a.covers_day for a in self.activities) > 1:  # True conta como 1
             raise ValueError("No máximo 1 vaga de estacionamento por dia")
+        if all(a.covers_day for a in self.activities):
+            raise ValueError("O estacionamento precisa de pelo menos mais uma atividade")
         return self
+        
 
 
 class PlanoItem(BaseModel):

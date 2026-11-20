@@ -58,6 +58,7 @@ Formato do JSON que o **booking-service** envia ao **scheduling-service** (CSP) 
 - `mode = suggest` exige **exatamente 1 atividade**, sem `covers_day`.
 - No máximo **1 atividade** com `covers_day` (R8).
 - Campos desconhecidos são recusados.
+- Só estacionamento (covers_day) sem nenhuma atividade com horário → 422.
 
 ## 2. Saída
 

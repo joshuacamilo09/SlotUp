@@ -317,3 +317,30 @@ button { font: inherit; color: inherit; cursor: pointer; border: none; backgroun
     font-size: 12px; font-weight: 700; white-space: nowrap;
 }
 .fila-quando { font: 13px var(--fonte-mono); color: var(--cor-texto-suave); }
+
+/* ---------- Home: saudação com o atalho "Planear o meu dia" à direita ---------- */
+.saudacao-linha {
+  display: flex;
+  flex-wrap: wrap;               /* no celular o botão desce para baixo da saudação */
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.botao-planear {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  /* color-mix: o verde principal mais claro, sem precisar de uma variável nova */
+  border: 1px solid color-mix(in oklch, var(--cor-primaria) 35%, transparent);
+  border-radius: 10px;
+  background: color-mix(in oklch, var(--cor-primaria) 10%, white);
+  color: var(--cor-primaria);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+.botao-planear .icone { font-size: 20px; }
+.botao-planear:hover { border-color: var(--cor-primaria); }
+.botao-planear:focus-visible { outline: 2px solid var(--cor-primaria); outline-offset: 2px; }

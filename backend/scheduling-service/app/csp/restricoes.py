@@ -2,7 +2,7 @@
 
 Assim ligar ou desligar uma regra (regras.py) não obriga a mexer no solver.
 """
-from app.csp.modelo import FOLGA_DESLOCAMENTO_MIN, Problema, Valor
+from app.csp.modelo import FOLGA_DESLOCAMENTO_MIN, PASSO_MIN, Problema, Valor
 
 
 def tem_horario(valor: Valor) -> bool:
@@ -15,8 +15,13 @@ def intervalo_estacionamento(atribuicao: dict[str, Valor]) -> tuple[int, int] | 
     com_horario = [v for v in atribuicao.values() if tem_horario(v)]
     if not com_horario:
         return None
+    # Da primeira atividade à última, com 10 min de folga para chegar e para sair
     inicio = min(v.inicio for v in com_horario) - FOLGA_DESLOCAMENTO_MIN
     fim = max(v.fim for v in com_horario) + FOLGA_DESLOCAMENTO_MIN
+    # Arredonda PARA FORA, para a grelha de 15 min do booking (08:50 -> 08:45, 19:40 -> 19:45):
+    # senão o booking recusa a reserva da vaga ao confirmar o plano
+    inicio = max(0, inicio // PASSO_MIN * PASSO_MIN)  # // arredonda para baixo
+    fim = -(-fim // PASSO_MIN) * PASSO_MIN            # -(-x // n): arredonda para cima
     return inicio, fim
 
 

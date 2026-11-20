@@ -131,6 +131,9 @@ class PlanIn(Strict):
         # sum() de booleanos conta os True (True vale 1)
         if sum(a.covers_day for a in self.activities) > 1:
             raise ValueError("No máximo 1 atividade que cobre o dia (R8)")
+        if self.activities and all(a.covers_day for a in self.activities):
+            # A vaga cobre "da primeira à última atividade": sozinha, não há o que cobrir
+            raise ValueError("O estacionamento precisa de pelo menos uma atividade com horário")
         if self.mode == "suggest" and (len(self.activities) != 1 or self.activities[0].covers_day):
             raise ValueError("mode=suggest exige exatamente 1 atividade, sem covers_day")
         return self

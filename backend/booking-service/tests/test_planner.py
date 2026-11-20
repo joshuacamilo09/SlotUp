@@ -165,6 +165,7 @@ VAGA = {"id": "v1", "resource_type": "vaga_carro", "covers_day": True}
         ("fora_dos_15_min", [sala(minutos=50)]),
         ("sem_horario", [{"id": "a1", "resource_type": "sala", "duration_min": 60}]),
         ("janela_ao_contrario", [sala(inicio="13:00", fim="08:00")]),
+        ("so_estacionamento", [VAGA]),
         ("nenhuma", []),
     ],
 )

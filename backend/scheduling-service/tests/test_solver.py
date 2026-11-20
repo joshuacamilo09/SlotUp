@@ -122,7 +122,7 @@ def test_melhor_solucao_do_cenario_basico(dados):
     assert custo == 127.0
     itens = {i["activity_id"]: (i["resource_id"], i["start"], i["end"]) for i in formatar_solucao(problema, solucao)}
     assert itens == {
-        "estacionamento": ("vaga-02", "08:50", "19:40"),
+        "estacionamento": ("vaga-02", "08:45", "19:45"),
         "trabalho": ("mesa-01", "09:00", "13:00"),
         "reuniao": ("sala-grande", "15:15", "16:15"),
         "padel": ("padel-2", "18:00", "19:30"),
@@ -225,6 +225,12 @@ def test_api_plan_regra_violada_da_422(cliente, dados, agora_fixo):
     assert resposta.status_code == 422
     assert "R8" in str(resposta.json()["detail"])
 
+def test_api_plan_so_estacionamento_da_422(cliente, dados):
+    # Fica só a atividade com covers_day (a vaga)
+    dados["activities"] = [a for a in dados["activities"] if a.get("covers_day")]
+    resposta = cliente.post("/api/scheduling/plan", json=dados)
+    assert resposta.status_code == 422
+    assert "pelo menos uma atividade" in str(resposta.json()["detail"])
 
 def test_api_plan_campo_desconhecido_da_422(cliente, dados):
     dados["activities"][0]["is_admin"] = True  # extra="forbid" no schema
