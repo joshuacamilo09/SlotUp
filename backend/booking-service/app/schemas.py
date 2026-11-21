@@ -58,6 +58,10 @@ ResourceName = Annotated[str, StringConstraints(strip_whitespace=True, min_lengt
 ResourceType = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, min_length=2, max_length=30)]
 ResourceDescription = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 
+# Migração 0007: múltiplos de 15 min, até 24 h (o PostgreSQL verifica o mesmo)
+DurationMin = Annotated[int, Field(ge=15, le=1440, multiple_of=15)]
+BufferMin = Annotated[int, Field(ge=0, le=60)]
+
 DEFAULT_OPEN = time(8, 0)
 DEFAULT_CLOSE = time(20, 0)
 
@@ -125,9 +129,18 @@ class ResourceCreate(BaseModel):
     resource_type: ResourceType
     description: ResourceDescription | None = None
     capacity: int = Field(default=1, ge=1, le=1000)
+    min_duration_min: DurationMin = 15
+    max_duration_min: DurationMin = 240
+    buffer_min: BufferMin = 10
     attributes: Attributes = Field(default_factory=dict)
     # None (não enviado) = horário por defeito; [] = recurso sem horário (nunca abre)
     schedule: Schedule | None = None
+
+    @model_validator(mode="after")
+    def _min_ate_max(self) -> "ResourceCreate":
+        if self.min_duration_min > self.max_duration_min:
+            raise ValueError("min_duration_min não pode ser maior que max_duration_min")
+        return self
 
 
 class ResourceUpdate(BaseModel):
@@ -140,6 +153,9 @@ class ResourceUpdate(BaseModel):
     resource_type: ResourceType | None = None
     description: ResourceDescription | None = None  # enviar null apaga a descrição
     capacity: int | None = Field(default=None, ge=1, le=1000)
+    min_duration_min: DurationMin | None = None
+    max_duration_min: DurationMin | None = None
+    buffer_min: BufferMin | None = None
     attributes: Attributes | None = None
     is_active: bool | None = None
 
@@ -148,7 +164,7 @@ class ResourceUpdate(BaseModel):
         sent = self.model_fields_set
         if not sent:
             raise ValueError("Envie pelo menos um campo para alterar")
-        for field in ("category_id", "name", "resource_type", "capacity", "attributes", "is_active"):
+        for field in ("category_id", "name", "resource_type", "capacity", "attributes", "is_active", "min_duration_min", "max_duration_min", "buffer_min"):
             if field in sent and getattr(self, field) is None:
                 raise ValueError(f"{field} não pode ser null")
         return self
@@ -180,6 +196,9 @@ class ResourceOut(BaseModel):
     resource_type: str
     description: str | None
     capacity: int
+    min_duration_min: int
+    max_duration_min: int
+    buffer_min: int
     attributes: dict[str, Any]
     is_active: bool
     schedule: list[AvailabilityRuleOut]
@@ -257,8 +276,6 @@ class ReservationAdminOut(ReservationOut):
 Periodo = Literal["futuras", "passadas", "todas"]
 ReservationStatus = Literal["HELD", "CONFIRMED", "CANCELLED"]
 
-
-
 class WaitlistOut(BaseModel):
     """Um pedido na fila de espera."""
 
@@ -275,3 +292,124 @@ class WaitlistOut(BaseModel):
     reservation_id: uuid.UUID | None  # a reserva HELD da oferta (OFFERED) ou a confirmada (ACCEPTED)
     hold_expires_at: datetime | None  # até quando a oferta está guardada (só em OFFERED)
     created_at: datetime
+
+# --------------------------------------------------------------------------- planear o meu dia
+# As mesmas regras das atividades do contrato do scheduling (documentacao/contrato-scheduling.md).
+# Validar aqui também garante que um erro do usuário dá 422 com a mensagem certa,
+# em vez de o scheduling o recusar e o booking responder 503.
+HoraMin = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]  # "09:30"
+AtividadeId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{1,40}$")]
+MAX_ATIVIDADES = 5  # o mesmo limite da tela
+
+
+class AtividadeIn(BaseModel):
+    """Uma atividade do dia. O estacionamento vai com covers_day, sem duração nem horário."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: AtividadeId
+    resource_type: ResourceType
+    people: int = Field(default=1, ge=1, le=1000)
+    duration_min: DurationMin | None = None
+    preferred_start: HoraMin | None = None
+    preferred_end: HoraMin | None = None  # com ele, uma janela (manhã/tarde); sem ele, uma hora específica
+    covers_day: bool = False
+
+    @model_validator(mode="after")
+    def _campos_conforme_o_tipo(self) -> "AtividadeIn":
+        if self.covers_day:
+            if self.duration_min is not None or self.preferred_start is not None or self.preferred_end is not None:
+                raise ValueError("O estacionamento cobre o dia: não leva duração nem horário")
+        elif self.duration_min is None or self.preferred_start is None:
+            raise ValueError("Cada atividade precisa de duração e de horário preferido")
+        elif self.preferred_end is not None and self.preferred_end <= self.preferred_start:
+            raise ValueError("O fim da janela tem de ser depois do início")
+        return self
+
+
+class PlanearIn(BaseModel):
+    """POST /planear: o dia e as atividades. O resto (recursos, ocupação) vem do banco."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    day: date
+    activities: Annotated[list[AtividadeIn], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def _regras_do_pedido(self) -> "PlanearIn":
+        ids = [a.id for a in self.activities]
+        if len(self.activities) > MAX_ATIVIDADES:
+            raise ValueError(f"No máximo {MAX_ATIVIDADES} atividades por plano (recebidas: {len(self.activities)})")
+        if len(ids) != len(set(ids)):  # set() tira os repetidos
+            raise ValueError("Os ids das atividades têm de ser únicos")
+        if sum(a.covers_day for a in self.activities) > 1:  # True conta como 1
+            raise ValueError("No máximo 1 vaga de estacionamento por dia")
+        if all(a.covers_day for a in self.activities):
+            raise ValueError("O estacionamento precisa de pelo menos mais uma atividade")
+        return self
+        
+
+
+class PlanoItem(BaseModel):
+    activity_id: str
+    resource_id: uuid.UUID
+    resource_name: str
+    start: str  # "HH:MM", hora local do complexo
+    end: str
+
+
+class PlanoSolucao(BaseModel):
+    items: list[PlanoItem]
+
+class PlanoMotivo(BaseModel):
+    rule_id: str
+    resource_id: uuid.UUID
+    message: str  # ex.: "Sala Pequena: só tem lugar para 4 (pedido: 6 pessoas)."
+
+
+class PlanoFalha(BaseModel):
+    code: str
+    activity_id: str | None
+    rule_id: str | None  # a regra que impediu o plano: a tela escolhe as sugestões por ela
+    message: str
+    reasons: list[PlanoMotivo] = []  # um motivo por recurso (vazio quando a falha é da combinação)
+
+class PlanoOut(BaseModel):
+    """A resposta do scheduling, só com o que a tela usa (sem custo nem estatísticas)."""
+
+    status: Literal["OK", "NO_SOLUTION"]
+    plan: PlanoSolucao | None
+    failure: PlanoFalha | None
+
+class ConfirmarItem(BaseModel):
+    """Um item do plano que a tela recebeu, tal como vai ser reservado."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    activity_id: AtividadeId
+    resource_id: uuid.UUID
+    start: HoraMin
+    end: HoraMin
+
+    @model_validator(mode="after")
+    def _fim_depois_do_inicio(self) -> "ConfirmarItem":
+        if self.end <= self.start:  # "HH:MM" compara-se bem como texto
+            raise ValueError("O fim tem de ser depois do início")
+        return self
+
+class ConfirmarPlanoIn(BaseModel):
+    """POST /planear/confirmar: o dia e os itens do plano (todos ou nenhum)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    day: date
+    items: Annotated[list[ConfirmarItem], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def _uma_reserva_por_atividade(self) -> "ConfirmarPlanoIn":
+        ids = [i.activity_id for i in self.items]
+        if len(self.items) > MAX_ATIVIDADES:
+            raise ValueError(f"No máximo {MAX_ATIVIDADES} atividades por plano (recebidas: {len(self.items)})")
+        if len(ids) != len(set(ids)):
+            raise ValueError("Os ids das atividades têm de ser únicos")
+        return self

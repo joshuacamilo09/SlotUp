@@ -72,9 +72,9 @@
                     </div>
                 </section>
 
-                <!-- ===== 3. Regras de reserva ===== -->
+                <!-- ===== 3. Horário de funcionamento ===== -->
                 <section class="bloco">
-                    <h2 class="bloco-titulo"><span>3</span>Horário de funcionamento</h2>
+                    <h2 class="bloco-titulo"><span>3</span>Regras de reserva</h2>
 
                     <div class="campo">
                         <span class="campo-titulo">Dias disponíveis</span>
@@ -100,8 +100,23 @@
                             </div>
                         </div>
                     </div>
-                </section>
 
+                    <div class="campos-lado-a-lado">
+                        <div class="campo">
+                            <span class="campo-titulo" id="dmin-titulo">Duração mínima</span>
+                            <div class="segmentado" id="escolha-dmin" role="group" aria-labelledby="dmin-titulo"></div>
+                        </div>
+                        <div class="campo">
+                            <span class="campo-titulo" id="dmax-titulo">Duração máxima</span>
+                            <div class="segmentado" id="escolha-dmax" role="group" aria-labelledby="dmax-titulo"></div>
+                        </div>
+                    </div>
+
+                    <div class="campo">
+                        <span class="campo-titulo" id="intervalo-titulo">Intervalo entre reservas <small>· tempo livre para limpeza ou preparação</small></span>
+                        <div class="segmentado segmentado-curto" id="escolha-intervalo" role="group" aria-labelledby="intervalo-titulo"></div>
+                    </div>
+                </section>
                 <div class="novo-acoes">
                     <a href="admin.html" class="botao botao-secundario">Cancelar</a>
                     <button type="submit" class="botao botao-primario" id="criar-btn">Criar recurso</button>

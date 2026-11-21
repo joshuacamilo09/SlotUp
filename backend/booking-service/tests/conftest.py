@@ -76,3 +76,17 @@ def bearer(token: str) -> dict:
 def client():
     with TestClient(app) as c:
         yield c
+
+@pytest.fixture(autouse=True)
+def scheduling_em_baixo(monkeypatch):
+    """Por omissão os testes correm SEM o scheduling (como no plano B).
+
+    autouse=True: vale para todos os testes. Os que precisam de respostas do CSP
+    trocam a função outra vez (fixture "scheduling" do test_planner.py).
+    """
+    from app import scheduling_client
+
+    def em_baixo(pedido):
+        raise scheduling_client.SchedulingIndisponivel
+
+    monkeypatch.setattr(scheduling_client, "planear", em_baixo)

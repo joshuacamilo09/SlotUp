@@ -23,6 +23,8 @@ from tests.test_reservations import (  # noqa: F401  (fixtures do pytest)
 )
 from tests.test_reservations_manage import Person, ana, cancel, rui  # noqa: F401
 from tests.test_waitlist import entry, join  # noqa: F401
+from sqlalchemy import text
+from app.database import SessionLocal
 
 FILA = "/api/reservas/fila"
 ALL_DAY = [{"weekday": d, "open_time": "00:00", "close_time": "23:59"} for d in range(7)]
@@ -37,7 +39,7 @@ def parking(client, admin, category):
 
     def nova_vaga() -> str:
         body = {"category_id": category, "name": f"Vaga {uuid.uuid4().hex[:8]}", "resource_type": "vaga_carro",
-                "schedule": ALL_DAY}
+                "schedule": ALL_DAY, "max_duration_min": 1440}
         response = client.post(RESOURCES_URL, json=body, headers=admin)
         assert response.status_code == 201, response.text
         return response.json()["id"]
@@ -122,3 +124,37 @@ def test_nao_aceita_oferta_se_ja_tem_outra_vaga_nesse_dia(client, parking, ana, 
     response = client.post(f"{FILA}/{entry_id}/aceitar", headers=ana.headers)
     assert response.status_code == 409
     assert "vaga de estacionamento" in response.json()["detail"]
+
+PLANO = "/api/reservas/planear/confirmar"
+
+
+def confirmar(client, person, day, *items):
+    """Confirma um plano. Cada item é (activity_id, resource_id, "HH:MM", "HH:MM")."""
+    body = {"day": day.isoformat(),
+            "items": [{"activity_id": a, "resource_id": r, "start": s, "end": e} for a, r, s, e in items]}
+    return client.post(PLANO, json=body, headers=person.headers)
+
+
+def test_confirmar_plano_com_vaga_quando_ja_tem_outra_da_409(client, parking, ana):
+    day = next_monday()
+    vaga1, vaga2 = parking(), parking()
+    assert book(client, ana.headers, vaga1, at(day, 8), at(day, 12)).status_code == 201  # a vaga do dia
+
+    response = confirmar(client, ana, day, ("a1", vaga2, "14:00", "18:00"))
+    assert response.status_code == 409
+    assert "vaga de estacionamento" in response.json()["detail"]
+    assert response.json()["activity_id"] == "a1"
+
+
+def test_plano_com_duas_vagas_nao_grava_nada(client, parking, ana):
+    """Tudo ou nada: a 1.ª vaga do plano passa, a 2.ª é recusada, e a 1.ª é desfeita."""
+    day = next_monday()
+    vaga1, vaga2 = parking(), parking()
+    response = confirmar(client, ana, day, ("a1", vaga1, "08:00", "12:00"), ("a2", vaga2, "14:00", "18:00"))
+    assert response.status_code == 409
+    assert response.json()["activity_id"] == "a2"
+
+    with SessionLocal() as db:
+        gravadas = db.scalar(text("SELECT count(*) FROM reservations WHERE resource_id IN (:a, :b)"),
+                             {"a": vaga1, "b": vaga2})
+    assert gravadas == 0  # nem a primeira ficou

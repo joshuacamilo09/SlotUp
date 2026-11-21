@@ -173,12 +173,17 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8025:8025"   # http://localhost:8025
+
+  # ----- Scheduling (CSP): interno, sem banco e sem porta no host -----
+  # Sem "ports": só os contentores da rede do Compose (o booking) o alcançam,
+  # pelo nome do serviço: http://scheduling:8003. O Nginx também não tem rota para ele.
   scheduling:
     build: ../../backend/scheduling-service
+    image: slotup-scheduling:dev          # nome da imagem, igual ao padrão do auth e do booking
     container_name: slotup-scheduling
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:8003:8003"
+    expose:
+      - "8003"                            # só documenta a porta interna; não abre nada no Mac
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health/ready', timeout=3)"]
       interval: 10s

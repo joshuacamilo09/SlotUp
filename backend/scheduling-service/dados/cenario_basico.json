@@ -1,0 +1,423 @@
+{
+  "mode": "plan",
+  "day": "2026-12-10",
+  "now": "2026-12-09T09:00",
+  "activities": [
+    {
+      "id": "estacionamento",
+      "resource_type": "vaga_carro",
+      "people": 1,
+      "covers_day": true
+    },
+    {
+      "id": "trabalho",
+      "resource_type": "mesa",
+      "people": 1,
+      "duration_min": 240,
+      "preferred_start": "09:00",
+      "favorite_resource_id": "mesa-02"
+    },
+    {
+      "id": "reuniao",
+      "resource_type": "sala",
+      "people": 6,
+      "duration_min": 60,
+      "preferred_start": "14:00"
+    },
+    {
+      "id": "padel",
+      "resource_type": "quadra",
+      "people": 1,
+      "duration_min": 90,
+      "preferred_start": "18:00"
+    }
+  ],
+  "resources": [
+    {
+      "id": "mesa-01",
+      "name": "Mesa 01",
+      "resource_type": "mesa",
+      "capacity": 1,
+      "schedule": [
+        {
+          "weekday": 0,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 1,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 2,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 3,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 4,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        }
+      ],
+      "min_duration_min": 15,
+      "max_duration_min": 720,
+      "buffer_min": 10
+    },
+    {
+      "id": "mesa-02",
+      "name": "Mesa 02",
+      "resource_type": "mesa",
+      "capacity": 1,
+      "schedule": [
+        {
+          "weekday": 0,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 1,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 2,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 3,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 4,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        }
+      ],
+      "min_duration_min": 15,
+      "max_duration_min": 720,
+      "buffer_min": 10
+    },
+    {
+      "id": "mesa-03",
+      "name": "Mesa 03",
+      "resource_type": "mesa",
+      "capacity": 1,
+      "schedule": [
+        {
+          "weekday": 0,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 1,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 2,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 3,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 4,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        }
+      ],
+      "min_duration_min": 15,
+      "max_duration_min": 720,
+      "buffer_min": 10
+    },
+    {
+      "id": "sala-pequena",
+      "name": "Sala Pequena",
+      "resource_type": "sala",
+      "capacity": 4,
+      "schedule": [
+        {
+          "weekday": 0,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 1,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 2,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 3,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 4,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        }
+      ],
+      "min_duration_min": 15,
+      "max_duration_min": 240,
+      "buffer_min": 10
+    },
+    {
+      "id": "sala-grande",
+      "name": "Sala Grande",
+      "resource_type": "sala",
+      "capacity": 8,
+      "schedule": [
+        {
+          "weekday": 0,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 1,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 2,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 3,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        },
+        {
+          "weekday": 4,
+          "open_time": "08:00",
+          "close_time": "20:00"
+        }
+      ],
+      "min_duration_min": 15,
+      "max_duration_min": 240,
+      "buffer_min": 10
+    },
+    {
+      "id": "vaga-01",
+      "name": "Vaga 01",
+      "resource_type": "vaga_carro",
+      "capacity": 1,
+      "schedule": [
+        {
+          "weekday": 0,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        },
+        {
+          "weekday": 1,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        },
+        {
+          "weekday": 2,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        },
+        {
+          "weekday": 3,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        },
+        {
+          "weekday": 4,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        },
+        {
+          "weekday": 5,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        },
+        {
+          "weekday": 6,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        }
+      ],
+      "min_duration_min": 15,
+      "max_duration_min": 1440,
+      "buffer_min": 0
+    },
+    {
+      "id": "vaga-02",
+      "name": "Vaga 02",
+      "resource_type": "vaga_carro",
+      "capacity": 1,
+      "schedule": [
+        {
+          "weekday": 0,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        },
+        {
+          "weekday": 1,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        },
+        {
+          "weekday": 2,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        },
+        {
+          "weekday": 3,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        },
+        {
+          "weekday": 4,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        },
+        {
+          "weekday": 5,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        },
+        {
+          "weekday": 6,
+          "open_time": "00:00",
+          "close_time": "23:59"
+        }
+      ],
+      "min_duration_min": 15,
+      "max_duration_min": 1440,
+      "buffer_min": 0
+    },
+    {
+      "id": "padel-1",
+      "name": "Quadra de Padel 1",
+      "resource_type": "quadra",
+      "capacity": 4,
+      "schedule": [
+        {
+          "weekday": 0,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        },
+        {
+          "weekday": 1,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        },
+        {
+          "weekday": 2,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        },
+        {
+          "weekday": 3,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        },
+        {
+          "weekday": 4,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        },
+        {
+          "weekday": 5,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        },
+        {
+          "weekday": 6,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        }
+      ],
+      "min_duration_min": 60,
+      "max_duration_min": 90,
+      "buffer_min": 10
+    },
+    {
+      "id": "padel-2",
+      "name": "Quadra de Padel 2",
+      "resource_type": "quadra",
+      "capacity": 4,
+      "schedule": [
+        {
+          "weekday": 0,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        },
+        {
+          "weekday": 1,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        },
+        {
+          "weekday": 2,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        },
+        {
+          "weekday": 3,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        },
+        {
+          "weekday": 4,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        },
+        {
+          "weekday": 5,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        },
+        {
+          "weekday": 6,
+          "open_time": "07:00",
+          "close_time": "22:00"
+        }
+      ],
+      "min_duration_min": 60,
+      "max_duration_min": 90,
+      "buffer_min": 10
+    }
+  ],
+  "busy": [
+    {
+      "resource_id": "mesa-02",
+      "start": "09:00",
+      "end": "11:00"
+    },
+    {
+      "resource_id": "sala-grande",
+      "start": "14:00",
+      "end": "15:00"
+    },
+    {
+      "resource_id": "padel-1",
+      "start": "18:00",
+      "end": "19:30"
+    },
+    {
+      "resource_id": "vaga-01",
+      "start": "07:00",
+      "end": "19:00"
+    }
+  ]
+}

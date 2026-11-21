@@ -138,6 +138,9 @@ def create_resource(
         resource_type=body.resource_type,
         description=body.description,
         capacity=body.capacity,
+        min_duration_min=body.min_duration_min,
+        max_duration_min=body.max_duration_min,
+        buffer_min=body.buffer_min,
         attributes=body.attributes,
         rules=_new_rules(schedule),
     )
@@ -161,6 +164,11 @@ def update_resource(
         _check_category(db, changes["category_id"])
     for field, value in changes.items():
         setattr(resource, field, value)
+    # Um PATCH pode mudar só o mínimo ou só o máximo: compara com o valor que já está no recurso.
+    # Sem isto, quem recusava era o CHECK do PostgreSQL, e o admin recebia um erro 500.
+    if resource.min_duration_min > resource.max_duration_min:
+        db.rollback()  # desfaz as mudanças feitas no objeto
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "A duração mínima não pode ser maior que a máxima")
     _commit_or_409(db)
     updated = _get(db, resource_id)
     log.info("recurso_editado admin_id=%s recurso_id=%s campos=%s", admin.id, resource_id, sorted(changes))

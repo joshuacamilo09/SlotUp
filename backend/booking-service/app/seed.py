@@ -25,6 +25,17 @@ SEG_A_SEX = range(0, 5)
 SEG_A_SAB = range(0, 6)
 TODOS_OS_DIAS = range(0, 7)
 
+# (duração mínima, duração máxima, intervalo entre reservas) de cada tipo, só para os dados de exemplo.
+# Na aplicação real é o admin quem define estes valores em cada recurso.
+LIMITES = {
+    "mesa": (15, 720, 10),
+    "sala": (15, 240, 10),
+    "quadra": (60, 90, 10),
+    "personal": (60, 60, 10),
+    "vaga_carro": (15, 1440, 0),
+    "vaga_mota": (15, 1440, 0),
+}
+
 def schedule(days, open_time: time, close_time: time) -> list[tuple[int, time, time]]:
     return [(day, open_time, close_time) for day in days]
 
@@ -63,6 +74,7 @@ def main() -> None:
         db.execute(update(Category).values(is_active=True))
 
         for category, name, resource_type, capacity, attributes, rules in RESOURCES:
+            minimo, maximo, intervalo = LIMITES[resource_type]  # desempacota a tupla em 3 variáveis
             db.add(
                 Resource(
                     id=uuid.uuid5(SEED_NAMESPACE, name),
@@ -70,6 +82,9 @@ def main() -> None:
                     name=name,
                     resource_type=resource_type,
                     capacity=capacity,
+                    min_duration_min=minimo,
+                    max_duration_min=maximo,
+                    buffer_min=intervalo,
                     attributes=attributes,
                     rules=[AvailabilityRule(weekday=d, open_time=o, close_time=c) for d, o, c in rules],
                 )

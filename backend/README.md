@@ -5,8 +5,8 @@ Três microserviços em Python (FastAPI). Cada um tem a sua pasta, o seu `Docker
 | Serviço | Porta | Banco | Prefixo das rotas | Faz |
 |---|---|---|---|---|
 | `auth-service` | 8001 | `auth_db` | `/api/auth` | cadastro, login em dois passos (senha + código TOTP), papéis, emissão de JWT |
-| `booking-service` | 8002 | `booking_db` | `/api/reservas` | categorias e recursos (prontos); reservas, fila de espera, notificações e worker (Sprint 3) |
-| `scheduling-service` | 8003 | nenhum | — | algoritmo CSP (nesta fase só o esqueleto). Interno: só o booking fala com ele |
+| `booking-service` | 8002 | `booking_db` | `/api/reservas` | categorias, recursos, reservas, fila de espera, notificações (outbox) e "Planear o meu dia" (chama o scheduling) |
+| `scheduling-service` | 8003 | nenhum | `/api/scheduling` | algoritmo CSP do "Planear o meu dia" e das sugestões de horário. Contrato, regras e benchmark em [`scheduling-service/README.md`](scheduling-service/README.md). Interno: só o booking fala com ele |
 
 > Para subir o ambiente, conectar ao banco e resolver erros do Docker, veja o [`infra/docker/README.md`](../infra/docker/README.md).
 
@@ -36,13 +36,18 @@ backend/
 │   └── .env.example           # modelo da URL do Alembic para rodar sem Docker
 ├── booking-service/
 │   ├── app/
-│   │   ├── models.py          # Category, Resource, AvailabilityRule (o schema vem das migrações)
-│   │   ├── schemas.py         # formatos de pedido e resposta, validação do horário
-│   │   ├── security.py        # só valida tokens (chave pública)
-│   │   └── routers/           # health.py, session_check.py, categories.py, resources.py
-│   ├── alembic/               # mesma estrutura do auth; usa BOOKING_DATABASE_URL
-│   └── tests/                 # test_token_validation.py, test_categories.py, test_resources.py
-├── scheduling-service/        # mesma estrutura, sem banco e sem Alembic
+│   │   ├── models.py             # Category, Resource, AvailabilityRule, Reservation, WaitlistEntry, Notification
+│   │   ├── schemas.py            # formatos de pedido e resposta, validação do horário e do planear
+│   │   ├── security.py           # só valida tokens (chave pública)
+│   │   ├── scheduling_client.py  # cliente HTTP do scheduling (timeout curto, plano B)
+│   │   ├── waitlist.py           # ofertas da fila de espera
+│   │   ├── expire_holds.py       # job que expira as ofertas
+│   │   ├── seed.py               # dados de exemplo
+│   │   └── routers/              # health, session_check, categories, resources, availability,
+│   │                             # reservations, waitlist, planner (Planear o meu dia)
+│   ├── alembic/                  # mesma estrutura do auth; usa BOOKING_DATABASE_URL
+│   └── tests/                    # pytest contra o PostgreSQL real (o scheduling é simulado)
+├── scheduling-service/        # CSP, sem banco e sem Alembic (ver o README dele)
 └── scripts/e2e_smoke.py       # teste de ponta a ponta entre os 3 serviços
 ```
 
@@ -57,7 +62,7 @@ docker compose ps -a          # *-migrate "Exited (0)", os outros "healthy"
 
 As migrações rodam **sozinhas**: os contentores `auth-migrate` e `booking-migrate` executam `alembic upgrade head` antes de os serviços subirem.
 
-Documentação interativa de cada API (Swagger): `http://localhost:8001/docs`, `:8002/docs` e `:8003/docs`.
+Documentação interativa de cada API (Swagger): `http://localhost:8001/docs` e `:8002/docs`. O scheduling é interno e não tem porta no host: para ver o Swagger dele, rode-o fora do Docker (`uvicorn app.main:app --port 8013` dentro de `scheduling-service`, com o `.venv` ativo) e abra `http://localhost:8013/docs`.
 
 Teste de ponta a ponta:
 
@@ -143,7 +148,7 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 |---|---|---|
 | `GET /` | usuário | lista os recursos ativos de categorias ativas, por categoria e nome. `?category_id=` filtra; `?include_inactive=true` inclui os desativados (só ADMIN) |
 | `GET /{id}` | usuário | um recurso, com a categoria e o horário (404 se estiver desativado e quem pede não for ADMIN) |
-| `POST /` | ADMIN | cria `{category_id, name, resource_type, description?, capacity?, attributes?, schedule?}` → `201`; nome repetido na categoria → `409` |
+| `POST /` | ADMIN | cria `{category_id, name, resource_type, description?, capacity?, min_duration_min?, max_duration_min?, buffer_min?, attributes?, schedule?}` → `201`; nome repetido na categoria → `409` |
 | `PATCH /{id}` | ADMIN | altera só os campos enviados; o horário não muda aqui |
 | `PUT /{id}/horarios` | ADMIN | substitui o horário inteiro (`{"rules": []}` deixa o recurso fechado) |
 | `DELETE /{id}` | ADMIN | sem reservas nem fila de espera → apaga (`"deleted"`); com histórico → desativa (`"deactivated"`) |
@@ -154,6 +159,7 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 - Nome único **dentro da categoria**, garantido pela restrição `resources_category_id_name_key` do PostgreSQL. O `resource_type` é guardado em minúsculas, e os espaços à volta do nome são removidos.
 - Categoria inexistente → `422`; categoria desativada → `409`.
 - **Horário (`availability_rules`):** `weekday` de `0` (segunda) a `6` (domingo), na convenção do Python, e **não** na do `EXTRACT(DOW)` do PostgreSQL. Sem `schedule` no `POST`, o recurso abre todos os dias das 08:00 às 20:00. Aceita vários intervalos por dia, sem sobreposição, até 35 no total, com horas sem fuso horário.
+- **Regras de reserva do recurso (migração 0007):** `min_duration_min` e `max_duration_min` (múltiplos de 15, até 1440; padrão 15 e 240) e `buffer_min` (intervalo de limpeza entre reservas, 0 a 60; padrão 10). O PostgreSQL também as verifica (`CHECK`). São as mesmas que o scheduling usa.
 - O `PUT /{id}/horarios` bloqueia a linha do recurso (`SELECT ... FOR UPDATE`) para dois admins não trocarem o horário ao mesmo tempo.
 - Campos desconhecidos no corpo do pedido dão `422`.
 - **Disponibilidade:** o ocupado são as reservas `HELD` e `CONFIRMED`, os mesmos estados que a constraint `reservations_no_overlap` bloqueia, e mostra só o horário, nunca quem reservou. O livre são intervalos contínuos (abertura menos ocupado menos as horas que já passaram). O fuso vem de `LOCAL_TIMEZONE` (padrão `Europe/Lisbon`): o horário de funcionamento está em hora local, e o banco guarda as reservas em UTC.
@@ -162,7 +168,7 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 
 | Método e rota | Quem | Para quê |
 |---|---|---|
-| `POST /` | usuário (e ADMIN) | reserva `{resource_id, start_at, end_at}` em nome próprio → `201`; horário ocupado → `409` |
+| `POST /` | usuário (e ADMIN) | reserva `{resource_id, start_at, end_at}` em nome próprio → `201`; horário ocupado → `409` com até 3 sugestões em `alternatives` |
 | `GET /minhas` | usuário | as reservas do próprio. `?periodo=futuras\|passadas\|todas`, `?status=`, `?limit=` e `?offset=`; o total vem em `X-Total-Count` |
 | `GET /` | ADMIN | todas as reservas, com `user_id`. Filtros: `periodo`, `status`, `resource_id`, `user_email`, `limit`, `offset` |
 | `GET /{id}` | dono ou ADMIN | uma reserva (a de outra pessoa dá `404`) |
@@ -172,7 +178,7 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 
 - **O id e o email vêm do token**, nunca do corpo do pedido (campos extra, como `user_id` ou `status`, dão `422`).
 - A reserva nasce `CONFIRMED`. O estado `HELD` fica para a fila de espera.
-- **Horário:** tem de caber inteiro num intervalo de abertura do recurso; não pode começar no passado nem a mais de **30 dias**; usa horas múltiplas de **15 minutos** (mínimo 15 min). Horas sem fuso (`2026-11-09T10:00`) valem como hora local do complexo.
+- **Horário:** tem de caber inteiro num intervalo de abertura do recurso; respeitar a duração mínima e máxima **do recurso**; não pode começar no passado nem a mais de **30 dias**; usa horas múltiplas de **15 minutos**. Horas sem fuso (`2026-11-09T10:00`) valem como hora local do complexo.
 - O recurso tem de estar ativo, e a categoria também (`404` caso contrário, até para o ADMIN).
 - **Quem impede duas reservas no mesmo horário é o PostgreSQL** (constraint `reservations_no_overlap`), e não um `SELECT` antes do `INSERT`. Com várias réplicas do booking, só o primeiro `INSERT` passa. Há um teste com 8 pedidos simultâneos: 1 recebe `201` e 7 recebem `409`.
 - **Email (outbox):** na mesma transação, grava um pedido `RESERVATION_CREATED` na tabela `notifications`. Se a reserva for gravada, o email fica pendente; se falhar, nenhum dos dois fica. O envio por SMTP fica a cargo do worker (ainda não implementado).
@@ -180,6 +186,8 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 - **Futura = ainda não acabou** (a que está a decorrer conta como futura). Futuras da mais próxima para a mais distante; passadas e todas, da mais recente para a mais antiga.
 - **Cancelar:** o dono cancela só **antes** de a reserva começar; o ADMIN cancela qualquer uma até ela **acabar**. A rota bloqueia a linha (`SELECT ... FOR UPDATE`): com dois cancelamentos ao mesmo tempo, o segundo recebe `409` e só sai um email `RESERVATION_CANCELLED`, sempre para o dono da reserva.
 - **Reserva de outra pessoa:** `404`, e não `403`, para ninguém descobrir que ids existem.
+- **Sugestões no conflito:** no `409` de horário ocupado, o booking pede ao scheduling (modo `suggest`) os horários livres mais parecidos, no mesmo dia e em recursos do mesmo tipo, com o recurso pedido como favorito. A resposta é `{"detail": "Este horário já está reservado", "alternatives": [{resource_id, resource_name, start_at, end_at}, ...]}`. Se o scheduling não responder, `alternatives` vem vazio: o `409` nunca depende dele.
+- **Deadlocks:** com vários pedidos para o mesmo horário ao mesmo tempo, o PostgreSQL pode cancelar um deles por deadlock (código `40P01`), porque cada um espera pela linha do outro na constraint. O criar reserva e o confirmar plano tentam de novo até 3 vezes; na nova tentativa, a constraint responde com o `409` normal, em vez de `503`.
 
 
 ### Fila de espera (prefixo `/api/reservas/fila`)
@@ -198,6 +206,21 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 - **Duas réplicas nunca fazem duas ofertas para o mesmo pedido:** `SELECT ... FOR UPDATE SKIP LOCKED` na fila. Cada oferta é um `INSERT` dentro de um `SAVEPOINT`: se o horário ainda estiver ocupado, a constraint recusa e passa-se ao pedido seguinte.
 - **Job de expiração:** `python -m app.expire_holds` (no Kubernetes, um CronJob a cada minuto; em desenvolvimento, `docker compose exec booking-1 python -m app.expire_holds`).
 
+
+### Planear o meu dia (prefixo `/api/reservas/planear`)
+
+| Método e rota | Quem | Para quê |
+|---|---|---|
+| `POST /` | usuário | `{day, activities}` → `200` com o plano (`status: OK`, `plan.items`) ou o motivo (`status: NO_SOLUTION`, `failure`). **Não reserva nada** |
+| `POST /confirmar` | usuário | `{day, items: [{activity_id, resource_id, start, end}]}` → `201` com as reservas criadas. Um horário ocupado entretanto → `409` e nada fica reservado |
+
+**Planear o meu dia, regras:**
+
+- **Atividade:** `{id, resource_type, people, duration_min, preferred_start, preferred_end?}`; o estacionamento vai com `covers_day: true`, sem duração nem horário. No máximo **5 atividades** e **1 vaga**, e a vaga precisa de pelo menos outra atividade.
+- **O booking monta o resto do pedido ao CSP:** os recursos ativos dos tipos pedidos (com o horário semanal e as regras de reserva), a ocupação do dia (`HELD` + `CONFIRMED`, cortada à meia-noite) e o recurso **favorito** de cada tipo (o mais reservado pelo usuário nos últimos 90 dias). O contrato completo está no [README do scheduling](scheduling-service/README.md).
+- **Sem plano:** `failure.message` traz o motivo geral e `failure.reasons` um motivo por recurso (ex.: "Sala Pequena: só tem lugar para 4"). `failure.rule_id` diz que regra impediu o plano; a tela escolhe as sugestões por ele.
+- **Confirmar é tudo ou nada:** cada item passa pelas mesmas regras de uma reserva normal e todos são gravados numa só transação. Se o PostgreSQL recusar um por sobreposição, o `rollback` desfaz todos e a resposta é `409` com `activity_id` do item em conflito. Um email `RESERVATION_CREATED` por reserva, na mesma transação.
+- **Plano B:** o cliente do scheduling espera no máximo 3 s (0,5 s para ligar). Se ele estiver em baixo, demorar ou responder com erro, o planear responde `503` com uma mensagem para o usuário. As reservas uma a uma não dependem do scheduling.
 
 ## 3. Decisões de segurança (para o relatório da UC de Segurança)
 
@@ -219,6 +242,7 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 - **Sem refresh token nem logout:** o token de acesso vale 30 min e não pode ser revogado antes.
 - **Papéis no token:** se um admin mudar o papel de alguém, o token antigo mantém o papel antigo até expirar. O booking não pergunta ao auth.
 - **Sem limite por IP:** o bloqueio é por conta. O limite por IP vai no Nginx/Ingress.
+- **Intervalo de limpeza (`buffer_min`) só no planeador:** o CSP respeita-o, mas o `POST /reservas` e a confirmação do plano não o verificam de novo. A garantia atômica do banco é só contra sobreposição.
 - **Chaves de desenvolvimento:** o `gen-secrets.sh` gera chaves com permissões abertas, só para desenvolvimento. No Kubernetes elas passam a ser `Secret`.
 
 ## 5. Banco de dados e migrações (Alembic)
@@ -253,6 +277,7 @@ Cada serviço tem a sua própria tabela `alembic_version`. As migrações de um 
 | booking-service | `0004` | as 3 categorias iniciais (Coworking, Estacionamento, Desporto) |
 | booking-service | `0005` | `categories`: nome único sem diferenciar maiúsculas (`lower(name)`) e coluna `updated_at` |
 | booking-service | `0006` | `reservations`: `CHECK` nos valores de `status` (`HELD`, `CONFIRMED`, `CANCELLED`) |
+| booking-service | `0007` | `resources`: `min_duration_min`, `max_duration_min` e `buffer_min`, com `CHECK` e valores por tipo |
 
 As migrações são escritas **à mão**, sem *autogenerate*, porque o banco usa recursos do PostgreSQL que o autogenerate trata mal: constraint de exclusão, índices parciais e índice sobre `lower(email)`. Por isso o `env.py` tem `target_metadata = None`, e **o `models.py` precisa ser atualizado à mão** sempre que uma migração mudar as colunas.
 
@@ -355,6 +380,8 @@ pip install -r requirements-dev.txt
 $env:BOOKING_DB_PASSWORD = "<a-do-seu-.env>"; pytest -q
 ```
 
-No auth-service, a variável é `AUTH_DB_PASSWORD`. O scheduling-service não precisa de nenhuma. Os testes geram as próprias chaves RSA, por isso **não** precisam da pasta `secrets/`.
+No auth-service, a variável é `AUTH_DB_PASSWORD`. O scheduling-service não precisa de nenhuma (nem de banco). Nos testes do booking, o scheduling é **simulado**: por padrão está "em baixo" (plano B), e os testes do planear trocam-no por respostas falsas, para verificar o pedido que o booking monta. Os testes geram as próprias chaves RSA, por isso **não** precisam da pasta `secrets/`.
 
 > As imagens Docker usam Python 3.12. Se um teste passar na sua máquina e falhar no Docker, verifique a versão do Python do seu `.venv` (`python --version`).
+
+**Integração com o scheduling real:** `tests/test_integracao_scheduling.py` fala com o scheduling por HTTP. Rode-o noutro terminal (`uvicorn app.main:app --port 8013` em `scheduling-service`); sem ele, esses 3 testes são pulados. Os testes do scheduling derrubado correm sempre.

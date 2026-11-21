@@ -5,7 +5,7 @@ POST /api/reservas/reservas   {resource_id, start_at, end_at}
 
 * Qualquer usuário autenticado (inclusive o ADMIN) reserva em nome próprio: o id e o
   email vêm do token (JWT), nunca do corpo do pedido.
-* A reserva tem de caber inteira num intervalo de abertura do recurso, não pode começar
+* A reserva tem de caber inteira num intervalo de abertura do recurso, respeitar a duração mínima e máxima dele, não pode começar
   no passado nem a mais de 30 dias, e usa horas múltiplas de 15 min (mínimo 15 min).
 * Horas sem fuso valem como hora local do complexo (LOCAL_TIMEZONE).
 * Quem garante que dois pedidos não ficam com o mesmo horário é o PostgreSQL
@@ -21,13 +21,14 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import Select, func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from app import parking, waitlist
 from app.config import Settings, get_settings
-from app.database import get_db
+from app.database import TENTATIVAS_DEADLOCK, get_db, is_deadlock
 from app.models import Notification, Reservation, Resource
 from app.schemas import Periodo, ReservationAdminOut, ReservationCreate, ReservationOut, ReservationStatus
 from app.security import CurrentUser, current_user, require_admin
@@ -85,16 +86,18 @@ def check_slot(db: Session, body: ReservationCreate, settings: Settings) -> tupl
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Recurso não encontrado")
     if not _fits_opening(resource, start, end):
         raise _unprocessable("O horário está fora do horário de funcionamento do recurso")
+    # Duração mínima e máxima do recurso (migração 0007): as mesmas que o CSP usa
+    duracao = int((end - start).total_seconds() // 60)  # total_seconds(): o intervalo em segundos
+    if not resource.min_duration_min <= duracao <= resource.max_duration_min:
+        raise _unprocessable(
+            f"Este recurso aceita reservas de {resource.min_duration_min} a {resource.max_duration_min} minutos"
+        )
     return resource, start, end
 
 
-@router.post("", response_model=ReservationOut, status_code=status.HTTP_201_CREATED)
-def create_reservation(
-    body: ReservationCreate,
-    user: CurrentUser = Depends(current_user),
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-) -> Reservation:
+
+def _create(body: ReservationCreate, user: CurrentUser, db: Session, settings: Settings):
+    """O corpo do criar reserva: regras, vaga do dia, INSERT, email e commit, numa transação."""
     # 1) e 2) Regras de horário e do recurso
     resource, start, end = check_slot(db, body, settings)
     
@@ -117,7 +120,16 @@ def create_reservation(
     except IntegrityError as exc:
         db.rollback()
         if _constraint_name(exc) == _NO_OVERLAP:
-            raise HTTPException(status.HTTP_409_CONFLICT, "Este horário já está reservado") from None
+            # Import aqui dentro: o planner importa este arquivo (seria uma importação circular)
+            from app.routers.planner import sugerir_alternativas
+            # JSONResponse em vez de HTTPException: assim o 409 leva também as sugestões do CSP
+            return JSONResponse(
+                status_code=status.HTTP_409_CONFLICT,
+                content={
+                    "detail": "Este horário já está reservado",
+                    "alternatives": sugerir_alternativas(db, resource, start, end, settings),
+                },
+            )
         raise
 
     
@@ -137,6 +149,41 @@ def create_reservation(
 
     log.info("reserva_criada user_id=%s reserva_id=%s recurso_id=%s", user.id, reservation.id, resource.id)
     return reservation
+
+@router.post(
+    "",
+    response_model=ReservationOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={409: {
+        "description": "Horário ocupado. Traz até 3 sugestões do CSP (lista vazia se o scheduling não responder)",
+        "content": {"application/json": {"example": {
+            "detail": "Este horário já está reservado",
+            "alternatives": [{"resource_id": "90c6f36d-7c96-5d27-bd80-ffd8010d1f2a", "resource_name": "Mesa 2",
+                              "start_at": "2026-11-23T14:45:00+00:00", "end_at": "2026-11-23T15:45:00+00:00"}],
+        }}},
+    }},
+)
+def create_reservation(
+    body: ReservationCreate,
+    user: CurrentUser = Depends(current_user),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    """Cria uma reserva. Se o banco cancelar a transação por deadlock, tenta outra vez.
+
+    O deadlock acontece quando vários pedidos inserem o MESMO horário ao mesmo tempo:
+    cada um fica à espera da linha do outro na constraint reservations_no_overlap, e o
+    PostgreSQL cancela um deles. Na nova tentativa, quem ganhou já está gravado (ou
+    acaba de gravar) e a constraint responde com o 409 normal, com as sugestões do CSP.
+    """
+    for tentativa in range(1, TENTATIVAS_DEADLOCK + 1):
+        try:
+            return _create(body, user, db, settings)
+        except OperationalError as exc:
+            db.rollback()  # desfaz a transação cancelada antes de tentar outra vez
+            if not is_deadlock(exc) or tentativa == TENTATIVAS_DEADLOCK:
+                raise  # banco em baixo (ou deadlocks a mais): o main.py responde 503
+            log.warning("reserva_deadlock_nova_tentativa user_id=%s tentativa=%s", user.id, tentativa)
 
 
 # =========================================================================== consultar e cancelar

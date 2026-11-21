@@ -12,7 +12,7 @@
 
   // Itens do menu e as páginas que pertencem a cada um (categoria e recurso fazem parte do "Início")
   const LINKS = [
-    { href: "index.html",    texto: "Início",          paginas: ["index.html", "categoria.html", "recurso.html"] },
+    { href: "index.html",    texto: "Início",          paginas: ["index.html", "categoria.html", "recurso.html", "planear-dia.html"] },
     { href: "reservas.html", texto: "Minhas reservas", paginas: ["reservas.html"], badge: true },
   ];
   if (utilizador.role === "ADMIN") {
