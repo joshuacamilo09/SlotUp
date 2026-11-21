@@ -27,6 +27,11 @@ kubectl config use-context "$CONTEXTO" >/dev/null
 echo "== 1/5 Operador do PostgreSQL (CloudNativePG $CNPG_VERSAO)"
 # --server-side: os CRDs do CloudNativePG são grandes demais para o apply normal
 kubectl apply --server-side -f "$CNPG_URL" >/dev/null
+# O operador é quem faz o failover do PostgreSQL. Fica no nó de controlo, que nunca
+# cai nos testes de falha: se ficasse num dos servidores, e esse servidor caísse junto
+# com o primário, não sobrava ninguém para promover a réplica (aconteceu no teste).
+kubectl -n cnpg-system patch deployment cnpg-controller-manager --type merge -p \
+  '{"spec":{"template":{"spec":{"nodeSelector":{"node-role.kubernetes.io/control-plane":""},"tolerations":[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists","effect":"NoSchedule"}]}}}}' >/dev/null
 kubectl rollout status deployment/cnpg-controller-manager -n cnpg-system --timeout=180s
 
 echo "== 2/5 Namespace, configuração e segredos"
