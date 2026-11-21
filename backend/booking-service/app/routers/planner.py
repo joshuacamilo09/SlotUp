@@ -16,19 +16,20 @@ from zoneinfo import ZoneInfo
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from app import scheduling_client
 from app.config import Settings, get_settings
-from app.database import get_db
+from app.database import TENTATIVAS_DEADLOCK, get_db, is_deadlock
 from app.models import Category, Notification, Reservation, Resource
 from app.routers.reservations import _NO_OVERLAP, ACTIVE_STATUSES, _constraint_name, check_slot
 from app.schemas import ConfirmarPlanoIn, PlanearIn, PlanoOut, ReservationCreate, ReservationOut
 from app.security import CurrentUser, current_user
+from app.parking import check_one_per_day
 
 log = logging.getLogger("booking.planner")
 router = APIRouter(prefix="/api/reservas/planear", tags=["planear"])
@@ -255,7 +256,6 @@ def planear_dia(
     )
     return resposta
 
-
 @router.post(
     "/confirmar",
     response_model=list[ReservationOut],
@@ -282,6 +282,22 @@ def confirmar_plano(
 ):
     """Reserva o plano inteiro, TUDO OU NADA, numa só transação.
 
+    Se o banco cancelar a transação por deadlock (vários pedidos para os mesmos
+    horários ao mesmo tempo), tenta outra vez: na nova tentativa, quem ganhou já
+    está gravado e a constraint responde com o 409 normal.
+    """
+    for tentativa in range(1, TENTATIVAS_DEADLOCK + 1):
+        try:
+            return _confirmar(body, user, db, settings)
+        except OperationalError as exc:
+            db.rollback()  # a transação cancelada tem de ser desfeita antes de tentar outra vez
+            if not is_deadlock(exc) or tentativa == TENTATIVAS_DEADLOCK:
+                raise  # outro erro do banco (ou deadlocks a mais): o main.py responde 503
+            log.warning("plano_deadlock_nova_tentativa user_id=%s tentativa=%s", user.id, tentativa)
+
+def _confirmar(body: ConfirmarPlanoIn, user: CurrentUser, db: Session, settings: Settings):
+    """O corpo do confirmar plano: reserva tudo ou nada, numa só transação.
+
     Entre gerar o plano e confirmar, alguém pode ter reservado um dos horários. Por
     isso o plano não é de confiança: cada item passa pelas mesmas regras de uma reserva
     normal (check_slot) e o banco volta a verificar a sobreposição (reservations_no_overlap).
@@ -303,6 +319,20 @@ def confirmar_plano(
     #    banco confere a sobreposição; o commit só acontece no fim, se todos passarem.
     reservas = []
     for item, recurso, inicio, fim in validados:
+        # Limite de 1 vaga de estacionamento por dia (app/parking.py), na MESMA transação.
+        # Fica aqui, e não na validação do passo 1, porque assim a consulta já vê as
+        # reservas deste plano enviadas ao banco (flush): um plano com DUAS vagas também
+        # é recusado. O advisory lock fica preso até ao commit ou ao rollback.
+        try:
+            check_one_per_day(db, user.id, recurso, inicio, settings)
+        except HTTPException as exc:
+            db.rollback()  # desfaz as reservas anteriores deste plano: tudo ou nada
+            log.info("plano_segunda_vaga user_id=%s recurso_id=%s atividade=%s", user.id, recurso.id, item.activity_id)
+            # O mesmo formato do outro 409 desta rota: a mensagem e a atividade que falhou
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": f"{exc.detail} Nada foi reservado.", "activity_id": item.activity_id},
+            )
         reserva = Reservation(
             user_id=user.id, user_email=user.email, resource_id=recurso.id,
             start_at=inicio, end_at=fim, status="CONFIRMED",

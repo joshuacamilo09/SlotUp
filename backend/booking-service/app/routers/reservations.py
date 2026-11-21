@@ -23,12 +23,12 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import Select, func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from app import parking, waitlist
 from app.config import Settings, get_settings
-from app.database import get_db
+from app.database import TENTATIVAS_DEADLOCK, get_db, is_deadlock
 from app.models import Notification, Reservation, Resource
 from app.schemas import Periodo, ReservationAdminOut, ReservationCreate, ReservationOut, ReservationStatus
 from app.security import CurrentUser, current_user, require_admin
@@ -95,25 +95,9 @@ def check_slot(db: Session, body: ReservationCreate, settings: Settings) -> tupl
     return resource, start, end
 
 
-@router.post(
-    "",
-    response_model=ReservationOut,
-    status_code=status.HTTP_201_CREATED,
-    responses={409: {
-        "description": "Horário ocupado. Traz até 3 sugestões do CSP (lista vazia se o scheduling não responder)",
-        "content": {"application/json": {"example": {
-            "detail": "Este horário já está reservado",
-            "alternatives": [{"resource_id": "90c6f36d-7c96-5d27-bd80-ffd8010d1f2a", "resource_name": "Mesa 2",
-                              "start_at": "2026-11-23T14:45:00+00:00", "end_at": "2026-11-23T15:45:00+00:00"}],
-        }}},
-    }},
-)
-def create_reservation(
-    body: ReservationCreate,
-    user: CurrentUser = Depends(current_user),
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-) -> Reservation:
+
+def _create(body: ReservationCreate, user: CurrentUser, db: Session, settings: Settings):
+    """O corpo do criar reserva: regras, vaga do dia, INSERT, email e commit, numa transação."""
     # 1) e 2) Regras de horário e do recurso
     resource, start, end = check_slot(db, body, settings)
     
@@ -165,6 +149,41 @@ def create_reservation(
 
     log.info("reserva_criada user_id=%s reserva_id=%s recurso_id=%s", user.id, reservation.id, resource.id)
     return reservation
+
+@router.post(
+    "",
+    response_model=ReservationOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={409: {
+        "description": "Horário ocupado. Traz até 3 sugestões do CSP (lista vazia se o scheduling não responder)",
+        "content": {"application/json": {"example": {
+            "detail": "Este horário já está reservado",
+            "alternatives": [{"resource_id": "90c6f36d-7c96-5d27-bd80-ffd8010d1f2a", "resource_name": "Mesa 2",
+                              "start_at": "2026-11-23T14:45:00+00:00", "end_at": "2026-11-23T15:45:00+00:00"}],
+        }}},
+    }},
+)
+def create_reservation(
+    body: ReservationCreate,
+    user: CurrentUser = Depends(current_user),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    """Cria uma reserva. Se o banco cancelar a transação por deadlock, tenta outra vez.
+
+    O deadlock acontece quando vários pedidos inserem o MESMO horário ao mesmo tempo:
+    cada um fica à espera da linha do outro na constraint reservations_no_overlap, e o
+    PostgreSQL cancela um deles. Na nova tentativa, quem ganhou já está gravado (ou
+    acaba de gravar) e a constraint responde com o 409 normal, com as sugestões do CSP.
+    """
+    for tentativa in range(1, TENTATIVAS_DEADLOCK + 1):
+        try:
+            return _create(body, user, db, settings)
+        except OperationalError as exc:
+            db.rollback()  # desfaz a transação cancelada antes de tentar outra vez
+            if not is_deadlock(exc) or tentativa == TENTATIVAS_DEADLOCK:
+                raise  # banco em baixo (ou deadlocks a mais): o main.py responde 503
+            log.warning("reserva_deadlock_nova_tentativa user_id=%s tentativa=%s", user.id, tentativa)
 
 
 # =========================================================================== consultar e cancelar

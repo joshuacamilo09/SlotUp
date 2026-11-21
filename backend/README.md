@@ -187,6 +187,7 @@ O **administrador inicial** é criado no arranque a partir de `ADMIN_EMAIL` e `A
 - **Cancelar:** o dono cancela só **antes** de a reserva começar; o ADMIN cancela qualquer uma até ela **acabar**. A rota bloqueia a linha (`SELECT ... FOR UPDATE`): com dois cancelamentos ao mesmo tempo, o segundo recebe `409` e só sai um email `RESERVATION_CANCELLED`, sempre para o dono da reserva.
 - **Reserva de outra pessoa:** `404`, e não `403`, para ninguém descobrir que ids existem.
 - **Sugestões no conflito:** no `409` de horário ocupado, o booking pede ao scheduling (modo `suggest`) os horários livres mais parecidos, no mesmo dia e em recursos do mesmo tipo, com o recurso pedido como favorito. A resposta é `{"detail": "Este horário já está reservado", "alternatives": [{resource_id, resource_name, start_at, end_at}, ...]}`. Se o scheduling não responder, `alternatives` vem vazio: o `409` nunca depende dele.
+- **Deadlocks:** com vários pedidos para o mesmo horário ao mesmo tempo, o PostgreSQL pode cancelar um deles por deadlock (código `40P01`), porque cada um espera pela linha do outro na constraint. O criar reserva e o confirmar plano tentam de novo até 3 vezes; na nova tentativa, a constraint responde com o `409` normal, em vez de `503`.
 
 
 ### Fila de espera (prefixo `/api/reservas/fila`)
