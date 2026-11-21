@@ -13,6 +13,7 @@ POST /api/reservas/reservas   {resource_id, start_at, end_at}
   réplicas, dois pedidos simultâneos podiam passar os dois no SELECT; no banco, só
   o primeiro INSERT passa, e o segundo recebe 409.
 * Na mesma transação grava o pedido de email (tabela notifications, padrão outbox).
+* Vagas de estacionamento: no máximo uma por utilizador e por dia (app/parking.py).
 """
 import logging
 import uuid
@@ -25,7 +26,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import waitlist
+from app import parking, waitlist
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import Notification, Reservation, Resource
@@ -115,6 +116,9 @@ def create_reservation(
 ) -> Reservation:
     # 1) e 2) Regras de horário e do recurso
     resource, start, end = check_slot(db, body, settings)
+    
+    # Vagas de estacionamento: no máximo uma por dia (409 se já tiver outra)
+    parking.check_one_per_day(db, user.id, resource, start, settings)
 
     # 3) Grava a reserva. O flush() envia o INSERT já, e é nesse momento que o banco
     #    confere a constraint contra sobreposição (atômica, vale para todas as réplicas).
@@ -144,7 +148,9 @@ def create_reservation(
             )
         raise
 
+    
     # 4) Pedido de email na mesma transação (outbox): ou ficam os dois, ou nenhum
+    
     db.add(
         Notification(
             user_id=user.id,

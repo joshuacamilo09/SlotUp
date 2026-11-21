@@ -2,6 +2,141 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint5`
+
+Cinco tarefas da Sprint 5 (backend).
+
+### 1. Limite de 1 vaga de estacionamento por dia
+
+- Ao **criar uma reserva**, ao **entrar na fila** e ao **aceitar uma oferta da fila**, o booking recusa uma segunda vaga no mesmo dia: `409 "Já tem uma vaga de estacionamento reservada neste dia..."`.
+- "Dia" é o **dia local do complexo** (`LOCAL_TIMEZONE`). Contam as reservas `HELD` e `CONFIRMED` em recursos da categoria `PARKING_CATEGORY` (por omissão, `Estacionamento`).
+- **Cancelar liberta a vaga**: uma reserva cancelada deixa de contar.
+- **Na mesma transação**, com um *advisory lock* do PostgreSQL por utilizador e por dia. Se chegarem dois pedidos ao mesmo tempo (até em réplicas diferentes), o segundo espera pelo primeiro e é recusado. Testado com 5 pedidos simultâneos: passa só 1.
+- Código: `app/parking.py`. Testes: `tests/test_parking.py` (8).
+
+### 2. Worker de emails
+
+- Novo contentor **`booking-worker`** (mesma imagem do booking, comando `python -m app.worker`). A cada 10 s lê a tabela `notifications` e envia por SMTP os emails dos 4 eventos: reserva confirmada, reserva cancelada, entrada na fila e vaga oferecida.
+- **Nova tentativa se falhar**: o email fica `PENDING` e é tentado outra vez daí a 30 s, 1 min, 2 min, 4 min... Ao fim de 5 tentativas passa a `FAILED`.
+- **Mailpit**: um servidor de email falso, só para desenvolvimento. Os emails aparecem em **http://localhost:8025**.
+- Pode haver mais do que um worker: com `FOR UPDATE SKIP LOCKED`, cada email é enviado por um só.
+- Código: `app/emails.py` e `app/worker.py`. Testes: `tests/test_worker.py` (7).
+
+### 3. Vagas seguradas na fila
+
+- Já funcionava desde a Sprint 3: quando uma vaga abre, o próximo da fila recebe-a como reserva `HELD` durante 15 min, e ninguém mais a consegue reservar.
+- **O que faltava:** quem fazia expirar as ofertas era um comando manual (`python -m app.expire_holds`). Agora é o `booking-worker`, a cada 10 s: se a pessoa não confirmar em 15 min, a oferta é cancelada e o horário passa ao seguinte da fila. Testado em `tests/test_worker.py`.
+
+### 4. Registo de imagens
+
+- Novo workflow do GitHub Actions: `.github/workflows/imagens.yml`. A cada push para a `main` ou para uma `dev-sprint*` que mexa no backend, constrói as imagens e publica-as no **GitHub Container Registry**:
+  - `ghcr.io/joshuacamilo09/slotup-auth`
+  - `ghcr.io/joshuacamilo09/slotup-booking`
+  - `ghcr.io/joshuacamilo09/slotup-scheduling`
+- Cada imagem tem duas etiquetas: o commit (versão exata, para o Kubernetes) e o nome da branch (a mais recente).
+- Cada imagem sai para **amd64 e arm64**: funciona no kind tanto em Windows como em Macs M1 a M4.
+- Também corre à mão: GitHub → Actions → Imagens → Run workflow.
+
+### 5. Cluster Kubernetes com 2 nós (kind)
+
+- **Trocámos o Azure (AKS) pelo kind**: o Kubernetes a correr dentro do Docker, no próprio computador. É grátis e não precisa de conta. O enunciado pede "múltiplas instâncias e/ou máquinas" e testes de falha "desligando um container ou servidor", e o kind cumpre os dois.
+- `infra/k8s/kind-cluster.yaml`: 1 nó de controlo e 2 nós de trabalho, etiquetados `slotup/servidor=1` e `slotup/servidor=2` (Servidor 1 e Servidor 2). Cada nó é um contentor Docker.
+- `infra/k8s/kind.sh`: `criar`, `estado`, `falha 1` (o Servidor 1 cai), `recuperar 1`, `desligar`, `ligar` e `apagar`.
+- Precisa do Docker Desktop com **pelo menos 6 GB de memória** (Settings → Resources) e do kind (`brew install kind`; no Windows, `winget install Kubernetes.kind`).
+- **Desligar quando não estiver em uso:** `bash infra/k8s/kind.sh desligar`, para libertar a memória do computador.
+
+#### Como rodar o kind (passo a passo)
+
+Todos os comandos correm na raiz do repositório, com o Docker Desktop aberto.
+
+**1. Instalar (só na primeira vez)**
+
+```bash
+brew install kind          # Windows: winget install Kubernetes.kind
+kind version               # confirma que ficou instalado
+kubectl version --client   # o kubectl já vem com o Docker Desktop
+```
+
+No Docker Desktop, em Settings → Resources, a memória tem de ficar em **6 GB ou mais**.
+
+**2. Criar o cluster (só na primeira vez, 1 a 2 min)**
+
+```bash
+bash infra/k8s/kind.sh criar
+```
+
+No fim aparecem os 3 nós, todos `Ready`:
+
+```
+NAME                   STATUS   ROLES           AGE   VERSION   SERVIDOR
+slotup-control-plane   Ready    control-plane   1m    v1.x      
+slotup-worker          Ready    <none>          1m    v1.x      1
+slotup-worker2         Ready    <none>          1m    v1.x      2
+```
+
+- `slotup-control-plane`: o nó de controlo, onde corre a API do Kubernetes.
+- `slotup-worker`: o Servidor 1.
+- `slotup-worker2`: o Servidor 2.
+
+**3. Ver o estado a qualquer momento**
+
+```bash
+bash infra/k8s/kind.sh estado
+```
+
+**4. Teste de falha: o Servidor 1 cai**
+
+```bash
+bash infra/k8s/kind.sh falha 1
+```
+
+O script desliga o contentor do Servidor 1 e espera que o Kubernetes dê pela falha, o que demora cerca de 1 minuto (é o tempo que o Kubernetes espera sem notícias de um nó antes de o dar como caído). No fim, o `slotup-worker` aparece `NotReady` e os outros dois continuam `Ready`.
+
+**5. O Servidor 1 volta**
+
+```bash
+bash infra/k8s/kind.sh recuperar 1
+```
+
+Os 3 nós voltam a ficar `Ready`. O mesmo teste dá para fazer com o Servidor 2: `falha 2` e `recuperar 2`.
+
+**6. Desligar quando não estiver em uso**
+
+```bash
+bash infra/k8s/kind.sh desligar   # liberta a memória do computador
+bash infra/k8s/kind.sh ligar      # da próxima vez, em vez de "criar"
+```
+
+O `ligar` espera que os 3 nós fiquem `Ready` e mostra o estado.
+
+**7. Apagar o cluster (só se quiser começar do zero)**
+
+```bash
+bash infra/k8s/kind.sh apagar
+```
+
+**Se der erro**
+
+- `node(s) already exist for a cluster with the name "slotup"`: o cluster já existe. Use `ligar` em vez de `criar`, ou faça `apagar` e depois `criar`.
+- `Cannot connect to the Docker daemon`: o Docker Desktop não está aberto.
+- Um nó fica `NotReady` ou o `criar` demora muito: falta memória ao Docker. Suba para 6 GB ou mais, faça `apagar` e depois `criar`.
+- `context "kind-slotup" does not exist`: o cluster ainda não foi criado neste computador. Corra o `criar`.
+
+Por agora, o cluster só tem os nós. A aplicação continua a correr com o Docker Compose (`infra/docker`). Os pods do SlotUp entram no cluster no próximo passo.
+
+### Como atualizar
+
+Em `infra/docker`:
+
+```bash
+docker compose up -d --build --remove-orphans
+docker compose logs -f booking-worker
+```
+
+O `.env` não precisa de mudanças. As linhas `SMTP_USER` e `SMTP_PASSWORD` do `.env.example` só são precisas com um servidor de email a sério.
+
+# O QUE ESTA EM BAIXO É ANTIGO
+
 ## O que mudou na branch `dev-sprint4` (migrações, saúde e identificação do servidor)
 
 Três tarefas da Sprint 4. Duas já estavam quase feitas pelas tarefas anteriores; aqui ficaram completas e com prova.

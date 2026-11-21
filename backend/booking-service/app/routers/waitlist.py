@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import waitlist
+from app import waitlist, parking
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import Notification, Reservation, WaitlistEntry
@@ -76,6 +76,9 @@ def join_waitlist(
         raise HTTPException(status.HTTP_409_CONFLICT, "O horário está livre: faça a reserva diretamente")
     if any(r.user_id == user.id for r in blocking):
         raise HTTPException(status.HTTP_409_CONFLICT, "Já tem uma reserva neste horário")
+        
+    # Já tem vaga nesse dia: não vale a pena entrar na fila de outra (nunca a poderia aceitar)
+    parking.check_one_per_day(db, user.id, resource, start, settings)
 
     entry = WaitlistEntry(
         user_id=user.id, user_email=user.email, resource_id=resource.id, desired_start=start, desired_end=end
@@ -123,6 +126,7 @@ def accept_offer(
     entry_id: uuid.UUID,
     user: CurrentUser = Depends(current_user),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> Reservation:
     """Aceita a oferta: a reserva HELD passa a CONFIRMED. Oferta fora de prazo: 409, e passa ao seguinte."""
     entry = _get_own(db, entry_id, user)
@@ -145,6 +149,8 @@ def accept_offer(
         db.commit()
         raise HTTPException(status.HTTP_409_CONFLICT, "A oferta expirou e o horário passou ao seguinte da fila")
 
+    # Vaga de estacionamento: se entretanto reservou outra para esse dia, não pode aceitar
+    parking.check_one_per_day(db, user.id, hold.resource, hold.start_at, settings, ignore_id=hold.id)
     hold.status, hold.hold_expires_at, hold.version = "CONFIRMED", None, hold.version + 1
     entry.status, entry.version = "ACCEPTED", entry.version + 1
     db.add(
