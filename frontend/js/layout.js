@@ -15,7 +15,7 @@
     { href: "index.html",    texto: "Início",          paginas: ["index.html", "categoria.html", "recurso.html", "planear-dia.html"] },
     { href: "reservas.html", texto: "Minhas reservas", paginas: ["reservas.html"], badge: true },
   ];
-  if (utilizador.role === "ADMIN") {
+  if (utilizador.role === "ADMIN") {    
     LINKS.push({ href: "admin.html", texto: "Administração", paginas: ["admin.html", "novo-recurso.html"] });
   }
 

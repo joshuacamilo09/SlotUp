@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recuperar palavra-passe – SlotUp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/recuperar-senha.css">
+</head>
+<body class="pagina-auth">
+
+  <main class="auth-cartao">
+
+    <header class="auth-topo">
+      <a class="logo" href="../login.html">
+        <svg width="22" height="32" viewBox="0 0 26 38" aria-hidden="true">
+          <rect x="2" y="2" width="22" height="34" rx="11" fill="none" stroke="currentColor" stroke-width="3.5"/>
+          <circle cx="13" cy="13" r="4" fill="currentColor"/>
+        </svg>
+        SlotUp
+      </a>
+      <span class="auth-etiqueta">Recuperar acesso</span>
+    </header>
+
+    <!-- ===== 1 · Pedir o link ===== -->
+    <section class="auth-vista" id="vista-pedir">
+      <div class="auth-cab">
+        <h1 tabindex="-1">Recuperar palavra-passe</h1>
+        <p class="auth-texto">Indique o email da sua conta. Enviamos um link para definir uma nova palavra-passe.</p>
+      </div>
+
+      <form class="auth-form" id="form-pedir" novalidate>
+        <div class="campo">
+          <label class="campo__rotulo" for="email">Email</label>
+          <input class="campo__input" id="email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="nome@empresa.pt" required>
+          <p class="campo__erro" id="email-erro" role="alert" hidden></p>
+        </div>
+        <button class="auth-botao" type="submit" id="pedir-botao">Enviar link</button>
+      </form>
+
+      <a class="auth-voltar" href="../login.html"><span class="icone" aria-hidden="true">arrow_back</span>Voltar a iniciar sessão</a>
+    </section>
+
+    <!-- ===== 2 · Verifique o seu email ===== -->
+    <section class="auth-vista" id="vista-enviado" hidden>
+      <span class="auth-icone" aria-hidden="true"><span class="icone">mark_email_read</span></span>
+      <div class="auth-cab">
+        <h1 tabindex="-1">Verifique o seu email</h1>
+        <p class="auth-texto">Se o email estiver registado, vai receber um link para redefinir a palavra-passe.</p>
+      </div>
+
+      <div class="auth-nota">
+        <p class="auth-nota__linha"><span class="icone" aria-hidden="true">alternate_email</span><span>Pedido para <strong id="enviado-email"></strong></span></p>
+        <p class="auth-nota__linha"><span class="icone" aria-hidden="true">info</span><span>O link só pode ser usado uma vez. Se não o encontrar, veja a pasta de spam.</span></p>
+      </div>
+
+      <button class="auth-botao auth-botao--neutro" type="button" id="reenviar" disabled><span class="icone" aria-hidden="true">schedule</span><span id="reenviar-txt">Reenviar em 1:00</span></button>
+
+      <a class="auth-voltar" href="../login.html"><span class="icone" aria-hidden="true">arrow_back</span>Voltar a iniciar sessão</a>
+
+      <!-- Só para o protótipo: o colega pode apagar este bloco quando houver backend -->
+      <p class="auth-proto">
+        <button type="button" id="proto-link">abrir o link do email</button>
+        <button type="button" id="proto-expirado">abrir um link expirado</button>
+      </p>
+    </section>
+
+    <!-- ===== 3 · Nova palavra-passe ===== -->
+    <section class="auth-vista" id="vista-nova" hidden>
+      <div class="auth-cab">
+        <h1 tabindex="-1">Nova palavra-passe</h1>
+        <p class="auth-texto">Escolha uma palavra-passe nova para <strong id="nova-email"></strong>.</p>
+      </div>
+
+      <form class="auth-form" id="form-nova" novalidate>
+        <div class="campo">
+          <label class="campo__rotulo" for="senha">Nova palavra-passe</label>
+          <input class="campo__input" id="senha" name="senha" type="password" autocomplete="new-password">
+        </div>
+        <div class="campo">
+          <label class="campo__rotulo" for="senha2">Confirmar palavra-passe</label>
+          <input class="campo__input" id="senha2" name="senha2" type="password" autocomplete="new-password">
+        </div>
+
+        <ul class="regras" aria-label="Requisitos da palavra-passe">
+          <li class="regra" data-regra="tamanho"><span class="icone" aria-hidden="true">radio_button_unchecked</span>Pelo menos 8 caracteres</li>
+          <li class="regra" data-regra="numero"><span class="icone" aria-hidden="true">radio_button_unchecked</span>Inclui um número</li>
+          <li class="regra" data-regra="igual"><span class="icone" aria-hidden="true">radio_button_unchecked</span>As duas coincidem</li>
+        </ul>
+
+        <p class="campo__erro" id="nova-erro" role="alert" hidden></p>
+        <button class="auth-botao" type="submit" id="guardar-botao">Guardar</button>
+      </form>
+
+      <a class="auth-voltar" href="../login.html"><span class="icone" aria-hidden="true">arrow_back</span>Voltar a iniciar sessão</a>
+    </section>
+
+    <!-- ===== 4 · Palavra-passe redefinida ===== -->
+    <section class="auth-vista" id="vista-feito" hidden>
+      <span class="auth-icone auth-icone--ok" aria-hidden="true"><span class="icone">check</span></span>
+      <div class="auth-cab">
+        <h1 tabindex="-1">Palavra-passe redefinida</h1>
+        <p class="auth-texto">Já pode iniciar sessão com a nova palavra-passe. Enviámos uma confirmação para o seu email.</p>
+      </div>
+
+      <div class="auth-destaque">
+        <span class="icone" aria-hidden="true">shield_lock</span>
+        <div>
+          <p class="auth-destaque__titulo">A verificação em dois passos continua ativa.</p>
+          <p class="auth-destaque__texto">Na próxima entrada, pedimos o código de 6 dígitos da sua app autenticadora, como sempre.</p>
+        </div>
+      </div>
+
+      <a class="auth-botao" href="../login.html">Iniciar sessão</a>
+    </section>
+
+    <!-- ===== 5 · Link inválido ===== -->
+    <section class="auth-vista" id="vista-invalido" hidden>
+      <span class="auth-icone auth-icone--aviso" aria-hidden="true"><span class="icone">link_off</span></span>
+      <div class="auth-cab">
+        <h1 tabindex="-1">Este link já não é válido</h1>
+        <p class="auth-texto">O link expirou, já foi usado ou está incompleto. Peça um novo link para redefinir a palavra-passe.</p>
+      </div>
+
+      <button class="auth-botao" type="button" id="novo-link">Pedir novo link</button>
+
+      <a class="auth-voltar" href="../login.html"><span class="icone" aria-hidden="true">arrow_back</span>Voltar a iniciar sessão</a>
+    </section>
+
+  </main>
+
+  <script src="js/recuperar-senha.js"></script>
+</body>
+</html>

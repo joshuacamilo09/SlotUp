@@ -1,0 +1,161 @@
+/* =====================================================================
+   SlotUp · Recuperar palavra-passe
+   Usa as variáveis e o .logo / .icone do style.css (carrega-se depois dele).
+   ===================================================================== */
+
+.pagina-auth {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 32px 16px;
+}
+
+/* ---------- Cartão ---------- */
+.auth-cartao {
+  width: min(100%, 480px);
+  padding: 40px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: 20px;
+}
+.auth-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.auth-topo .logo { font-size: 20px; }
+.auth-etiqueta { font-size: 13px; font-weight: 700; color: var(--cor-texto-suave); }
+
+/* ---------- Cada ecrã ---------- */
+.auth-vista { display: flex; flex-direction: column; gap: 20px; }
+.auth-cab { display: flex; flex-direction: column; gap: 8px; }
+.auth-cab h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; outline: none; }
+.auth-texto { font-size: 15px; line-height: 1.55; color: var(--cor-texto-suave); }
+.auth-texto strong { color: var(--cor-texto); font-weight: 700; }
+
+/* Círculo com ícone (em cima do título) */
+.auth-icone {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--cor-primaria) 14%, var(--cor-superficie));
+  color: var(--cor-primaria);
+}
+.auth-icone .icone { font-size: 30px; }
+.auth-icone--ok { background: var(--cor-livre-suave); color: var(--cor-livre-texto); }
+.auth-icone--aviso { background: var(--cor-fila-suave); color: var(--cor-fila-texto); }
+
+/* ---------- Formulário ---------- */
+.auth-form { display: flex; flex-direction: column; gap: 16px; }
+.campo { display: flex; flex-direction: column; gap: 8px; }
+.campo__rotulo { font-size: 13px; font-weight: 700; }
+.campo__input {
+  width: 100%;
+  height: 52px;
+  padding: 0 16px;
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda-forte);
+  border-radius: 10px;
+  color: var(--cor-texto);
+  font: 500 15px var(--fonte);
+}
+.campo__input::placeholder { color: var(--cor-texto-suave); opacity: 0.8; }
+.campo__input:focus { outline: 3px solid color-mix(in oklch, var(--cor-primaria) 25%, transparent); border-color: var(--cor-primaria); }
+.campo__input[aria-invalid="true"] { border-color: var(--cor-perigo); }
+.campo__erro { font-size: 13px; font-weight: 600; color: var(--cor-perigo); }
+
+/* ---------- Requisitos da palavra-passe ---------- */
+.regras { display: flex; flex-direction: column; gap: 8px; list-style: none; }
+.regra { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--cor-texto-suave); }
+.regra .icone { font-size: 20px; color: var(--cor-borda-forte); }
+.regra.ok { color: var(--cor-texto); }
+.regra.ok .icone { color: var(--cor-livre); font-variation-settings: "FILL" 1; }
+
+/* ---------- Botões ---------- */
+.auth-botao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  border-radius: 10px;
+  background: var(--cor-primaria);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+}
+.auth-botao:hover { filter: brightness(1.1); }
+.auth-botao:disabled { cursor: not-allowed; filter: none; }
+.auth-botao--neutro { background: var(--cor-chip); border: 1px solid var(--cor-borda); color: var(--cor-texto-suave); }
+.auth-botao--neutro:hover { filter: none; }
+.auth-botao--neutro:not(:disabled) { background: var(--cor-superficie); border-color: var(--cor-borda-forte); color: var(--cor-texto); }
+.auth-botao--neutro:not(:disabled):hover { background: var(--cor-chip); }
+.auth-botao .icone { font-size: 20px; }
+.auth-botao--neutro #reenviar-txt { font-variant-numeric: tabular-nums; }
+
+.auth-voltar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px;
+  color: var(--cor-primaria);
+  font-size: 15px;
+  font-weight: 700;
+}
+.auth-voltar:hover { text-decoration: underline; }
+.auth-voltar .icone { font-size: 20px; }
+.auth-vista a:focus-visible, .auth-vista button:focus-visible { outline: 2px solid var(--cor-primaria); outline-offset: 2px; border-radius: 6px; }
+
+/* ---------- Caixas de informação ---------- */
+.auth-nota {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--cor-texto-suave);
+}
+.auth-nota__linha { display: flex; gap: 10px; }
+.auth-nota__linha .icone { flex: none; font-size: 18px; margin-top: 1px; }
+.auth-nota strong { color: var(--cor-texto); font-weight: 700; word-break: break-all; }
+
+.auth-destaque {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--cor-primaria) 10%, var(--cor-superficie));
+}
+.auth-destaque > .icone { flex: none; font-size: 22px; color: var(--cor-primaria); }
+.auth-destaque__titulo { font-size: 14px; font-weight: 700; }
+.auth-destaque__texto { margin-top: 2px; font-size: 14px; line-height: 1.45; color: var(--cor-texto-suave); }
+
+/* ---------- Rodapé do protótipo ---------- */
+.auth-proto {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 14px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--cor-borda-forte);
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+}
+.auth-proto button { color: var(--cor-primaria); font-weight: 600; }
+.auth-proto button:hover { text-decoration: underline; }
+
+/* ---------- Ecrãs pequenos ---------- */
+@media (max-width: 480px) {
+  .pagina-auth { align-items: start; padding: 16px 12px; }
+  .auth-cartao { padding: 24px 20px; }
+  .auth-cab h1 { font-size: 24px; }
+}
