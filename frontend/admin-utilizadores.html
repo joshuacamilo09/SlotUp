@@ -1,115 +1,191 @@
 <!DOCTYPE html>
 <html lang="pt-PT">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Administração · Utilizadores – SlotUp</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/componentes.css">
-  <link rel="stylesheet" href="css/admin-utilizadores.css">
-</head>
-<body>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Administração · Utilizadores – SlotUp</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block"
+      rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/componentes.css">
+    <link rel="stylesheet" href="css/admin-utilizadores.css">
+  </head>
+  <body>
 
-  <div id="cabecalho"></div>
+    <div id="cabecalho"></div>
 
-  <main class="conteudo">
+    <main class="conteudo">
 
-    <div class="admin-topo">
-      <h1>Administração</h1>
-      <p id="admin-data"></p>
-    </div>
+      <div class="admin-topo">
+        <h1>Administração</h1>
+        <p id="admin-data"></p>
+      </div>
 
-    <!-- ===== Separadores (cada um é uma página) ===== -->
-    <nav class="abas" aria-label="Secções da administração">
-      <a class="aba" href="admin.html">Visão geral e recursos</a>
-      <a class="aba ativo" href="admin-utilizadores.html" aria-current="page">Utilizadores · <span id="tab-total">0</span></a>
-    </nav>
+      <!-- ===== Separadores (cada um é uma página) ===== -->
+      <nav class="abas" aria-label="Secções da administração">
+        <a class="aba" href="admin.html">Visão geral e recursos</a>
+        <a class="aba ativo" href="admin-utilizadores.html"
+          aria-current="page">Utilizadores · <span id="tab-total">0</span></a>
+      </nav>
 
-    <!-- ===== Filtros ===== -->
-    <section class="filtros" aria-label="Filtros">
-      <label class="busca">
-        <span class="so-leitor">Pesquisar por nome ou email</span>
-        <span class="icone" aria-hidden="true">search</span>
-        <input type="search" id="busca" placeholder="Pesquisar por nome ou email" autocomplete="off">
-      </label>
+      <!-- ===== Filtros ===== -->
+      <section class="filtros" aria-label="Filtros">
+        <label class="busca">
+          <span class="so-leitor">Pesquisar por nome ou email</span>
+          <span class="icone" aria-hidden="true">search</span>
+          <input type="search" id="busca"
+            placeholder="Pesquisar por nome ou email" autocomplete="off">
+        </label>
 
-      <div class="filtro">
-        <span class="filtro__rotulo" id="rotulo-papel">Papel</span>
-        <div class="seg" role="radiogroup" aria-labelledby="rotulo-papel">
-          <label class="seg__op"><input type="radio" name="papel" value="todos" checked>Todos</label>
-          <label class="seg__op"><input type="radio" name="papel" value="admin">Administrador</label>
-          <label class="seg__op"><input type="radio" name="papel" value="utilizador">Utilizador</label>
+        <div class="filtro">
+          <span class="filtro__rotulo" id="rotulo-papel">Papel</span>
+          <div class="seg" role="radiogroup" aria-labelledby="rotulo-papel">
+            <label class="seg__op"><input type="radio" name="papel"
+                value="todos" checked>Todos</label>
+            <label class="seg__op"><input type="radio" name="papel"
+                value="admin">Administrador</label>
+            <label class="seg__op"><input type="radio" name="papel"
+                value="utilizador">Utilizador</label>
+          </div>
         </div>
-      </div>
 
-      <div class="filtro">
-        <span class="filtro__rotulo" id="rotulo-fa">2FA</span>
-        <div class="seg" role="radiogroup" aria-labelledby="rotulo-fa">
-          <label class="seg__op"><input type="radio" name="fa" value="todos" checked>Todos</label>
-          <label class="seg__op"><input type="radio" name="fa" value="ativo">Ativo</label>
-          <label class="seg__op"><input type="radio" name="fa" value="pendente">Por configurar</label>
+        <div class="filtro">
+          <span class="filtro__rotulo" id="rotulo-fa">2FA</span>
+          <div class="seg" role="radiogroup" aria-labelledby="rotulo-fa">
+            <label class="seg__op"><input type="radio" name="fa" value="todos"
+                checked>Todos</label>
+            <label class="seg__op"><input type="radio" name="fa"
+                value="ativo">Ativo</label>
+            <label class="seg__op"><input type="radio" name="fa"
+                value="pendente">Por configurar</label>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ===== Tabela ===== -->
-    <section class="tabela-cartao">
-      <div class="tabela-rolagem">
-        <table class="tabela">
-          <caption class="so-leitor">Utilizadores</caption>
-          <colgroup>
-            <col style="width:22%"><col style="width:22%"><col style="width:14%"><col style="width:14%"><col style="width:10%"><col style="width:18%">
-          </colgroup>
-          <thead>
-            <tr>
-              <th scope="col">Nome</th>
-              <th scope="col">Email</th>
-              <th scope="col">Papel</th>
-              <th scope="col">Estado do 2FA</th>
-              <th scope="col">Registo</th>
-              <th scope="col">Ação</th>
-            </tr>
-          </thead>
-          <tbody id="tabela-corpo">
-            <tr><td class="tabela__aviso" colspan="6">A carregar…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-    <p class="tabela-rodape" id="rodape" aria-live="polite"></p>
+      <!-- ===== Tabela ===== -->
+      <section class="tabela-cartao">
+        <div class="tabela-rolagem">
+          <table class="tabela">
+            <caption class="so-leitor">Utilizadores</caption>
+            <colgroup>
+              <col style="width:20%"><col style="width:22%"><col
+                style="width:14%"><col style="width:13%"><col
+                style="width:11%"><col style="width:20%">
+              <thead>
+                <tr>
+                  <th scope="col">Nome</th>
+                  <th scope="col">Email</th>
+                  <th scope="col">Papel</th>
+                  <th scope="col">Estado do 2FA</th>
+                  <th scope="col">Registo</th>
+                  <th scope="col">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tabela-corpo">
+                <tr><td class="tabela__aviso" colspan="6">A carregar…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <p class="tabela-rodape" id="rodape" aria-live="polite"></p>
 
-  </main>
+      </main>
 
-  <!-- ===== Janela: confirmar a reposição do 2FA ===== -->
-  <dialog class="dialogo" id="modal-repor" aria-labelledby="modal-titulo">
-    <div class="dialogo__cab">
-      <span class="dialogo__icone" aria-hidden="true"><span class="icone">lock_reset</span></span>
-      <div class="dialogo__titulos">
-        <h2 id="modal-titulo">Repor o 2FA de <span id="modal-nome"></span>?</h2>
-        <p id="modal-email"></p>
-      </div>
-      <button class="dialogo__fechar" type="button" id="modal-fechar" aria-label="Fechar"><span class="icone" aria-hidden="true">close</span></button>
-    </div>
+      <!-- ===== Janela: confirmar a reposição do 2FA ===== -->
+      <dialog class="dialogo" id="modal-repor" aria-labelledby="modal-titulo">
+        <div class="dialogo__cab">
+          <span class="dialogo__icone" aria-hidden="true"><span
+              class="icone">lock_reset</span></span>
+          <div class="dialogo__titulos">
+            <h2 id="modal-titulo">Repor o 2FA de <span
+                id="modal-nome"></span>?</h2>
+            <p id="modal-email"></p>
+          </div>
+          <button class="dialogo__fechar" type="button" data-fechar
+            aria-label="Fechar">
+          </div>
 
-    <div class="dialogo__aviso">
-      <span class="icone" aria-hidden="true">warning</span>
-      <p>Na próxima entrada, <strong id="modal-primeiro"></strong> vai ter de configurar o 2FA de novo com a app autenticadora. Os códigos da configuração atual deixam de funcionar.</p>
-    </div>
+          <div class="dialogo__aviso">
+            <span class="icone" aria-hidden="true">warning</span>
+            <p>Na próxima entrada, <strong id="modal-primeiro"></strong> vai ter
+              de configurar o 2FA de novo com a app autenticadora. Os códigos da
+              configuração atual deixam de funcionar.</p>
+          </div>
 
-    <p class="campo__erro" id="modal-erro" role="alert" hidden></p>
+          <p class="campo__erro" id="modal-erro" role="alert" hidden></p>
 
-    <div class="dialogo__acoes">
-      <button class="botao-neutro" type="button" id="modal-cancelar">Cancelar</button>
-      <button class="botao-perigo" type="button" id="modal-confirmar"><span class="icone" aria-hidden="true">lock_reset</span><span id="modal-confirmar-txt">Repor 2FA</span></button>
-    </div>
-  </dialog>
+          <div class="dialogo__acoes">
+            <button class="botao-neutro" type="button"
+              data-fechar>Cancelar</button>
+            <button class="botao-perigo" type="button"
+              id="modal-confirmar"><span class="icone"
+                aria-hidden="true">lock_reset</span><span
+                id="modal-confirmar-txt">Repor 2FA</span></button>
+          </div>
+        </dialog>
 
-  <script src="js/api.js"></script>
-  <script src="js/layout.js"></script>
-  <script src="js/admin-utilizadores.js"></script>
-</body>
-</html>
+        <!-- ===== Janela: código para redefinir a palavra-passe ===== -->
+        <dialog class="dialogo" id="modal-codigo"
+          aria-labelledby="codigo-titulo">
+          <div class="dialogo__cab">
+            <span class="dialogo__icone dialogo__icone--neutro"
+              aria-hidden="true"><span class="icone">key</span></span>
+            <div class="dialogo__titulos">
+              <h2 id="codigo-titulo">Redefinir a palavra-passe de <span
+                  id="codigo-nome"></span></h2>
+              <p id="codigo-email"></p>
+            </div>
+            <button class="dialogo__fechar" type="button" data-fechar
+              aria-label="Fechar"><span class="icone"
+                aria-hidden="true">close</span></button>
+          </div>
+
+          <!-- Parte 1: confirmar -->
+          <div id="codigo-pedir">
+            <div class="dialogo__aviso">
+              <span class="icone" aria-hidden="true">info</span>
+              <p>Vai ser gerado um link de uso único para a pessoa escolher uma
+                palavra-passe nova. A atual continua a funcionar até o link ser
+                usado. Um código pedido antes deixa de valer.</p>
+            </div>
+            <p class="campo__erro" id="codigo-erro" role="alert" hidden></p>
+            <div class="dialogo__acoes">
+              <button class="botao-neutro" type="button"
+                data-fechar>Cancelar</button>
+              <button class="botao-principal" type="button"
+                id="codigo-gerar"><span class="icone"
+                  aria-hidden="true">key</span>Gerar link</button>
+            </div>
+          </div>
+
+          <!-- Parte 2: mostrar o link (só aparece uma vez: não fica guardado em lado nenhum) -->
+          <div id="codigo-resultado" hidden>
+            <label class="codigo-rotulo" for="codigo-link">Link para
+              redefinir</label>
+            <div class="codigo-caixa">
+              <input id="codigo-link" type="text" readonly>
+              <button class="botao-neutro" type="button"
+                id="codigo-copiar"><span class="icone"
+                  aria-hidden="true">content_copy</span>Copiar</button>
+            </div>
+            <p class="codigo-nota">Válido até às <strong
+                id="codigo-validade"></strong> e só pode ser usado uma vez. Este
+              link não volta a aparecer: copie-o antes de fechar.</p>
+            <div class="dialogo__acoes">
+              <button class="botao-neutro" type="button"
+                data-fechar>Concluído</button>
+            </div>
+          </div>
+        </dialog>
+
+        <script src="js/api.js"></script>
+        <script src="js/layout.js"></script>
+        <script src="js/admin-utilizadores.js"></script>
+      </body>
+    </html>

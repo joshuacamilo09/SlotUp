@@ -83,12 +83,3 @@ document.querySelectorAll(".back-link").forEach((link) =>
     mostrar("login");
   })
 );
-
-// ----- "Esqueceu-se?": mostra/esconde o aviso "Contacte o administrador" -----
-// Não há recuperação por email: o admin gera um código e o utilizador usa-o em reset.html
-document.getElementById("forgot-link").addEventListener("click", (e) => {
-  e.preventDefault();
-  const ajuda = document.getElementById("forgot-help");
-  const aberto = ajuda.classList.toggle("hidden") === false;   // toggle devolve true se ficou escondido
-  e.currentTarget.setAttribute("aria-expanded", String(aberto));
-});

@@ -59,21 +59,14 @@
           </div>
 
           <div class="field">
-            <div class="field-head">
+                        <div class="field-head">
               <label for="password">Palavra-passe</label>
-              <!-- Não há email: quem redefine é o administrador (ver js/login.js) -->
-            <a href="homepage/recuperar-senha.html" id="forgot-link">Esqueceu-se?</a>
+              <!-- Não há email: o admin gera um código e a pessoa usa-o em recuperar-senha.html -->
+              <a href="recuperar-senha.html" id="forgot-link">Esqueceu-se?</a>
             </div>
-            <!-- DEMO: o mock aceita qualquer palavra-passe; trocar o placeholder em produção -->
             <input id="password" type="password" autocomplete="current-password" required>
           </div>
-          
-          <!-- Aparece ao clicar em "Esqueceu-se?" -->
-          <div id="forgot-help" class="alert info hidden">
-            Contacte o administrador do complexo. Ele dá-lhe um código de uso único, válido durante 30 minutos.
-            <a href="reset.html">Já tenho um código</a>
-          </div>
-          
+
           <button class="btn block" type="submit" id="login-btn">Continuar</button>
           <div id="login-alert" class="alert hidden" role="alert"></div>
 

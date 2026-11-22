@@ -66,6 +66,7 @@
 .campo__input::placeholder { color: var(--cor-texto-suave); opacity: 0.8; }
 .campo__input:focus { outline: 3px solid color-mix(in oklch, var(--cor-primaria) 25%, transparent); border-color: var(--cor-primaria); }
 .campo__input[aria-invalid="true"] { border-color: var(--cor-perigo); }
+.campo__input.mono { font: 500 14px var(--fonte-mono); }   /* o código lê-se melhor em mono */
 .campo__erro { font-size: 13px; font-weight: 600; color: var(--cor-perigo); }
 
 /* ---------- Requisitos da palavra-passe ---------- */
@@ -96,7 +97,6 @@
 .auth-botao--neutro:not(:disabled) { background: var(--cor-superficie); border-color: var(--cor-borda-forte); color: var(--cor-texto); }
 .auth-botao--neutro:not(:disabled):hover { background: var(--cor-chip); }
 .auth-botao .icone { font-size: 20px; }
-.auth-botao--neutro #reenviar-txt { font-variant-numeric: tabular-nums; }
 
 .auth-voltar {
   display: flex;
@@ -139,19 +139,6 @@
 .auth-destaque__titulo { font-size: 14px; font-weight: 700; }
 .auth-destaque__texto { margin-top: 2px; font-size: 14px; line-height: 1.45; color: var(--cor-texto-suave); }
 
-/* ---------- Rodapé do protótipo ---------- */
-.auth-proto {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 4px 14px;
-  padding-top: 16px;
-  border-top: 1px dashed var(--cor-borda-forte);
-  font-size: 13px;
-  color: var(--cor-texto-suave);
-}
-.auth-proto button { color: var(--cor-primaria); font-weight: 600; }
-.auth-proto button:hover { text-decoration: underline; }
 
 /* ---------- Ecrãs pequenos ---------- */
 @media (max-width: 480px) {

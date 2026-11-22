@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alterar palavra-passe – SlotUp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&display=block" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Reaproveita o cartão, os campos e as regras da tela de recuperar a palavra-passe -->
+  <link rel="stylesheet" href="css/recuperar-senha.css">
+</head>
+<body class="pagina-auth">
+
+  <main class="auth-cartao">
+
+    <header class="auth-topo">
+      <a class="logo" href="index.html">
+        <svg width="22" height="32" viewBox="0 0 26 38" aria-hidden="true">
+          <rect x="2" y="2" width="22" height="34" rx="11" fill="none" stroke="currentColor" stroke-width="3.5"/>
+          <circle cx="13" cy="13" r="4" fill="currentColor"/>
+        </svg>
+        SlotUp
+      </a>
+      <span class="auth-etiqueta">A sua conta</span>
+    </header>
+
+    <!-- ===== 1 · Formulário ===== -->
+    <section class="auth-vista" id="vista-form">
+      <div class="auth-cab">
+        <h1 tabindex="-1">Alterar palavra-passe</h1>
+        <p class="auth-texto">Por segurança, confirme primeiro a palavra-passe atual.</p>
+      </div>
+
+      <form class="auth-form" id="form-alterar" novalidate>
+        <div class="campo">
+          <label class="campo__rotulo" for="atual">Palavra-passe atual</label>
+          <input class="campo__input" id="atual" type="password" autocomplete="current-password">
+        </div>
+        <div class="campo">
+          <label class="campo__rotulo" for="senha">Nova palavra-passe</label>
+          <input class="campo__input" id="senha" type="password" autocomplete="new-password">
+        </div>
+        <div class="campo">
+          <label class="campo__rotulo" for="senha2">Confirmar nova palavra-passe</label>
+          <input class="campo__input" id="senha2" type="password" autocomplete="new-password">
+        </div>
+
+        <!-- As mesmas regras do backend (schemas.py e routers/auth.py) -->
+        <ul class="regras" aria-label="Requisitos da palavra-passe">
+          <li class="regra" data-regra="tamanho"><span class="icone" aria-hidden="true">radio_button_unchecked</span>Pelo menos 10 caracteres</li>
+          <li class="regra" data-regra="diferente"><span class="icone" aria-hidden="true">radio_button_unchecked</span>Diferente da atual</li>
+          <li class="regra" data-regra="igual"><span class="icone" aria-hidden="true">radio_button_unchecked</span>As duas coincidem</li>
+        </ul>
+
+        <p class="campo__erro" id="erro" role="alert" hidden></p>
+        <button class="auth-botao" type="submit" id="guardar-botao">Guardar</button>
+      </form>
+
+      <a class="auth-voltar" href="index.html"><span class="icone" aria-hidden="true">arrow_back</span>Voltar ao início</a>
+    </section>
+
+    <!-- ===== 2 · Alterada ===== -->
+    <section class="auth-vista" id="vista-feito" hidden>
+      <span class="auth-icone auth-icone--ok" aria-hidden="true"><span class="icone">check</span></span>
+      <div class="auth-cab">
+        <h1 tabindex="-1">Palavra-passe alterada</h1>
+        <p class="auth-texto">A partir de agora entra com a palavra-passe nova. Esta sessão continua aberta; as sessões noutros dispositivos foram terminadas.</p>
+      </div>
+      <a class="auth-botao" href="index.html">Voltar ao início</a>
+    </section>
+
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/alterar-senha.js"></script>
+</body>
+</html>

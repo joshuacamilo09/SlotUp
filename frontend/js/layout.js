@@ -16,7 +16,7 @@
     { href: "reservas.html", texto: "Minhas reservas", paginas: ["reservas.html"], badge: true },
   ];
   if (utilizador.role === "ADMIN") {    
-    LINKS.push({ href: "admin.html", texto: "Administração", paginas: ["admin.html", "novo-recurso.html"] });
+    LINKS.push({ href: "admin.html", texto: "Administração", paginas: ["admin.html", "novo-recurso.html", "admin-utilizadores.html"] });
   }
 
   // Iniciais do avatar: primeira letra do primeiro e do último nome ("Marta Sousa" → "MS")
@@ -57,7 +57,7 @@
                 <div class="menu-perfil-email">${esc(utilizador.email)}</div>
               </div>
             </div>
-            <!-- "Alterar palavra-passe" entra quando o auth tiver a rota (tarefa no ClickUp) -->
+            <a class="menu-item" href="alterar-senha.html"><span class="icone">lock</span>Alterar palavra-passe</a>
             <button class="menu-item perigo" id="sair-btn"><span class="icone">logout</span>Sair</button>
           </div>
         </div>

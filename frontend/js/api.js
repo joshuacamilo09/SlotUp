@@ -51,7 +51,7 @@ function parseDetail(data) {
  * tokenTemporario: só no login (o pre_auth_token do 2FA).
  * Sem ele, usa o token de acesso guardado na sessão.
  */
-async function request(method, path, body, tokenTemporario) {
+async function request(method, path, body, tokenTemporario, manterSessao = false) {
   const headers = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";  // só declara JSON quando há corpo
   const token = tokenTemporario || Auth.getToken();
@@ -73,7 +73,8 @@ async function request(method, path, body, tokenTemporario) {
 
   // Token de acesso expirado ou inválido: termina a sessão.
   // Não vale para o token temporário: aí um 401 significa só "código errado".
-  if (res.status === 401 && !tokenTemporario && Auth.getToken()) {
+  // manterSessao: rotas onde 401 quer dizer "palavra-passe atual errada", não "sessão expirada"
+  if (res.status === 401 && !tokenTemporario && !manterSessao && Auth.getToken()) {
     Auth.logout();
     throw new ApiError(401, "Sessão expirada.");
   }
@@ -126,6 +127,17 @@ const api = {
   myWaitlist:    ()   => request("GET", "/reservas/fila/minhas"),
   acceptOffer:   (id) => request("POST", `/reservas/fila/${id}/aceitar`),
   leaveWaitlist: (id) => request("POST", `/reservas/fila/${id}/sair`),
+  // ----- Auth: administração de utilizadores (só ADMIN; o backend responde 403 aos outros) -----
+  users:               ()   => request("GET", "/auth/users"),
+  reset2fa:            (id) => request("POST", `/auth/users/${id}/2fa/reset`),          // 204, sem corpo
+  createPasswordReset: (id) => request("POST", `/auth/users/${id}/password/reset`),     // { token, expires_at }
+
+  // ----- Auth: redefinir a palavra-passe com o código do admin (rota pública) -----
+  resetPassword: (token, new_password) => request("POST", "/auth/password/reset", { token, new_password }),
+  // ----- Auth: trocar a palavra-passe (com sessão iniciada) → { access_token } novo -----
+  // O último "true" é o manterSessao: palavra-passe atual errada (401) não termina a sessão
+  changePassword: (current_password, new_password) =>
+    request("POST", "/auth/password/change", { current_password, new_password }, undefined, true),
 };
 
 /* ---------- Ajudantes do login ---------- */

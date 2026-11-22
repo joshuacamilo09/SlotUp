@@ -101,8 +101,8 @@
   color: var(--cor-texto-suave);
 }
 
-/* Papel */
-.papel {
+/* Cargo */
+.cargo {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -113,8 +113,8 @@
   font-weight: 700;
   white-space: nowrap;
 }
-.papel .icone { font-size: 16px; }
-.papel--admin { background: color-mix(in oklch, var(--cor-primaria) 14%, var(--cor-superficie)); color: var(--cor-primaria); }
+.cargo .icone { font-size: 16px; }
+.cargo--admin { background: color-mix(in oklch, var(--cor-primaria) 14%, var(--cor-superficie)); color: var(--cor-primaria); }
 
 /* Estado do 2FA */
 .fa {
@@ -250,6 +250,32 @@
 .aviso-cartao__fechar { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 6px; color: var(--cor-texto-suave); }
 .aviso-cartao__fechar:hover { background: var(--cor-chip); }
 
+/* ---------- Ações da linha e janela do código ---------- */
+.acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.repor--neutro { border-color: var(--cor-borda-forte); color: var(--cor-texto); }
+.repor--neutro:hover:not(:disabled) { background: var(--cor-chip); }
+.repor--neutro:focus-visible { outline-color: var(--cor-primaria); }
+
+.dialogo__icone--neutro { background: color-mix(in oklch, var(--cor-primaria) 12%, var(--cor-superficie)); color: var(--cor-primaria); }
+.botao-principal {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; padding: 0 22px; border-radius: 10px;
+  background: var(--cor-primaria); color: #fff; font-size: 15px; font-weight: 700;
+}
+.botao-principal:hover:not(:disabled) { filter: brightness(1.08); }
+.botao-principal:disabled { opacity: 0.6; cursor: wait; }
+.botao-principal .icone, .botao-neutro .icone { font-size: 20px; }
+
+.codigo-rotulo { display: block; margin-top: 20px; font-size: 13px; font-weight: 700; }
+.codigo-caixa { display: flex; gap: 8px; margin-top: 8px; }
+.codigo-caixa input {
+  flex: 1; min-width: 0; height: 46px; padding: 0 12px;
+  border: 1px solid var(--cor-borda-forte); border-radius: 10px;
+  background: var(--cor-chip); font: 500 13px var(--fonte-mono); color: var(--cor-texto);
+}
+.codigo-nota { margin-top: 10px; font-size: 13px; line-height: 1.45; color: var(--cor-texto-suave); }
+.codigo-nota strong { color: var(--cor-texto); }
+
 /* ---------- Ecrãs pequenos ---------- */
 @media (max-width: 700px) {
   .filtro { width: 100%; justify-content: space-between; }
@@ -258,4 +284,5 @@
   .dialogo__acoes { flex-direction: column-reverse; }
   .dialogo__acoes > * { width: 100%; }
   .aviso-cartao { right: 16px; bottom: 16px; }
+  .codigo-caixa { flex-direction: column; }
 }
