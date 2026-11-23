@@ -6,10 +6,14 @@ o worker (app/worker.py), que chama send_pending() de poucos em poucos segundos.
 * Um email de cada vez: SELECT ... FOR UPDATE SKIP LOCKED + commit depois de enviar.
   Com dois workers, cada email é apanhado por um só (o outro salta-o).
 * Se o envio falhar, fica PENDING com nova tentativa mais tarde (30 s, 1 min, 2 min...).
+* Endereços de domínios em MAIL_SKIP_DOMAINS não são enviados (ficam logo FAILED, com o
+  motivo em last_error): com um servidor de email a sério, as contas de exemplo
+  (@slotup.pt) não são nossas.
   Ao fim de EMAIL_MAX_ATTEMPTS tentativas passa a FAILED e não volta a ser tentado.
 """
 import logging
 import smtplib
+import ssl
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from email.message import EmailMessage
@@ -80,11 +84,14 @@ def build_message(notification: Notification, settings: Settings) -> EmailMessag
 
 
 def smtp_sender(settings: Settings) -> Sender:
-    """Envio a sério, por SMTP (no Compose, o Mailpit)."""
+    """Envio a sério, por SMTP (em desenvolvimento, o Mailpit; na demo, o Gmail)."""
     def send(message: EmailMessage) -> None:
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
             if settings.smtp_starttls:
-                smtp.starttls()
+                # Contexto que CONFIRMA o certificado do servidor. O starttls() sem contexto
+                # cifra a ligação mas aceita qualquer certificado: alguém no meio podia
+                # fazer-se passar pelo Gmail e ficar com a senha.
+                smtp.starttls(context=ssl.create_default_context())
             if settings.smtp_user:
                 smtp.login(settings.smtp_user, settings.smtp_password)
             smtp.send_message(message)
@@ -116,6 +123,15 @@ def send_pending(db: Session, now: datetime, settings: Settings, send: Sender, l
         notification = db.scalars(query).first()
         if notification is None:
             break
+
+        
+        domain = notification.recipient_email.rsplit("@", 1)[-1].lower()
+        if domain in settings.mail_skip_domains_set:
+            notification.status = "FAILED"
+            notification.last_error = f"Não enviado: o domínio {domain} está em MAIL_SKIP_DOMAINS"
+            log.info("email_nao_enviado id=%s dominio=%s (MAIL_SKIP_DOMAINS)", notification.id, domain)
+            db.commit()
+            continue
 
         try:
             send(build_message(notification, settings))

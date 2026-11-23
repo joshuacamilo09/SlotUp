@@ -52,6 +52,13 @@ class Settings(BaseSettings):
     smtp_starttls: bool = False         # True num servidor de email a sério (ex.: porta 587)
     mail_from: str = "SlotUp <nao-responder@slotup.pt>"
     email_max_attempts: int = 5         # depois disto o email fica FAILED
+    # Domínios para onde NÃO se envia (separados por vírgulas). Vazio com o Mailpit; com o
+    # Gmail, "slotup.pt": as contas de exemplo têm esse domínio, que não é nosso.
+    mail_skip_domains: str = ""
+
+    @property
+    def mail_skip_domains_set(self) -> set[str]:
+        return {d.strip().lower() for d in self.mail_skip_domains.split(",") if d.strip()}
 
     @property
     def database_url(self) -> URL:
