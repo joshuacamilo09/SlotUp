@@ -2,6 +2,61 @@
 
 Plataforma de reservas para um complexo empresarial (coworking, estacionamento e desporto), com autenticação de dois fatores, fila de espera e alocação por CSP. Três microserviços em Python (FastAPI), PostgreSQL, Docker e Kubernetes.
 
+## O que mudou na branch `dev-sprint8`
+
+Três tarefas da Sprint 8 (backend): o scheduling e o worker no cluster, e emails a sério.
+
+### 1. Scheduling no cluster
+
+- **Já estava no kind desde a Sprint 6** (`infra/k8s/scheduling.yaml`): 2 réplicas, uma em cada nó, probes em `/health/live` e `/health/ready`, sem NodePort e sem rota no Nginx do frontend. O browser não lhe chega: `https://localhost:8443/api/scheduling/...` dá 404, e só o booking o chama.
+- Com o núcleo do CSP já na branch, a imagem `slotup-scheduling` passa a levar o planeador.
+- **Novo:** o Service `scheduling` passou a headless (`clusterIP: None`), como o do auth e o do booking. O nome devolve o IP de cada réplica, e o cliente do booking (httpx) tenta-os por ordem, com 0,5 s para cada um aceitar a ligação. Se um servidor cair, o "Planear o dia" continua a funcionar pela réplica do outro, em vez de falhar metade das vezes durante cerca de 1 min.
+- O `deploy.sh` apaga o Service antigo, com IP, antes de criar o novo, porque o Kubernetes não deixa mudar o `clusterIP` de um Service.
+
+### 2. Worker no cluster
+
+- **Já estava no kind desde a Sprint 6**: Deployment `booking-worker` com 2 réplicas, uma em cada nó. Não há emails repetidos, porque cada worker reserva as linhas que trata (`FOR UPDATE SKIP LOCKED`).
+- **Novo:** todas as variáveis do servidor de email do worker estão agora no Secret `smtp-secrets`: `SMTP_HOST`, `SMTP_PORT`, `SMTP_STARTTLS`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` e `MAIL_SKIP_DOMAINS`. Antes só o login estava no Secret, e o resto no ConfigMap.
+- Vêm todas do `infra/docker/.env`, no Compose e no kind (`create-secrets.sh`). Vazio no `.env` = Mailpit, como até agora. Para trocar de servidor de email, muda-se só o `.env`.
+
+### 3. Servidor SMTP na nuvem
+
+**Decisão:** em desenvolvimento e nos testes continua o **Mailpit**. Para a demo, o **Gmail**, com uma conta só do projeto e uma palavra-passe de aplicação.
+
+- Gmail: grátis, até 500 emails por dia, envia para qualquer endereço e não precisa de domínio.
+- Brevo: pede um domínio verificado e que o suporte ative o SMTP, e não temos domínio.
+- Mailpit na demo: não manda emails a sério, só os mostra numa página.
+
+**Configurar o Gmail** (uma vez):
+
+1. Criar uma conta Gmail só para o projeto (ex.: `slotup.projeto@gmail.com`). Não usar uma conta pessoal.
+2. Na conta Google: Segurança → ativar a **Verificação em 2 passos** (sem isto, não há palavras-passe de aplicação).
+3. Em https://myaccount.google.com/apppasswords, criar uma palavra-passe de aplicação chamada "SlotUp". O Google mostra 16 letras, só uma vez.
+4. No `infra/docker/.env`, com as 16 letras sem espaços:
+   ```
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_STARTTLS=true
+   SMTP_USER=slotup.projeto@gmail.com
+   SMTP_PASSWORD=as16letrassemespacos
+   MAIL_FROM=SlotUp <slotup.projeto@gmail.com>
+   MAIL_SKIP_DOMAINS=slotup.pt
+   ```
+5. Aplicar:
+   - **Compose:** `cd infra/docker && docker compose up -d booking-worker`
+   - **kind:** `bash infra/k8s/create-secrets.sh && kubectl -n slotup rollout restart deployment/booking-worker`
+
+Para voltar ao Mailpit, é só esvaziar essas linhas e aplicar de novo.
+
+**Cuidados:**
+
+- `MAIL_FROM` tem de ser o próprio endereço da conta Gmail; o Gmail troca qualquer outro remetente por esse.
+- `MAIL_SKIP_DOMAINS=slotup.pt`: as contas de exemplo (`ana@slotup.pt`, `admin@slotup.pt`) não são nossas, e o domínio pode ser de outra pessoa. Os emails para esse domínio não saem e ficam `FAILED`, com o motivo em `last_error`. **Na demo, usem contas registadas com os vossos emails.**
+- A ligação ao Gmail é cifrada e o certificado do Gmail é confirmado (`starttls` com contexto). Antes, o `starttls()` aceitava qualquer certificado.
+- A palavra-passe de aplicação fica só no `.env` e no Secret, e nunca vai para o Git. Se mudarem a palavra-passe da conta Google, o Google apaga as palavras-passe de aplicação, e é preciso criar outra.
+- Testes: `tests/test_smtp.py`.
+
+
 ## O que mudou na branch `dev-sprint7`
 
 Quatro tarefas da Sprint 7, todas no auth-service: segurança do login e das contas.
