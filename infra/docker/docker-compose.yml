@@ -154,8 +154,14 @@ services:
     environment:
       <<: *booking-env
       INSTANCE_NAME: booking-worker
+      # Servidor de email: tudo do .env. Vazio no .env = Mailpit (os valores depois do ":-")
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: "${MAIL_FROM:-SlotUp <nao-responder@slotup.pt>}"
+      MAIL_SKIP_DOMAINS: ${MAIL_SKIP_DOMAINS:-}
     command: ["python", "-m", "app.worker"]
     depends_on:
       db:

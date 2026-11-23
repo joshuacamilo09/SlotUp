@@ -52,10 +52,21 @@ kubectl create secret generic booking-secrets -n "$NS" --dry-run=client -o yaml 
   --from-literal=DB_PASSWORD="$(valor BOOKING_DB_PASSWORD)" \
   --from-literal=SEED_ENABLED="$(valor SEED_ENABLED)" | aplicar
 
-# Login no servidor de email, só para o worker. Vazio com o Mailpit.
+# Servidor de email, só para o worker: tudo junto num Secret, a partir do .env.
+# O que estiver vazio no .env fica com o valor do Mailpit (desenvolvimento).
+padrao() {
+  local v
+  v=$(valor "$1" || true)
+  echo "${v:-$2}"
+}
 kubectl create secret generic smtp-secrets -n "$NS" --dry-run=client -o yaml \
-  --from-literal=SMTP_USER="$(valor SMTP_USER)" \
-  --from-literal=SMTP_PASSWORD="$(valor SMTP_PASSWORD)" | aplicar
+  --from-literal=SMTP_HOST="$(padrao SMTP_HOST mailpit)" \
+  --from-literal=SMTP_PORT="$(padrao SMTP_PORT 1025)" \
+  --from-literal=SMTP_STARTTLS="$(padrao SMTP_STARTTLS false)" \
+  --from-literal=SMTP_USER="$(valor SMTP_USER || true)" \
+  --from-literal=SMTP_PASSWORD="$(valor SMTP_PASSWORD || true)" \
+  --from-literal=MAIL_FROM="$(padrao MAIL_FROM 'SlotUp <nao-responder@slotup.pt>')" \
+  --from-literal=MAIL_SKIP_DOMAINS="$(valor MAIL_SKIP_DOMAINS || true)" | aplicar
 
 # Utilizadores do PostgreSQL (postgres.yaml): o CloudNativePG cria-os com estas senhas,
 # as mesmas que os serviços usam. O formato (basic-auth: username e password) é o

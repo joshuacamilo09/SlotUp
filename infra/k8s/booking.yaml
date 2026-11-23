@@ -29,7 +29,7 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
-              # Uma réplica em cada nó (Servidor 1 e Servidor 2), nunca as duas no mesmo.
+      # Uma réplica em cada nó (Servidor 1 e Servidor 2), nunca as duas no mesmo.
       # Se um servidor cair, a réplica do outro continua a responder.
       affinity:
         podAntiAffinity:
@@ -45,7 +45,7 @@ spec:
           ports:
             - name: http
               containerPort: 8002
-                    # O Kubernetes testa o pod pelo /health:
+          # O Kubernetes testa o pod pelo /health:
           #   startup: dá até 60 s para arrancar antes dos outros testes
           #   liveness: o processo está vivo? Se falhar 3 vezes, o pod é reiniciado
           #   readiness: consegue servir pedidos (no auth e no booking: o banco responde)?
@@ -163,7 +163,8 @@ spec:
                 name: booking-config
             - secretRef:
                 name: booking-secrets
-            # Login no servidor de email: só o worker é que envia emails
+            # Servidor de email (SMTP_HOST, SMTP_PORT, SMTP_STARTTLS, SMTP_USER,
+            # SMTP_PASSWORD, MAIL_FROM e MAIL_SKIP_DOMAINS): só o worker é que envia emails
             - secretRef:
                 name: smtp-secrets
           env:
