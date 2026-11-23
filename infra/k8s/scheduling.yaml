@@ -1,5 +1,8 @@
-# scheduling-service no Kubernetes: 2 réplicas. Não tem banco nem segredos.
-# O booking chama-o em http://scheduling:8003 (SCHEDULING_URL no ConfigMap booking-config).
+# scheduling-service (o CSP que planeia o dia) no Kubernetes: 2 réplicas, uma em cada nó.
+# Não tem banco nem segredos: só faz cálculos (cada pedido pára aos 2 s ou 200 mil nós).
+# É INTERNO: só o booking lhe fala, em http://scheduling:8003 (SCHEDULING_URL no ConfigMap
+# booking-config). Não tem NodePort nem rota no Nginx do frontend, por isso o browser
+# não lhe chega (https://localhost:8443/api/scheduling/... dá 404).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -75,13 +78,18 @@ spec:
             limits:
               memory: 256Mi
 ---
-# Service normal (um IP só): o Kubernetes reparte os pedidos do booking pelas 2 réplicas
+# Headless (clusterIP: None), como o do auth e o do booking: o nome "scheduling" devolve
+# o IP de cada réplica pronta. O cliente do booking (httpx) tenta os IPs por ordem: se a
+# réplica de um nó que caiu não aceitar a ligação em 0,5 s, passa logo para a outra.
+# Com um IP único, o Kubernetes podia continuar a mandar metade dos pedidos para a
+# réplica morta durante cerca de 1 min, até dar o nó como caído.
 apiVersion: v1
 kind: Service
 metadata:
   name: scheduling
   namespace: slotup
 spec:
+  clusterIP: None
   selector:
     app: scheduling
   ports:

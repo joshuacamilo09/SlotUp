@@ -1,7 +1,11 @@
 """Cliente HTTP do scheduling-service (o CSP).
 
-O booking é o único que fala com o scheduling, pela rede interna do Docker
-(http://scheduling:8003). O Nginx não tem rota para ele: o browser nunca o chama.
+O booking é o único que fala com o scheduling, pela rede interna (http://scheduling:8003).
+O Nginx não tem rota para ele: o browser nunca o chama.
+
+No Kubernetes, o Service "scheduling" é headless: o nome devolve o IP de cada réplica.
+O httpx tenta-os por ordem, cada um com 0,5 s para aceitar a ligação, por isso uma
+réplica num nó que caiu só custa esse meio segundo antes de passar à outra.
 
 Plano B: se o scheduling estiver em baixo, demorar ou responder com erro, levantamos
 SchedulingIndisponivel. O main.py transforma-a num 503 com uma mensagem amigável.

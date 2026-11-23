@@ -60,6 +60,12 @@ echo "== 5/5 Serviços"
 # Já existiam? Então reinicia-os no fim: com a mesma tag (dev-sprint7), o Kubernetes não
 # sabe que há imagens novas no ghcr.io, nem que a configuração do Nginx mudou
 ja_existiam=$(kubectl get deployment auth -n "$NS" -o name 2>/dev/null || true)
+
+# O Service do scheduling passou a headless (Sprint 8). O clusterIP de um Service não se
+# pode mudar: se ainda for o antigo, com IP, apaga-se e é criado de novo logo a seguir.
+if [ "$(kubectl get service scheduling -n "$NS" -o jsonpath='{.spec.clusterIP}' 2>/dev/null)" != "None" ]; then
+  kubectl delete service scheduling -n "$NS" --ignore-not-found >/dev/null
+fi
 kubectl apply -f mailpit.yaml -f scheduling.yaml -f auth.yaml -f booking.yaml -f frontend.yaml
 if [ -n "$ja_existiam" ]; then
   for d in $SERVICOS; do kubectl rollout restart "deployment/$d" -n "$NS" >/dev/null; done
