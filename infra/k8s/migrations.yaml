@@ -20,7 +20,7 @@ spec:
         runAsUser: 10001
       containers:
         - name: migrate
-          image: ghcr.io/joshuacamilo09/slotup-auth:dev-sprint7
+          image: ghcr.io/joshuacamilo09/slotup-auth:dev-sprint8
           imagePullPolicy: Always
           command: ["alembic", "upgrade", "head"] # roda as migrações e sai
           envFrom:
@@ -46,7 +46,7 @@ spec:
         runAsUser: 10001
       containers:
         - name: migrate
-          image: ghcr.io/joshuacamilo09/slotup-booking:dev-sprint7
+          image: ghcr.io/joshuacamilo09/slotup-booking:dev-sprint8
           imagePullPolicy: Always
           command: ["alembic", "upgrade", "head"]
           envFrom:

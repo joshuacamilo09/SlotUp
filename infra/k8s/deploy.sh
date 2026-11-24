@@ -57,7 +57,7 @@ for job in auth-migrate booking-migrate; do
 done
 
 echo "== 5/5 Serviços"
-# Já existiam? Então reinicia-os no fim: com a mesma tag (dev-sprint7), o Kubernetes não
+# Já existiam? Então reinicia-os no fim: com a mesma tag (dev-sprint8), o Kubernetes não
 # sabe que há imagens novas no ghcr.io, nem que a configuração do Nginx mudou
 ja_existiam=$(kubectl get deployment auth -n "$NS" -o name 2>/dev/null || true)
 

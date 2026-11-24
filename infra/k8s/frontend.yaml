@@ -157,7 +157,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
         - name: nginx
-          image: ghcr.io/joshuacamilo09/slotup-frontend:dev-sprint7
+          image: ghcr.io/joshuacamilo09/slotup-frontend:dev-sprint8
           imagePullPolicy: Always
           env:
             # Pede à imagem do Nginx para preencher ${NGINX_LOCAL_RESOLVERS} com o DNS do cluster

@@ -44,7 +44,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
         - name: auth
-          image: ghcr.io/joshuacamilo09/slotup-auth:dev-sprint7
+          image: ghcr.io/joshuacamilo09/slotup-auth:dev-sprint8
           imagePullPolicy: Always # vai sempre buscar a versão mais recente da tag
           ports:
             - name: http
