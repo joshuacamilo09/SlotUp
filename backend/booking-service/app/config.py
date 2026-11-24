@@ -13,7 +13,12 @@ from sqlalchemy.engine import URL
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(extra="ignore")
+    model_config = SettingsConfigDict(
+        extra="ignore",  # variáveis que não são deste serviço são ignoradas
+        # Uma variável vazia (ex.: SMTP_PORT= no .env) conta como não definida e vale o
+        # valor padrão daqui. Assim "vazio no .env = Mailpit" funciona em todo o lado.
+        env_ignore_empty=True,
+    )
 
     service_name: str = "booking-service"
 
