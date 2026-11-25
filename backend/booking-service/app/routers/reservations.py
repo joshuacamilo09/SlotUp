@@ -63,6 +63,21 @@ def _fits_opening(resource: Resource, start: datetime, end: datetime) -> bool:
 def _constraint_name(exc: IntegrityError) -> str | None:
     return getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
 
+def lock_resource(db: Session, resource_id) -> None:
+    """Fila por recurso: um pedido de cada vez a gravar reservas neste recurso.
+
+    Sem isto, vários pedidos para o mesmo horário inserem as suas linhas AO MESMO TEMPO,
+    e só depois a constraint reservations_no_overlap confere os conflitos: cada um fica à
+    espera da linha do outro (deadlock), e o PostgreSQL só desfaz um nó por segundo.
+    Com o bloqueio, o segundo pedido só insere depois do commit do primeiro, e a
+    constraint responde logo com o 409. Quem decide continua a ser a constraint.
+
+    É um "advisory lock" do PostgreSQL (como o da vaga de estacionamento): vale entre
+    réplicas, porque fica no banco, e é libertado sozinho no commit ou no rollback.
+    Só bloqueia pedidos do MESMO recurso: recursos diferentes continuam em paralelo.
+    """
+    db.execute(select(func.pg_advisory_xact_lock(func.hashtext(f"recurso:{resource_id}"))))
+
 def check_slot(db: Session, body: ReservationCreate, settings: Settings) -> tuple[Resource, datetime, datetime]:
     """Regras de horário de uma reserva (também usadas ao entrar na fila de espera).
 
@@ -100,6 +115,11 @@ def _create(body: ReservationCreate, user: CurrentUser, db: Session, settings: S
     """O corpo do criar reserva: regras, vaga do dia, INSERT, email e commit, numa transação."""
     # 1) e 2) Regras de horário e do recurso
     resource, start, end = check_slot(db, body, settings)
+
+    # Fila por recurso, ANTES da vaga do dia e do INSERT. A ordem dos bloqueios é sempre
+    # a mesma (primeiro o recurso, depois a vaga do dia), para dois pedidos nunca ficarem
+    # à espera um do outro.
+    lock_resource(db, resource.id)
     
     # Vagas de estacionamento: no máximo uma por dia (409 se já tiver outra)
     parking.check_one_per_day(db, user.id, resource, start, settings)

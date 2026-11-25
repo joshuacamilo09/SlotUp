@@ -26,7 +26,7 @@ from app import scheduling_client
 from app.config import Settings, get_settings
 from app.database import TENTATIVAS_DEADLOCK, get_db, is_deadlock
 from app.models import Category, Notification, Reservation, Resource
-from app.routers.reservations import _NO_OVERLAP, ACTIVE_STATUSES, _constraint_name, check_slot
+from app.routers.reservations import _NO_OVERLAP, ACTIVE_STATUSES, _constraint_name, check_slot, lock_resource
 from app.schemas import ConfirmarPlanoIn, PlanearIn, PlanoOut, ReservationCreate, ReservationOut
 from app.security import CurrentUser, current_user
 from app.parking import check_one_per_day
@@ -314,6 +314,12 @@ def _confirmar(body: ConfirmarPlanoIn, user: CurrentUser, db: Session, settings:
         )
         recurso, inicio, fim = check_slot(db, pedido, settings)
         validados.append((item, recurso, inicio, fim))
+
+    # Fila por recurso: os bloqueios de TODOS os recursos do plano, antes de gravar, e
+    # sempre pela mesma ordem (ordenados pelo id). Assim, dois planos com os mesmos
+    # recursos nunca ficam à espera um do outro: o segundo espera pelo primeiro inteiro.
+    for recurso_id in sorted({str(recurso.id) for _, recurso, _, _ in validados}):
+        lock_resource(db, recurso_id)
 
     # 2) Grava um a um, na MESMA transação. O flush() manda o INSERT já, e é aí que o
     #    banco confere a sobreposição; o commit só acontece no fim, se todos passarem.
