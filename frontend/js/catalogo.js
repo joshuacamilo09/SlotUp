@@ -60,3 +60,16 @@ function textoCapacidade(categoria, n) {
   if (categoria === "estacionamento") return n > 1 ? `${n} lugares` : "1 lugar";
   return n > 1 ? `até ${n} participantes` : "1 participante";
 }
+
+// Minutos em texto legível: 15 -> "15 min", 60 -> "1 h", 90 -> "1h30", 1440 -> "24 h"
+function textoDuracao(min) {
+  const h = Math.floor(min / 60);   // horas inteiras
+  const m = min % 60;               // minutos que sobram
+  if (!h) return `${m} min`;
+  return m ? `${h}h${String(m).padStart(2, "0")}` : `${h} h`;
+}
+
+// Limites de duração de um recurso, como vêm da API: "15 min a 12 h"
+function textoLimites(recurso) {
+  return `${textoDuracao(recurso.min_duration_min)} a ${textoDuracao(recurso.max_duration_min)}`;
+}

@@ -94,11 +94,14 @@ function render() {
     const hojeTexto = r.is_active ? `${n} ${n === 1 ? "reserva" : "reservas"} hoje` : "Desativado";
     // A localização fica guardada na description
     const local = r.description ? `${esc(r.description)} · ` : "";
+    // Intervalo obrigatório entre duas reservas (só aparece se existir)
+    const intervalo = r.buffer_min ? ` · ${r.buffer_min} min entre reservas` : "";
     return `
       <div class="recurso-linha${r.is_active ? "" : " inativo"}">
         <div class="recurso-nome">
           <b>${esc(r.name)}</b>
           <div>${local}${textoCapacidade(cat, r.capacity)}</div>
+          <div>Reservas de ${textoLimites(r)}${intervalo}</div>
         </div>
         <div class="recurso-tipo"><i style="background: var(--${cat}, var(--cor-primaria))"></i>${esc(textoTipo(cat, r.resource_type))}</div>
         <div class="recurso-hoje">${hojeTexto}</div>

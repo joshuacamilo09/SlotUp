@@ -133,6 +133,11 @@ const estado = {
 
 const eHoje = () => estado.dia === paraISO(hoje);
 
+// Duração mínima e máxima do recurso (as mesmas regras do backend).
+// Antes de o recurso chegar da API: 15 min e a grelha inteira (12 h)
+const durMin = () => Math.max(PASSO, dados.recurso?.min_duration_min ?? PASSO);
+const durMax = () => dados.recurso?.max_duration_min ?? FECHO - ABERTURA;
+
 // Primeiro início permitido: 08:00, ou "agora" (arredondado) se o dia for hoje
 function minInicio() {
   if (!eHoje()) return ABERTURA;
@@ -142,7 +147,8 @@ function minInicio() {
 // Põe a seleção num sítio válido, mantendo a duração sempre que possível
 function posicionar(inicio, duracao) {
   const minimo = minInicio();
-  const dur = Math.min(duracao, Math.max(PASSO, FECHO - minimo));
+  // A duração fica entre o mínimo e o máximo do recurso, e nunca passa do fecho da grelha
+  const dur = Math.min(Math.max(duracao, durMin()), durMax(), Math.max(PASSO, FECHO - minimo));
   let i = Math.max(inicio, minimo);
   i = Math.min(i, FECHO - dur);
   estado.inicio = i;
@@ -363,15 +369,15 @@ function preencherHoras(lista, de, ate, valor) {
 
 function desenharPainel() {
   el.painelDia.textContent = textoDia(estado.dia);
-  // Listas de horas: o início vai do mínimo do dia até 19:45; o fim, de início + 15 min até 20:00
-  preencherHoras(el.inicioValor, Math.min(minInicio(), estado.inicio), FECHO - PASSO, estado.inicio);
-  preencherHoras(el.fimValor, estado.inicio + PASSO, FECHO, estado.fim);
+  // Listas de horas: o fim só oferece durações dentro dos limites do recurso
+  preencherHoras(el.inicioValor, Math.min(minInicio(), estado.inicio), FECHO - durMin(), estado.inicio);
+  preencherHoras(el.fimValor, estado.inicio + durMin(), Math.min(FECHO, estado.inicio + durMax()), estado.fim);
 
-  // Os botões + / − não deixam passar dos limites
-  el.inicioMenos.disabled = estado.inicio - PASSO < minInicio();
-  el.inicioMais.disabled = estado.inicio + PASSO > estado.fim - PASSO;
-  el.fimMenos.disabled = estado.fim - PASSO < estado.inicio + PASSO;
-  el.fimMais.disabled = estado.fim + PASSO > FECHO;
+  // Os botões + / − não deixam sair dos limites da grelha nem da duração do recurso
+  el.inicioMenos.disabled = estado.inicio - PASSO < minInicio() || estado.fim - (estado.inicio - PASSO) > durMax();
+  el.inicioMais.disabled = estado.inicio + PASSO > estado.fim - durMin();
+  el.fimMenos.disabled = estado.fim - PASSO < estado.inicio + durMin();
+  el.fimMais.disabled = estado.fim + PASSO > Math.min(FECHO, estado.inicio + durMax());
 
   const tipo = calcularEstado();
   const info = TEXTOS_ESTADO[tipo];
@@ -406,13 +412,13 @@ el.fimMais.addEventListener("click", () => mudarFim(PASSO));
 
 function mudarInicio(delta) {
   const novo = estado.inicio + delta;
-  if (novo < minInicio() || novo > estado.fim - PASSO) return;
+  if (novo < minInicio() || novo > estado.fim - durMin() || estado.fim - novo > durMax()) return;
   estado.inicio = novo;
   atualizar();
 }
 function mudarFim(delta) {
   const novo = estado.fim + delta;
-  if (novo < estado.inicio + PASSO || novo > FECHO) return;
+  if (novo < estado.inicio + durMin() || novo > Math.min(FECHO, estado.inicio + durMax())) return;
   estado.fim = novo;
   atualizar();
 }
@@ -579,6 +585,11 @@ async function iniciar() {
     dados.cat = idCategoria(recurso.category_name);
     desenharCaminho();
     desenharCabecalho();
+    // Limites de duração do recurso, visíveis antes de escolher o horário
+    $("limites-texto").textContent = `Este recurso aceita reservas de ${textoLimites(recurso)}.`;
+    $("painel-limites").hidden = false;
+    // A seleção inicial (da URL ou a padrão) passa a respeitar os limites deste recurso
+    posicionar(estado.inicio, estado.fim - estado.inicio);
     await carregarDia();
   } catch (err) {
     // Ex.: 404 (recurso desativado ou id errado)
