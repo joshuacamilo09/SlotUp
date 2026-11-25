@@ -38,6 +38,30 @@ os.environ["LOCK_MINUTES"] = "15"
 os.environ.pop("ADMIN_EMAIL", None)
 os.environ.pop("ADMIN_PASSWORD", None)
 
+# ===== Banco só dos testes =====
+# O site usa o auth_db e nunca vê os usuários criados pelos testes
+os.environ["DB_NAME"] = "auth_test"
+
+# ===== Migrações no banco de teste, antes do primeiro teste =====
+from alembic import command  # noqa: E402
+from alembic.config import Config  # noqa: E402
+
+from app.config import get_settings  # noqa: E402
+
+# O alembic/env.py usa primeiro a AUTH_DATABASE_URL: definida aqui com o endereço
+# do banco de teste, as migrações nunca podem ir para o auth_db
+os.environ["AUTH_DATABASE_URL"] = get_settings().database_url.render_as_string(hide_password=False)
+
+_alembic = Config()  # sem o alembic.ini: assim o Alembic não mexe na configuração dos logs
+_alembic.set_main_option("script_location", str(Path(__file__).resolve().parents[1] / "alembic"))
+command.upgrade(_alembic, "head")  # só aplica as migrações que faltam: rápido a partir da 2.ª vez
+
+# O load_dotenv() do alembic/env.py pode ter trazido de volta o administrador do .env:
+# apaga-o outra vez, e a configuração é lida de novo
+os.environ.pop("ADMIN_EMAIL", None)
+os.environ.pop("ADMIN_PASSWORD", None)
+get_settings.cache_clear()
+
 import pyotp  # noqa: E402
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

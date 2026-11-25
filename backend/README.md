@@ -359,6 +359,16 @@ Os testes rodam **contra o banco real** do Docker, que precisa estar no ar **com
 docker compose up -d db auth-migrate booking-migrate
 ```
 
+> **Bancos só para os testes:** o `pytest` usa o `auth_test` e o `booking_test`, e nunca o `auth_db` e o `booking_db` do site. Assim, os testes não veem os dados do site, e o `booking-worker` não mexe nos dados dos testes: podem correr com tudo ligado. As tabelas são criadas pelas migrações, sozinhas, no início dos testes. O SMTP fica sempre o do Mailpit, mesmo com o Gmail no `.env`.
+>
+> **Uma vez, se o seu banco já existia antes desta mudança**, crie os dois bancos (em `infra/docker`; troque `postgres` pelo `POSTGRES_USER` do seu `.env`):
+>
+> ```bash
+> docker compose exec db psql -U postgres -c "CREATE DATABASE auth_test OWNER auth_user" -c "CREATE DATABASE booking_test OWNER booking_user" -c "REVOKE CONNECT ON DATABASE auth_test FROM PUBLIC" -c "REVOKE CONNECT ON DATABASE booking_test FROM PUBLIC"
+> ```
+>
+> Quem criar o banco do zero (`docker compose down -v`) não precisa: o `db/init/01-roles-and-databases.sql` já os cria.
+
 Depois, em cada serviço, em **bash** (exemplo com o booking):
 
 ```bash
