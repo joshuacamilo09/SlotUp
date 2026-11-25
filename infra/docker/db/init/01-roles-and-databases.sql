@@ -14,3 +14,11 @@ CREATE DATABASE booking_db OWNER booking_user;
 -- Isolamento: só o dono de cada banco consegue conectar
 REVOKE CONNECT ON DATABASE auth_db    FROM PUBLIC;
 REVOKE CONNECT ON DATABASE booking_db FROM PUBLIC;
+
+-- Bancos só para os testes automáticos (pytest), com os mesmos donos: o pytest
+-- nunca toca nos dados do site, e o booking-worker nunca vê os dados dos testes
+CREATE DATABASE auth_test    OWNER auth_user;
+CREATE DATABASE booking_test OWNER booking_user;
+
+REVOKE CONNECT ON DATABASE auth_test    FROM PUBLIC;
+REVOKE CONNECT ON DATABASE booking_test FROM PUBLIC;
